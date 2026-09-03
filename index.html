@@ -3,26 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>山賀秀明 | 個人ゲーム開発・小説</title>
-<meta name="description" content="山賀秀明（yamaga syuumei）のポートフォリオ。個人開発のゲーム、小説、WEBゲーム、開発ブログ。">
+<title>山賀秀明 | ヒノガタリ</title>
+<meta name="description" content="山賀秀明（yamaga yuumei）／サークル「ヒノガタリ」。個人開発のゲーム、小説、WEBゲーム、開発ブログ。">
 
-<!-- OGP: SNSでリンクを貼ったときのカード表示用。画像は後日追加 -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="山賀秀明 | 個人ゲーム開発・小説">
+<meta property="og:title" content="山賀秀明 | ヒノガタリ">
 <meta property="og:description" content="企画から絵、Live2D、実装まで。個人でゲームを作っています。">
 <meta property="og:url" content="https://yamaga-syuumei.github.io/">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SyuumeiYamaga">
 
 <style>
   :root {
-    --bg:        #0e1117;
-    --bg-card:   #161b25;
-    --bg-hover:  #1d2431;
-    --line:      #262d3b;
-    --text:      #e6e9ef;
-    --text-dim:  #98a2b3;
-    --accent:    #f5a524;
-    --accent-dim:#7a5314;
+    --bg:         #fdfaf6;
+    --card:       #ffffff;
+    --text:       #241f1a;
+    --text-dim:   #6f665c;
+    --line:       #eee5d9;
+    --accent:     #e2622c;
+    --accent-txt: #b8451a;
+    --accent-bg:  #fff3ea;
+    --shadow:     0 1px 2px rgba(80,60,40,.05), 0 4px 14px rgba(120,90,60,.06);
+    --shadow-lg:  0 2px 4px rgba(80,60,40,.06), 0 10px 26px rgba(120,90,60,.11);
   }
 
   * { box-sizing: border-box; }
@@ -32,160 +34,125 @@
     background: var(--bg);
     color: var(--text);
     font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
-    line-height: 1.8;
+    line-height: 1.85;
     -webkit-font-smoothing: antialiased;
   }
 
-  a { color: inherit; }
-
-  .wrap {
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
+  .wrap { max-width: 740px; margin: 0 auto; padding: 0 24px; }
 
   /* ---------- ヘッダー ---------- */
   header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(253, 250, 246, .88);
+    backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--line);
-    position: sticky;
-    top: 0;
-    background: rgba(14, 17, 23, 0.85);
-    backdrop-filter: blur(8px);
-    z-index: 10;
   }
   header .wrap {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 62px;
   }
-  .logo {
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-decoration: none;
-    font-size: 15px;
-  }
+  .logo { font-weight: 700; font-size: 15px; letter-spacing: .04em; text-decoration: none; color: var(--text); }
   nav a {
-    color: var(--text-dim);
-    text-decoration: none;
-    font-size: 13px;
-    margin-left: 20px;
-    transition: color 0.15s;
+    color: var(--text-dim); text-decoration: none; font-size: 13px;
+    margin-left: 20px; transition: color .15s;
   }
-  nav a:hover { color: var(--accent); }
+  nav a:hover { color: var(--accent-txt); }
 
   /* ---------- ヒーロー ---------- */
-  .hero { padding: 72px 0 56px; }
-  .hero h1 {
-    font-size: 34px;
-    margin: 0 0 4px;
-    letter-spacing: 0.02em;
+  .hero {
+    padding: 76px 0 60px;
+    background: linear-gradient(180deg, #fff2e6 0%, rgba(255,242,230,0) 100%);
+    margin-bottom: -20px;
   }
-  .hero .romaji {
-    color: var(--accent);
-    font-size: 13px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    margin: 0 0 24px;
-  }
-  .hero p {
-    color: var(--text-dim);
-    margin: 0 0 12px;
-    font-size: 15px;
-  }
-
-  .tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 24px;
-  }
-  .tag {
-    font-size: 12px;
-    color: var(--text-dim);
-    border: 1px solid var(--line);
+  .circle-name {
+    display: inline-block;
+    background: var(--accent-bg);
+    color: var(--accent-txt);
+    border: 1px solid #f6ddc9;
     border-radius: 999px;
-    padding: 3px 12px;
+    font-size: 12px; font-weight: 700;
+    padding: 3px 14px;
+    margin-bottom: 18px;
+  }
+  .hero h1 { font-size: 36px; margin: 0 0 2px; letter-spacing: .02em; }
+  .hero .romaji {
+    color: var(--accent-txt); font-size: 12px;
+    letter-spacing: .2em; text-transform: uppercase;
+    margin: 0 0 26px;
+  }
+  .hero p { color: #554d45; margin: 0 0 10px; font-size: 15px; }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
+  .tag {
+    font-size: 12px; color: var(--text-dim);
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 999px; padding: 3px 13px;
   }
 
   /* ---------- セクション ---------- */
-  section { padding: 40px 0; border-top: 1px solid var(--line); }
+  section { padding: 44px 0 8px; }
+  section + section { border-top: 1px solid var(--line); }
 
   h2 {
-    font-size: 13px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin: 0 0 6px;
+    font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent-txt); margin: 0 0 5px;
   }
-  .section-note {
-    color: var(--text-dim);
-    font-size: 14px;
-    margin: 0 0 24px;
+  .section-note { color: var(--text-dim); font-size: 14px; margin: 0 0 22px; }
+
+  h3 {
+    font-size: 13px; color: var(--text-dim); font-weight: 700;
+    margin: 28px 0 12px;
   }
 
   /* ---------- カード ---------- */
   .cards { display: grid; gap: 12px; }
 
   .card {
-    display: block;
-    background: var(--bg-card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 18px 20px;
-    text-decoration: none;
-    transition: background 0.15s, border-color 0.15s, transform 0.15s;
+    display: block; background: var(--card);
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 17px 20px; text-decoration: none; color: var(--text);
+    box-shadow: var(--shadow);
+    transition: box-shadow .18s, transform .18s, border-color .18s;
   }
   a.card:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent-dim);
+    box-shadow: var(--shadow-lg);
+    border-color: #f0cdb2;
     transform: translateY(-2px);
   }
-  .card-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .card-title { font-weight: 700; font-size: 16px; }
-  .card-desc {
-    color: var(--text-dim);
-    font-size: 14px;
-    margin-top: 4px;
-  }
-  .arrow { color: var(--text-dim); font-size: 14px; flex-shrink: 0; }
+  .card-desc { color: var(--text-dim); font-size: 14px; margin-top: 3px; }
+  .arrow { color: #c4b8ab; font-size: 14px; flex-shrink: 0; }
   a.card:hover .arrow { color: var(--accent); }
 
-  .card.soon { opacity: 0.55; }
+  .card.soon { opacity: .72; box-shadow: none; background: #fbf7f2; }
   .badge {
-    font-size: 11px;
-    border: 1px solid var(--line);
-    color: var(--text-dim);
-    border-radius: 4px;
-    padding: 1px 8px;
-    flex-shrink: 0;
+    font-size: 11px; border: 1px solid var(--line); color: var(--text-dim);
+    background: var(--card); border-radius: 5px; padding: 1px 9px; flex-shrink: 0;
+  }
+  .r18 {
+    font-size: 11px; font-weight: 700;
+    background: var(--accent-bg); color: var(--accent-txt);
+    border: 1px solid #f6ddc9; border-radius: 5px;
+    padding: 1px 8px; flex-shrink: 0;
   }
 
-  /* ---------- R-18 注意書き ---------- */
+  /* ---------- 注意書き ---------- */
   .notice {
-    font-size: 12px;
-    color: var(--text-dim);
-    border-left: 2px solid var(--accent-dim);
-    padding-left: 12px;
-    margin-top: 16px;
+    font-size: 12.5px; color: var(--text-dim);
+    background: #fbf7f2; border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 16px; margin: 0 0 14px;
   }
 
   /* ---------- フッター ---------- */
   footer {
-    border-top: 1px solid var(--line);
-    padding: 32px 0 48px;
-    color: var(--text-dim);
-    font-size: 12px;
+    margin-top: 48px; border-top: 1px solid var(--line);
+    padding: 30px 0 46px; color: var(--text-dim); font-size: 12px;
   }
 
   @media (max-width: 600px) {
-    .hero { padding: 48px 0 40px; }
-    .hero h1 { font-size: 27px; }
+    .hero { padding: 52px 0 44px; }
+    .hero h1 { font-size: 28px; }
     nav a { margin-left: 14px; }
   }
 </style>
@@ -194,21 +161,21 @@
 
 <header>
   <div class="wrap">
-    <a href="#" class="logo">山賀秀明</a>
+    <a href="#" class="logo">山賀秀明 / ヒノガタリ</a>
     <nav>
       <a href="#games">ゲーム</a>
       <a href="#novels">小説</a>
-      <a href="#web">WEBゲーム</a>
+      <a href="#web">WEB</a>
       <a href="#blog">ブログ</a>
     </nav>
   </div>
 </header>
 
-<main class="wrap">
-
-  <div class="hero">
+<div class="hero">
+  <div class="wrap">
+    <span class="circle-name">サークル ヒノガタリ</span>
     <h1>山賀秀明</h1>
-    <p class="romaji">yamaga syuumei</p>
+    <p class="romaji">yamaga yuumei</p>
     <p>個人でゲームを作っています。企画・シナリオから、絵、Live2D、実装、リリースまで一人で担当。</p>
     <p>VR作品、ストーリー重視のアドベンチャー、脱出ゲームを中心に制作しています。</p>
     <div class="tags">
@@ -220,35 +187,52 @@
       <span class="tag">生成AI活用</span>
     </div>
   </div>
+</div>
 
-  <!-- ===== 販売ゲーム ===== -->
+<main class="wrap">
+
+  <!-- ===== ゲーム ===== -->
   <section id="games">
     <h2>Games</h2>
     <p class="section-note">販売中のゲーム作品</p>
+
     <div class="cards">
-
-      <!-- TODO: href を実際のサークルページURLに差し替え -->
-      <a class="card" href="#" target="_blank" rel="noopener">
+      <a class="card" href="https://www.dlsite.com/home/circle/profile/=/maker_id/RG44757.html" target="_blank" rel="noopener">
         <div class="card-head">
-          <span class="card-title">DLsite</span>
+          <span class="card-title">DLsite（全年齢）</span>
           <span class="arrow">↗</span>
         </div>
-        <div class="card-desc">VR作品・アドベンチャー・脱出ゲームを頒布しています。</div>
+        <div class="card-desc">どなたでも遊べる作品はこちら。</div>
       </a>
-
-      <!-- TODO: href を実際のSteamページURLに差し替え -->
-      <a class="card" href="#" target="_blank" rel="noopener">
-        <div class="card-head">
-          <span class="card-title">Steam</span>
-          <span class="arrow">↗</span>
-        </div>
-        <div class="card-desc">Steam でリリースしたタイトル。</div>
-      </a>
-
     </div>
+
+    <h3>成人向け作品</h3>
     <p class="notice">
-      DLsite で頒布している作品には成人向けの内容が含まれます。閲覧・購入は18歳以上の方に限られます。
+      以下のリンク先は成人向けコンテンツを含みます。<strong>18歳未満の方は閲覧できません。</strong>
     </p>
+    <div class="cards">
+      <a class="card" href="https://www.dlsite.com/maniax/circle/profile/=/maker_id/RG44757.html" target="_blank" rel="noopener nofollow">
+        <div class="card-head">
+          <span class="card-title">DLsite（男性向け）</span>
+          <span class="r18">R-18</span>
+        </div>
+        <div class="card-desc">男性成人向けフロアの作品一覧。</div>
+      </a>
+      <a class="card" href="https://www.dlsite.com/aix/circle/profile/=/maker_id/RG44757.html" target="_blank" rel="noopener nofollow">
+        <div class="card-head">
+          <span class="card-title">DLsite（AI生成）</span>
+          <span class="r18">R-18</span>
+        </div>
+        <div class="card-desc">成人向けAI生成フロアの作品一覧。</div>
+      </a>
+      <a class="card" href="https://www.dmm.co.jp/dc/doujin/-/list/=/article=maker/id=77801/" target="_blank" rel="noopener nofollow">
+        <div class="card-head">
+          <span class="card-title">FANZA同人</span>
+          <span class="r18">R-18</span>
+        </div>
+        <div class="card-desc">FANZA での作品一覧。</div>
+      </a>
+    </div>
   </section>
 
   <!-- ===== 小説 ===== -->
@@ -256,25 +240,20 @@
     <h2>Novels</h2>
     <p class="section-note">WEB小説</p>
     <div class="cards">
-
-      <!-- TODO: href を実際のマイページURLに差し替え -->
-      <a class="card" href="#" target="_blank" rel="noopener">
+      <a class="card" href="https://mypage.syosetu.com/672838/" target="_blank" rel="noopener">
         <div class="card-head">
           <span class="card-title">小説家になろう</span>
           <span class="arrow">↗</span>
         </div>
         <div class="card-desc">連載作品を掲載しています。</div>
       </a>
-
-      <!-- TODO: href を実際のユーザーページURLに差し替え -->
-      <a class="card" href="#" target="_blank" rel="noopener">
+      <a class="card" href="https://kakuyomu.jp/users/syuumei_yamaga" target="_blank" rel="noopener">
         <div class="card-head">
           <span class="card-title">カクヨム</span>
           <span class="arrow">↗</span>
         </div>
         <div class="card-desc">連載作品を掲載しています。</div>
       </a>
-
     </div>
   </section>
 
@@ -308,11 +287,26 @@
     </div>
   </section>
 
+  <!-- ===== SNS ===== -->
+  <section id="follow">
+    <h2>Follow</h2>
+    <p class="section-note">最新情報はこちら</p>
+    <div class="cards">
+      <a class="card" href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener">
+        <div class="card-head">
+          <span class="card-title">X（@SyuumeiYamaga）</span>
+          <span class="arrow">↗</span>
+        </div>
+        <div class="card-desc">制作の進捗やお知らせを投稿しています。</div>
+      </a>
+    </div>
+  </section>
+
 </main>
 
 <footer>
   <div class="wrap">
-    &copy; 山賀秀明 / yamaga syuumei
+    &copy; 山賀秀明 / ヒノガタリ
   </div>
 </footer>
 
