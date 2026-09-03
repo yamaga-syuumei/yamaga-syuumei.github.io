@@ -202,3 +202,57 @@ body.verified #gate { display: none; }
   nav a { margin-left: 14px; }
   .gate-box { padding: 28px 22px 24px; }
 }
+
+/* ============================================
+   作品リスト（1作品＝1ブロック、下に各ストアへの個別リンク）
+   ============================================ */
+
+.works { display: grid; gap: 12px; }
+
+.work {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px 14px;
+  box-shadow: var(--shadow);
+}
+
+.work-title {
+  font-weight: 700; font-size: 15.5px; line-height: 1.65;
+  display: flex; align-items: flex-start; gap: 9px; flex-wrap: wrap;
+}
+.work-meta {
+  color: var(--text-dim); font-size: 12.5px;
+  margin-top: 3px; line-height: 1.7;
+}
+
+.pickup {
+  font-size: 11px; font-weight: 700;
+  background: var(--accent); color: #fff;
+  border-radius: 5px; padding: 1px 8px;
+  flex-shrink: 0; margin-top: 4px;
+}
+
+/* 各ストアの個別ページへのリンク */
+.links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 13px; }
+.store {
+  font-size: 12.5px; font-weight: 700; text-decoration: none;
+  color: var(--accent-txt); background: var(--accent-bg);
+  border: 1px solid #f6ddc9; border-radius: 8px;
+  padding: 4px 13px;
+  transition: background .15s, border-color .15s;
+}
+.store:hover { background: #ffe3cd; border-color: #f0c3a2; }
+
+/* サークル全体の一覧ページへのリンク（セクション末尾） */
+.index-links {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 18px; padding-top: 4px;
+}
+.index-link {
+  font-size: 12.5px; text-decoration: none;
+  color: var(--text-dim); background: var(--card);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 4px 13px; transition: color .15s, border-color .15s;
+}
+.index-link:hover { color: var(--accent-txt); border-color: #f0cdb2; }
