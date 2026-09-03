@@ -648,3 +648,6 @@ body.verified #gate { display: none; }
 .pp-cell svg { width: 100%; height: 100%; display: block; transition: transform .16s ease; }
 
 #pp-board.is-cleared .pp-cell.is-on { border-color: var(--red); }
+
+/* 埋め込みパズルの下に置く、別ページのゲームへのリンク */
+.wg-more { margin-top: 16px; }

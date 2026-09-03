@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>荒野の戦車乗り（試作） | ヒノガタリ</title>
+<meta name="description" content="戦車で荒野を走り、賞金首を狩るブラウザゲームの試作版。">
+<meta name="robots" content="noindex">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="荒野の戦車乗り（試作） | ヒノガタリ">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/tank/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="tk-head">
+  <a href="../" class="tk-logo">← ヒノガタリ</a>
+  <span class="tk-title">荒野の戦車乗り<b>試作</b></span>
+  <span class="tk-hud">
+    <span class="tk-stat" id="hud-hp">HP --</span>
+    <span class="tk-stat" id="hud-gold">0 G</span>
+  </span>
+</header>
+
+<main class="tk-main">
+
+  <div class="tk-stage">
+    <canvas id="cv" width="960" height="560"></canvas>
+
+    <!-- 画面下に出る一行メッセージ -->
+    <div class="tk-toast" id="toast" hidden></div>
+
+    <!-- スマホ用の方向パッド -->
+    <div class="tk-pad" id="pad" aria-hidden="true">
+      <button data-dir="up">▲</button>
+      <button data-dir="left">◀</button>
+      <button data-dir="right">▶</button>
+      <button data-dir="down">▼</button>
+    </div>
+  </div>
+
+  <p class="tk-help">
+    <b>移動</b> 矢印キー／WASD（スマホは画面の方向パッド）
+    <b>街・敵</b> 近づくと自動で始まります
+  </p>
+
+  <!-- ==========================================================
+       雑魚戦：ワンボタンのオート戦闘
+       ========================================================== -->
+  <div class="tk-panel" id="mob" hidden>
+    <h2 id="mob-title">遭遇</h2>
+    <div class="tk-log" id="mob-log"></div>
+    <div class="tk-actions">
+      <button class="tk-btn tk-btn-main" id="mob-fight">戦闘</button>
+      <button class="tk-btn" id="mob-run">逃げる</button>
+      <button class="tk-btn tk-btn-main" id="mob-close" hidden>閉じる</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       賞金首戦：ターン制。部位を選んで撃つ
+       ========================================================== -->
+  <div class="tk-panel" id="boss" hidden>
+    <h2 id="boss-title">賞金首</h2>
+
+    <div class="tk-parts" id="boss-parts"></div>
+
+    <div class="tk-selfbar">
+      <span>自車</span>
+      <span class="tk-bar"><i id="boss-selfhp"></i></span>
+      <span id="boss-selfnum">--</span>
+    </div>
+
+    <div class="tk-log" id="boss-log"></div>
+
+    <div class="tk-actions" id="boss-actions">
+      <button class="tk-btn" id="boss-repair">応急修理</button>
+      <button class="tk-btn" id="boss-run">撤退</button>
+    </div>
+    <div class="tk-actions" id="boss-end" hidden>
+      <button class="tk-btn tk-btn-main" id="boss-close">閉じる</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       街
+       ========================================================== -->
+  <div class="tk-panel" id="town" hidden>
+    <h2 id="town-name">街</h2>
+    <p class="tk-intro" id="town-intro"></p>
+
+    <div class="tk-tabs">
+      <button class="tk-tab is-on" data-tab="talk">話す</button>
+      <button class="tk-tab" data-tab="shop">整備</button>
+      <button class="tk-tab" data-tab="bounty">賞金首</button>
+    </div>
+
+    <div class="tk-tabbody" id="tab-talk"></div>
+    <div class="tk-tabbody" id="tab-shop" hidden></div>
+    <div class="tk-tabbody" id="tab-bounty" hidden></div>
+
+    <div class="tk-actions">
+      <button class="tk-btn tk-btn-main" id="town-close">出発する</button>
+    </div>
+  </div>
+
+</main>
+
+<footer class="tk-foot">
+  <span>企画書「WEBゲーム企画_メタルマックス風」の試作。素のCanvasで実装、外部ライブラリなし。</span>
+  <button class="tk-btn tk-btn-quiet" id="reset">最初からやり直す</button>
+</footer>
+
+<script src="data.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
