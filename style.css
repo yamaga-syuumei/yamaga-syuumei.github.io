@@ -87,6 +87,22 @@ nav a.is-active::after {
   height: 2px; border-radius: 2px; background: var(--accent);
 }
 
+/* メニュー内の成人向けリンク。R18バッジ付きで色を分ける */
+nav .nav-r18 { color: var(--accent); display: inline-flex; align-items: center; gap: 5px; }
+nav .nav-r18 b {
+  font-size: 9px; font-weight: 700; letter-spacing: .04em;
+  background: var(--accent); color: #fff;
+  border-radius: 3px; padding: 1px 4px;
+}
+nav .nav-r18:hover { background: var(--accent); color: #fff; }
+nav .nav-r18:hover b { background: #fff; color: var(--accent); }
+
+/* メニューの区切り */
+nav .nav-sep {
+  width: 1px; background: var(--rule);
+  margin: 14px 7px; flex-shrink: 0;
+}
+
 /* ==========================================================
    ヒーロー
    ========================================================== */
@@ -412,4 +428,46 @@ body.verified #gate { display: none; }
 
   .works { grid-template-columns: 1fr; }
   .gate-box { padding: 30px 22px 22px; }
+}
+
+/* ==========================================================
+   注目作品（グリッド全幅で大きく見せる）
+   ========================================================== */
+.work.featured {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #fffdf9 0%, #fdf3e9 100%);
+  border-color: #ecd6bd;
+  padding: 26px 28px 22px;
+}
+.work.featured .work-title { font-size: 22px; line-height: 1.5; }
+.work.featured .work-meta { font-size: 13px; margin-top: 9px; }
+.work.featured .links { padding-top: 18px; }
+.work.featured .store { padding: 6px 16px; font-size: 12.5px; }
+
+/* ==========================================================
+   成人向けへの導線カード（作品グリッドの中に置く）
+   ========================================================== */
+.work.locked {
+  background: var(--paper-2);
+  border-style: dashed;
+  border-color: #dcc4a8;
+  box-shadow: none;
+  text-decoration: none; color: inherit;
+  justify-content: center;
+}
+.work.locked:hover {
+  background: #f0e6d5; border-color: var(--accent);
+  transform: translateY(-2px); box-shadow: var(--sh-1);
+}
+.work.locked::before { display: none; }
+.work.locked .work-title { font-size: 15.5px; align-items: center; }
+.work.locked .work-meta { margin-top: 5px; }
+.locked-cta {
+  margin-top: 14px; font-size: 12px; font-weight: 700; color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .work.featured { padding: 22px 20px 18px; }
+  .work.featured .work-title { font-size: 18px; }
+  nav .nav-sep { margin: 12px 4px; }
 }
