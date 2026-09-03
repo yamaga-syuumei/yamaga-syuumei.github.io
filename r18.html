@@ -18,13 +18,13 @@
 
 <!-- ==========================================================
      年齢確認ゲート
-     CSSで #site を display:none にしてあるため、JSが無効でも
-     確認前の中身は表示されない。「はい」を押すと body に
-     .verified が付いて入れ替わる。
+     CSS側で #site を display:none にしているため、JSが無効でも
+     確認前の中身は表示されない。確認すると body に .verified が
+     付いて入れ替わる。
      ========================================================== -->
 <div id="gate">
   <div class="gate-box">
-    <span class="mark">R-18</span>
+    <span class="gate-mark">R-18</span>
     <h1>年齢確認</h1>
     <p>このページには、成人向け（18歳以上を対象とした）作品へのリンクが含まれます。</p>
     <p>18歳未満（高校生以下）の方の閲覧は固くお断りいたします。</p>
@@ -34,9 +34,7 @@
       <a class="btn btn-secondary" href="./">18歳未満です（全年齢ページへ戻る）</a>
     </div>
 
-    <p class="gate-note">
-      ※ 確認結果はご利用のブラウザにのみ保存されます。
-    </p>
+    <p class="gate-note">※ 確認結果はご利用のブラウザにのみ保存されます。</p>
   </div>
 </div>
 
@@ -47,7 +45,10 @@
 
   <header>
     <div class="wrap">
-      <a href="./" class="logo">山賀秀明 / ヒノガタリ</a>
+      <a href="./" class="logo">
+        <span class="logo-name">山賀秀明</span>
+        <span class="logo-circle">ヒノガタリ</span>
+      </a>
       <nav>
         <a href="#games">ゲーム</a>
         <a href="#novels">小説</a>
@@ -58,70 +59,160 @@
 
   <div class="hero">
     <div class="wrap">
-      <span class="circle-name">R-18</span>
+      <span class="eyebrow">R-18 ／ 18歳以上向け</span>
       <h1>成人向け作品</h1>
       <p class="romaji">for adults only</p>
-      <p>18歳以上の方を対象とした作品の一覧です。各リンクからストアの作品ページへ移動します。</p>
+      <p class="lead">18歳以上の方を対象とした作品の一覧です。各リンクからストアの作品ページへ移動します。</p>
+
+      <div class="stats">
+        <div>
+          <div class="stat-num">6<small>作品</small></div>
+          <div class="stat-label">GAMES</div>
+        </div>
+        <div>
+          <div class="stat-num">4<small>作品</small></div>
+          <div class="stat-label">NOVELS</div>
+        </div>
+      </div>
     </div>
   </div>
 
   <main class="wrap">
 
-    <!-- ===== ゲーム ===== -->
+    <!-- ==========================================================
+         ゲーム
+         ========================================================== -->
     <section id="games">
-      <h2>Games</h2>
-      <p class="section-note">成人向けゲーム</p>
+      <div class="sec-head">
+        <span class="sec-num">01</span>
+        <h2>Games</h2>
+        <span class="sec-ja">ゲーム</span>
+        <span class="sec-rule"></span>
+        <span class="sec-count">6作品</span>
+      </div>
+      <p class="sec-note">DLsite・FANZA同人で頒布しています。作品ごとに、両ストアの該当ページへリンクしています。</p>
 
       <div class="works">
 
-        <div class="work">
-          <div class="work-title">妖精とあそぼうVR</div>
-          <div class="work-meta">VR</div>
+        <article class="work">
+          <h3 class="work-title">
+            ときめきノスタルジア モブを犯せる恋愛ゲーム
+            <span class="pickup">最新作</span>
+          </h3>
+          <p class="work-meta">恋愛アドベンチャー</p>
           <div class="links">
-            <a class="store" href="https://www.dlsite.com/maniax/work/=/product_id/RJ414005.html" target="_blank" rel="noopener nofollow">DLsite</a>
+            <a class="store" href="https://www.dlsite.com/aix/work/=/product_id/RJ01401109.html" target="_blank" rel="noopener nofollow">DLsite</a>
+            <a class="store" href="https://www.dmm.co.jp/dc/doujin/-/detail/=/cid=d_612653/" target="_blank" rel="noopener nofollow">FANZA</a>
           </div>
-        </div>
+        </article>
 
-        <div class="work">
-          <div class="work-title">透視+時間停止VR</div>
-          <div class="work-meta">VR</div>
+        <article class="work">
+          <h3 class="work-title">メ○ガキからの脱出</h3>
+          <p class="work-meta">脱出ゲーム</p>
           <div class="links">
-            <a class="store" href="https://www.dlsite.com/maniax/work/=/product_id/RJ398500.html" target="_blank" rel="noopener nofollow">DLsite</a>
+            <a class="store" href="https://www.dlsite.com/aix/work/=/product_id/RJ01107731.html" target="_blank" rel="noopener nofollow">DLsite</a>
+            <a class="store" href="https://www.dmm.co.jp/dc/doujin/-/detail/=/cid=d_303901/" target="_blank" rel="noopener nofollow">FANZA</a>
           </div>
-        </div>
+        </article>
 
-        <div class="work">
-          <div class="work-title">メ○ガキからの脱出 音声版</div>
-          <div class="work-meta">音声作品</div>
+        <article class="work">
+          <h3 class="work-title">メ○ガキからの脱出 音声版</h3>
+          <p class="work-meta">音声作品</p>
           <div class="links">
             <a class="store" href="https://www.dlsite.com/maniax/work/=/product_id/RJ01128583.html" target="_blank" rel="noopener nofollow">DLsite</a>
+            <a class="store" href="https://www.dmm.co.jp/dc/doujin/-/detail/=/cid=d_321523/" target="_blank" rel="noopener nofollow">FANZA</a>
           </div>
-        </div>
+        </article>
 
-        <div class="work">
-          <div class="work-title">アルラウネの花姫ガーデニング</div>
-          <div class="work-meta">シミュレーション／AI生成</div>
+        <article class="work">
+          <h3 class="work-title">アルラウネの花姫ガーデニング</h3>
+          <p class="work-meta">シミュレーション</p>
           <div class="links">
             <a class="store" href="https://www.dlsite.com/aix/work/=/product_id/RJ01158211.html" target="_blank" rel="noopener nofollow">DLsite</a>
+            <a class="store" href="https://www.dmm.co.jp/dc/doujin/-/detail/=/cid=d_289039/" target="_blank" rel="noopener nofollow">FANZA</a>
           </div>
-        </div>
+        </article>
+
+        <article class="work">
+          <h3 class="work-title">妖精とあそぼうVR</h3>
+          <p class="work-meta">VR</p>
+          <div class="links">
+            <a class="store" href="https://www.dlsite.com/maniax/work/=/product_id/RJ414005.html" target="_blank" rel="noopener nofollow">DLsite</a>
+            <a class="store" href="https://www.dmm.co.jp/dc/doujin/-/detail/=/cid=d_289042/" target="_blank" rel="noopener nofollow">FANZA</a>
+          </div>
+        </article>
+
+        <article class="work">
+          <h3 class="work-title">透視＋時間停止VR</h3>
+          <p class="work-meta">VR</p>
+          <div class="links">
+            <a class="store" href="https://www.dlsite.com/maniax/work/=/product_id/RJ398500.html" target="_blank" rel="noopener nofollow">DLsite</a>
+            <a class="store" href="https://www.dmm.co.jp/dc/doujin/-/detail/=/cid=d_234146/" target="_blank" rel="noopener nofollow">FANZA</a>
+          </div>
+        </article>
 
       </div>
 
       <div class="index-links">
-        <a class="index-link" href="https://www.dlsite.com/maniax/circle/profile/=/maker_id/RG44757.html" target="_blank" rel="noopener nofollow">DLsite サークルページ（男性向け）↗</a>
-        <a class="index-link" href="https://www.dlsite.com/aix/circle/profile/=/maker_id/RG44757.html" target="_blank" rel="noopener nofollow">DLsite サークルページ（AI生成）↗</a>
-        <a class="index-link" href="https://www.dmm.co.jp/dc/doujin/-/list/=/article=maker/id=77801/" target="_blank" rel="noopener nofollow">FANZA同人 作品一覧 ↗</a>
+        <a class="index-link" href="https://www.dlsite.com/maniax/circle/profile/=/maker_id/RG44757.html" target="_blank" rel="noopener nofollow">DLsite サークルページ（男性向け）</a>
+        <a class="index-link" href="https://www.dlsite.com/aix/circle/profile/=/maker_id/RG44757.html" target="_blank" rel="noopener nofollow">DLsite サークルページ（AI生成）</a>
+        <a class="index-link" href="https://www.dmm.co.jp/dc/doujin/-/list/=/article=maker/id=77801/" target="_blank" rel="noopener nofollow">FANZA同人 作品一覧</a>
       </div>
     </section>
 
-    <!-- ===== 小説 ===== -->
+    <!-- ==========================================================
+         小説
+         ========================================================== -->
     <section id="novels">
-      <h2>Novels</h2>
-      <p class="section-note">成人向けWEB小説</p>
+      <div class="sec-head">
+        <span class="sec-num">02</span>
+        <h2>Novels</h2>
+        <span class="sec-ja">小説</span>
+        <span class="sec-rule"></span>
+        <span class="sec-count">4作品</span>
+      </div>
+      <p class="sec-note">ノクターンノベルズ（小説家になろう 18禁版）で公開しています。</p>
+
+      <div class="works">
+
+        <article class="work">
+          <h3 class="work-title">
+            貞操逆転な日々
+            <span class="pickup">代表作</span>
+          </h3>
+          <p class="work-meta">全10話・完結</p>
+          <div class="links">
+            <a class="store" href="https://novel18.syosetu.com/n1479mc/" target="_blank" rel="noopener nofollow">ノクターン</a>
+          </div>
+        </article>
+
+        <article class="work">
+          <h3 class="work-title">近所のお姉さんにおちんちんを舐めてもらった話</h3>
+          <p class="work-meta">短編</p>
+          <div class="links">
+            <a class="store" href="https://novel18.syosetu.com/n1526mc/" target="_blank" rel="noopener nofollow">ノクターン</a>
+          </div>
+        </article>
+
+        <article class="work">
+          <h3 class="work-title">異世界転生『自分に敵意を持つ者に、その思いの強さに応じた快楽を与える』スキルを手に入れた男の話</h3>
+          <p class="work-meta">短編</p>
+          <div class="links">
+            <a class="store" href="https://novel18.syosetu.com/n3050md/" target="_blank" rel="noopener nofollow">ノクターン</a>
+          </div>
+        </article>
+
+        <article class="work">
+          <h3 class="work-title">「精通」ってなあに？何も知らない無垢なご主人様に、鉄の掟を破れないメイドたちが淫らで献身的にご奉仕する館の物語</h3>
+          <div class="links">
+            <a class="store" href="https://novel18.syosetu.com/n2401lr/" target="_blank" rel="noopener nofollow">ノクターン</a>
+          </div>
+        </article>
+
+      </div>
 
       <div class="index-links">
-        <a class="index-link" href="https://xmypage.syosetu.com/x2594cq/" target="_blank" rel="noopener nofollow">ノクターンノベルズ マイページ ↗</a>
+        <a class="index-link" href="https://xmypage.syosetu.com/x2594cq/" target="_blank" rel="noopener nofollow">ノクターンノベルズ マイページ</a>
       </div>
     </section>
 
@@ -129,8 +220,8 @@
 
   <footer>
     <div class="wrap">
-      <a href="./">← 全年齢ページへ戻る</a><br>
-      &copy; 山賀秀明 / ヒノガタリ
+      <span class="foot-name">山賀秀明 ／ ヒノガタリ</span>
+      <span><a href="./">← 全年齢ページへ戻る</a></span>
     </div>
   </footer>
 
@@ -143,9 +234,7 @@
 
   // 一度確認済みならゲートを出さない（保存できない環境でも動くよう try/catch）
   try {
-    if (localStorage.getItem(KEY) === 'yes') {
-      body.classList.add('verified');
-    }
+    if (localStorage.getItem(KEY) === 'yes') body.classList.add('verified');
   } catch (e) { /* プライベートモード等。ゲートを出したまま続行 */ }
 
   document.getElementById('gate-yes').addEventListener('click', function () {
@@ -155,6 +244,6 @@
   });
 })();
 </script>
-
+<script src="main.js"></script>
 </body>
 </html>
