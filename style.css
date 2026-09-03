@@ -498,3 +498,68 @@ body.verified #gate { display: none; }
   footer .wrap { flex-direction: column; align-items: flex-start; gap: 10px; }
   footer a { margin-left: 0; margin-right: 20px; }
 }
+
+/* ==========================================================
+   埋め込みミニパズル「いろわけ」
+   ========================================================== */
+.wg {
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  padding: 26px 22px 18px;
+}
+
+.wg-board {
+  display: flex; flex-wrap: wrap;
+  justify-content: center; align-items: flex-end;
+  gap: 14px;
+}
+
+.wg-tube {
+  display: flex; flex-direction: column;
+  gap: 3px; padding: 5px;
+  width: 46px;
+  background: #fff;
+  border: 2px solid var(--rule);
+  border-radius: 8px 8px 14px 14px;
+  cursor: pointer;
+  transition: border-color .14s, transform .14s, box-shadow .14s;
+}
+.wg-tube:hover { border-color: #b9c3d1; }
+.wg-tube.is-picked {
+  border-color: var(--ink);
+  transform: translateY(-8px);
+  box-shadow: var(--sh-1);
+}
+
+.wg-seg {
+  display: block; height: 26px; border-radius: 4px;
+  background: transparent;
+}
+.wg-seg.is-empty { background: #eef1f5; }
+
+.wg-board.is-cleared .wg-tube { border-color: #12996b; }
+
+.wg-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  margin-top: 20px; padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+.wg-status { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.wg-actions { display: flex; gap: 8px; }
+.wg-btn {
+  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  color: var(--ink-2); background: #fff;
+  border: 1px solid var(--rule); border-radius: 8px;
+  padding: 6px 13px; cursor: pointer;
+  transition: color .14s, background .14s, border-color .14s;
+}
+.wg-btn:hover { color: #fff; background: var(--ink); border-color: var(--ink); }
+
+@media (max-width: 780px) {
+  .wg { padding: 20px 14px 14px; }
+  .wg-board { gap: 10px; }
+  .wg-tube { width: 40px; }
+  .wg-seg { height: 23px; }
+}

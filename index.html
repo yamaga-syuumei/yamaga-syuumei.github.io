@@ -129,14 +129,18 @@
       <span class="sec-ja">WEBゲーム</span>
       <span class="sec-rule"></span>
     </div>
-    <p class="sec-note">ブラウザでそのまま遊べる小品。</p>
+    <p class="sec-note">ブラウザでそのまま遊べる小品。ダウンロードも会員登録も要りません。</p>
 
-    <div class="card soon">
-      <div class="card-head">
-        <span class="card-title">準備中</span>
-        <span class="badge">COMING SOON</span>
+    <!-- 埋め込みミニパズル。画像を使わず、色のついた矩形だけで作っている -->
+    <div class="wg">
+      <div class="wg-board" id="wg-board"></div>
+      <div class="wg-bar">
+        <span class="wg-status" id="wg-status">同じ色をひとつにまとめてください。</span>
+        <span class="wg-actions">
+          <button type="button" class="wg-btn" id="wg-undo">ひとつ戻す</button>
+          <button type="button" class="wg-btn" id="wg-new">別の問題</button>
+        </span>
       </div>
-      <div class="card-desc">ダウンロード不要で遊べる作品を公開予定です。</div>
     </div>
   </section>
 
@@ -314,5 +318,6 @@
 </footer>
 
 <script src="main.js"></script>
+<script src="game.js"></script>
 </body>
 </html>
