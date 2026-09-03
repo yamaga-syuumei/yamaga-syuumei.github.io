@@ -23,7 +23,9 @@
       <span class="logo-name">山賀秀明</span>
       <span class="logo-circle">ヒノガタリ</span>
     </a>
+    <div class="head-right">
     <nav>
+      <a href="#news">お知らせ</a>
       <a href="blog.html">ブログ</a>
       <a href="#web">WEBゲーム</a>
       <a href="#games">ゲーム</a>
@@ -32,6 +34,10 @@
       <a class="nav-r18" href="r18.html#games" rel="nofollow">ゲーム<b>R18</b></a>
       <a class="nav-r18" href="r18.html#novels" rel="nofollow">小説<b>R18</b></a>
     </nav>
+      <a class="head-x" href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener" aria-label="X（@SyuumeiYamaga）" title="X ／ @SyuumeiYamaga">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+    </div>
   </div>
 </header>
 
@@ -76,12 +82,67 @@
 
 <main class="wrap">
 
-  <!-- ==========================================================
-       ゲーム
-       ========================================================== -->
-  <section id="games">
+  <section id="news">
     <div class="sec-head">
       <span class="sec-num">01</span>
+      <h2>News</h2>
+      <span class="sec-ja">お知らせ</span>
+      <span class="sec-rule"></span>
+    </div>
+    <p class="sec-note">新作のリリースやサイトの更新をお知らせします。日々の進捗はXで投稿しています。</p>
+
+    <div class="news">
+      <div class="news-item">
+        <span class="news-date">2026.09.03</span>
+        <span class="news-body"><span class="news-tag">サイト</span>公式サイトを公開しました。</span>
+      </div>
+    </div>
+
+  </section>
+
+  <section id="blog">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Blog</h2>
+      <span class="sec-ja">開発ブログ</span>
+      <span class="sec-rule"></span>
+    </div>
+    <p class="sec-note">制作の過程と、開発に使っている道具の記録。</p>
+
+    <div class="post-list">
+      <a class="post-item" href="blog/2026-09-03-github-pages.html">
+        <div class="post-date">2026.09.03</div>
+        <h3>ブランドサイトをGitHub Pagesで公開しました</h3>
+        <p>何もインストールせずに個人サイトを公開するまでの記録。年齢確認ページの実装と、つまずいた2点について。</p>
+      </a>
+    </div>
+
+    <div class="index-links">
+      <a class="index-link" href="blog.html">記事一覧へ</a>
+    </div>
+  </section>
+
+  <section id="web">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Web Games</h2>
+      <span class="sec-ja">WEBゲーム</span>
+      <span class="sec-rule"></span>
+    </div>
+    <p class="sec-note">ブラウザでそのまま遊べる小品。</p>
+
+    <div class="card soon">
+      <div class="card-head">
+        <span class="card-title">準備中</span>
+        <span class="badge">COMING SOON</span>
+      </div>
+      <div class="card-desc">ダウンロード不要で遊べる作品を公開予定です。</div>
+    </div>
+  </section>
+
+  <section id="games" class="theme-red">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
       <h2>Games</h2>
       <span class="sec-ja">ゲーム</span>
       <span class="sec-rule"></span>
@@ -105,7 +166,7 @@
       <a class="work locked" href="r18.html#games" rel="nofollow">
         <h3 class="work-title">
           成人向けゲーム
-          <span class="pickup">R-18</span>
+          <span class="pickup" data-r18>R-18</span>
         </h3>
         <p class="work-meta">VR・脱出ゲーム・音声作品など 6作品</p>
         <p class="locked-cta">年齢確認へ進む →</p>
@@ -117,12 +178,9 @@
     </div>
   </section>
 
-  <!-- ==========================================================
-       小説
-       ========================================================== -->
-  <section id="novels">
+  <section id="novels" class="theme-indigo">
     <div class="sec-head">
-      <span class="sec-num">02</span>
+      <span class="sec-num">05</span>
       <h2>Novels</h2>
       <span class="sec-ja">小説</span>
       <span class="sec-rule"></span>
@@ -130,196 +188,117 @@
     </div>
     <p class="sec-note">「小説家になろう」「カクヨム」で公開しているWEB小説です。両方に掲載している作品は、どちらからでもお読みいただけます。</p>
 
-    <div class="works">
-
-      <article class="work featured">
-        <h3 class="work-title">
-          異世界らぶらぶハーレム日記
-          <span class="pickup">代表作</span>
-        </h3>
-        <p class="work-meta">ハイファンタジー／全92話・完結／R15</p>
-        <div class="links">
-          <a class="store" href="https://ncode.syosetu.com/n4789cw/" target="_blank" rel="noopener">なろうで読む</a>
+          <div class="novel-list">
+        <div class="novel">
+          <span class="novel-num">01</span>
+          <h3 class="novel-title">異世界らぶらぶハーレム日記 <span class="pickup">代表作</span></h3>
+          <p class="novel-meta">ハイファンタジー／全92話・完結／R15</p>
+          <span class="novel-links">
+            <a class="store" href="https://ncode.syosetu.com/n4789cw/" target="_blank" rel="noopener">なろうで読む</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">境界の修理屋－外れスキル《魔法道具作成》で宿屋を直していたら、世界の対立まで直すことになりました－</h3>
-        <p class="work-meta">ハイファンタジー／全30話・完結</p>
-        <div class="links">
-          <a class="store" href="https://ncode.syosetu.com/n7383mf/" target="_blank" rel="noopener">なろう</a>
-          <a class="store" href="https://kakuyomu.jp/works/2912051600389115795" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">02</span>
+          <h3 class="novel-title">境界の修理屋－外れスキル《魔法道具作成》で宿屋を直していたら、世界の対立まで直すことになりました－</h3>
+          <p class="novel-meta">ハイファンタジー／全30話・完結</p>
+          <span class="novel-links">
+            <a class="store" href="https://ncode.syosetu.com/n7383mf/" target="_blank" rel="noopener">なろう</a>
+            <a class="store" href="https://kakuyomu.jp/works/2912051600389115795" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">過労死した最強魔術師は機械少女と辺境でスローライフしたいだけなのに</h3>
-        <p class="work-meta">ファンタジー</p>
-        <div class="links">
-          <a class="store" href="https://kakuyomu.jp/works/2912051603243340714" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">03</span>
+          <h3 class="novel-title">過労死した最強魔術師は機械少女と辺境でスローライフしたいだけなのに</h3>
+          <p class="novel-meta">ファンタジー</p>
+          <span class="novel-links">
+            <a class="store" href="https://kakuyomu.jp/works/2912051603243340714" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">SNSで告白した相手が養母（かあさん）だった</h3>
-        <p class="work-meta">現実世界／恋愛／全13話・完結</p>
-        <div class="links">
-          <a class="store" href="https://ncode.syosetu.com/n3301lz/" target="_blank" rel="noopener">なろう</a>
-          <a class="store" href="https://kakuyomu.jp/works/2912051596474359396" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">04</span>
+          <h3 class="novel-title">SNSで告白した相手が養母（かあさん）だった</h3>
+          <p class="novel-meta">現実世界／恋愛／全13話・完結</p>
+          <span class="novel-links">
+            <a class="store" href="https://ncode.syosetu.com/n3301lz/" target="_blank" rel="noopener">なろう</a>
+            <a class="store" href="https://kakuyomu.jp/works/2912051596474359396" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">催眠術にかかったふりまでしてるのに、なんで何もしてこないの！？</h3>
-        <p class="work-meta">現実世界／恋愛／短編</p>
-        <div class="links">
-          <a class="store" href="https://ncode.syosetu.com/n3989lz/" target="_blank" rel="noopener">なろう</a>
-          <a class="store" href="https://kakuyomu.jp/works/2912051596514271276" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">05</span>
+          <h3 class="novel-title">催眠術にかかったふりまでしてるのに、なんで何もしてこないの！？</h3>
+          <p class="novel-meta">現実世界／恋愛／短編</p>
+          <span class="novel-links">
+            <a class="store" href="https://ncode.syosetu.com/n3989lz/" target="_blank" rel="noopener">なろう</a>
+            <a class="store" href="https://kakuyomu.jp/works/2912051596514271276" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">結婚主義国家：双極磁石</h3>
-        <p class="work-meta">現実世界／恋愛／短編</p>
-        <div class="links">
-          <a class="store" href="https://ncode.syosetu.com/n1459mc/" target="_blank" rel="noopener">なろう</a>
-          <a class="store" href="https://kakuyomu.jp/works/2912051598160551287" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">06</span>
+          <h3 class="novel-title">結婚主義国家：双極磁石</h3>
+          <p class="novel-meta">現実世界／恋愛／短編</p>
+          <span class="novel-links">
+            <a class="store" href="https://ncode.syosetu.com/n1459mc/" target="_blank" rel="noopener">なろう</a>
+            <a class="store" href="https://kakuyomu.jp/works/2912051598160551287" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">灰皿に残った口紅</h3>
-        <p class="work-meta">短編</p>
-        <div class="links">
-          <a class="store" href="https://kakuyomu.jp/works/2912051607566481998" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">07</span>
+          <h3 class="novel-title">灰皿に残った口紅</h3>
+          <p class="novel-meta">短編</p>
+          <span class="novel-links">
+            <a class="store" href="https://kakuyomu.jp/works/2912051607566481998" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">電車のハザマ</h3>
-        <p class="work-meta">短編</p>
-        <div class="links">
-          <a class="store" href="https://kakuyomu.jp/works/2912051607317745148" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">08</span>
+          <h3 class="novel-title">電車のハザマ</h3>
+          <p class="novel-meta">短編</p>
+          <span class="novel-links">
+            <a class="store" href="https://kakuyomu.jp/works/2912051607317745148" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">守りの転生者</h3>
-        <p class="work-meta">ハイファンタジー／全7話・完結</p>
-        <div class="links">
-          <a class="store" href="https://ncode.syosetu.com/n6786gk/" target="_blank" rel="noopener">なろう</a>
-          <a class="store" href="https://kakuyomu.jp/works/1177354054918326151" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">09</span>
+          <h3 class="novel-title">守りの転生者</h3>
+          <p class="novel-meta">ハイファンタジー／全7話・完結</p>
+          <span class="novel-links">
+            <a class="store" href="https://ncode.syosetu.com/n6786gk/" target="_blank" rel="noopener">なろう</a>
+            <a class="store" href="https://kakuyomu.jp/works/1177354054918326151" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">モンスター娘のいる館に住むことになりました</h3>
-        <p class="work-meta">ローファンタジー</p>
-        <div class="links">
-          <a class="store" href="https://ncode.syosetu.com/n9778el/" target="_blank" rel="noopener">なろう</a>
-          <a class="store" href="https://kakuyomu.jp/works/1177354054884792688" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">10</span>
+          <h3 class="novel-title">モンスター娘のいる館に住むことになりました</h3>
+          <p class="novel-meta">ローファンタジー</p>
+          <span class="novel-links">
+            <a class="store" href="https://ncode.syosetu.com/n9778el/" target="_blank" rel="noopener">なろう</a>
+            <a class="store" href="https://kakuyomu.jp/works/1177354054884792688" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">おしかけ！まじめ系天然メイド</h3>
-        <p class="work-meta">恋愛</p>
-        <div class="links">
-          <a class="store" href="https://kakuyomu.jp/works/1177354054884704178" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">11</span>
+          <h3 class="novel-title">おしかけ！まじめ系天然メイド</h3>
+          <p class="novel-meta">恋愛</p>
+          <span class="novel-links">
+            <a class="store" href="https://kakuyomu.jp/works/1177354054884704178" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <article class="work">
-        <h3 class="work-title">彼女はヴァンパイアガール</h3>
-        <p class="work-meta">ローファンタジー</p>
-        <div class="links">
-          <a class="store" href="https://ncode.syosetu.com/n8158ek/" target="_blank" rel="noopener">なろう</a>
-          <a class="store" href="https://kakuyomu.jp/works/1177354054884615243" target="_blank" rel="noopener">カクヨム</a>
+        <div class="novel">
+          <span class="novel-num">12</span>
+          <h3 class="novel-title">彼女はヴァンパイアガール</h3>
+          <p class="novel-meta">ローファンタジー</p>
+          <span class="novel-links">
+            <a class="store" href="https://ncode.syosetu.com/n8158ek/" target="_blank" rel="noopener">なろう</a>
+            <a class="store" href="https://kakuyomu.jp/works/1177354054884615243" target="_blank" rel="noopener">カクヨム</a>
+          </span>
         </div>
-      </article>
-
-      <a class="work locked" href="r18.html#novels" rel="nofollow">
-        <h3 class="work-title">
-          成人向け小説
-          <span class="pickup">R-18</span>
-        </h3>
-        <p class="work-meta">ノクターンノベルズ 4作品</p>
-        <p class="locked-cta">年齢確認へ進む →</p>
-      </a>
-
-    </div>
-
-    <div class="index-links">
-      <a class="index-link" href="https://mypage.syosetu.com/672838/" target="_blank" rel="noopener">小説家になろう マイページ</a>
-      <a class="index-link" href="https://kakuyomu.jp/users/syuumei_yamaga" target="_blank" rel="noopener">カクヨム ユーザーページ</a>
-    </div>
-  </section>
-
-  <!-- ==========================================================
-       WEBゲーム
-       ========================================================== -->
-  <section id="web">
-    <div class="sec-head">
-      <span class="sec-num">03</span>
-      <h2>Web Games</h2>
-      <span class="sec-ja">WEBゲーム</span>
-      <span class="sec-rule"></span>
-    </div>
-    <p class="sec-note">ブラウザでそのまま遊べる小品。</p>
-
-    <div class="card soon">
-      <div class="card-head">
-        <span class="card-title">準備中</span>
-        <span class="badge">COMING SOON</span>
+        <a class="novel" href="r18.html#novels" rel="nofollow">
+          <span class="novel-num">—</span>
+          <h3 class="novel-title">成人向け小説 <span class="pickup" data-r18>R-18</span></h3>
+          <p class="novel-meta">ノクターンノベルズ 4作品</p>
+          <span class="novel-links"><span class="store">年齢確認へ進む</span></span>
+        </a>
       </div>
-      <div class="card-desc">ダウンロード不要で遊べる作品を公開予定です。</div>
-    </div>
-  </section>
-
-  <!-- ==========================================================
-       開発ブログ
-       ========================================================== -->
-  <section id="blog">
-    <div class="sec-head">
-      <span class="sec-num">04</span>
-      <h2>Blog</h2>
-      <span class="sec-ja">開発ブログ</span>
-      <span class="sec-rule"></span>
-    </div>
-    <p class="sec-note">制作の過程と、開発に使っている道具の記録。</p>
-
-    <div class="post-list">
-      <a class="post-item" href="blog/2026-09-03-github-pages.html">
-        <div class="post-date">2026.09.03</div>
-        <h3>ブランドサイトをGitHub Pagesで公開しました</h3>
-        <p>何もインストールせずに個人サイトを公開するまでの記録。年齢確認ページの実装と、つまずいた2点について。</p>
-      </a>
-    </div>
-
-    <div class="index-links">
-      <a class="index-link" href="blog.html">記事一覧へ</a>
-    </div>
-  </section>
-
-  <section id="news">
-    <div class="sec-head">
-      <span class="sec-num">05</span>
-      <h2>News</h2>
-      <span class="sec-ja">お知らせ</span>
-      <span class="sec-rule"></span>
-    </div>
-    <p class="sec-note">新作のリリースやサイトの更新をお知らせします。日々の進捗はXで投稿しています。</p>
-
-    <div class="news">
-      <div class="news-item">
-        <span class="news-date">2026.09.03</span>
-        <span class="news-body"><span class="news-tag">サイト</span>公式サイトを公開しました。</span>
-      </div>
-    </div>
-
-    <div class="index-links">
-      <a class="index-link" href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener">X ／ @SyuumeiYamaga</a>
-    </div>
   </section>
 
 </main>
