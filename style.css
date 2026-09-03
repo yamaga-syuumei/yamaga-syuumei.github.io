@@ -495,3 +495,93 @@ body.verified #gate { display: none; }
   background: repeating-linear-gradient(
     45deg, #f6f0e5, #f6f0e5 9px, #f2ebdd 9px, #f2ebdd 18px);
 }
+
+/* ==========================================================
+   お知らせ（News）
+   ========================================================== */
+.news { border-top: 1px solid var(--rule-2); }
+.news-item {
+  display: flex; gap: 20px; align-items: baseline;
+  padding: 14px 2px;
+  border-bottom: 1px solid var(--rule-2);
+  text-decoration: none; color: inherit;
+}
+a.news-item:hover { background: #fdf6ec; }
+.news-date {
+  font-family: var(--serif); font-size: 12px; color: var(--accent-2);
+  letter-spacing: .06em; flex-shrink: 0; width: 96px;
+}
+.news-body { font-size: 14px; }
+.news-tag {
+  font-size: 10.5px; letter-spacing: .06em;
+  border: 1px solid var(--rule); color: var(--ink-3);
+  border-radius: 4px; padding: 1px 8px; margin-right: 9px;
+}
+
+/* ==========================================================
+   ブログ（記事一覧・記事本文）
+   ========================================================== */
+.post-list { display: grid; gap: 2px; }
+
+.post-item {
+  display: block; text-decoration: none; color: inherit;
+  padding: 20px 2px; border-bottom: 1px solid var(--rule-2);
+  transition: background .16s;
+}
+.post-item:hover { background: #fdf6ec; }
+.post-item .post-date { font-size: 12px; color: var(--accent-2); font-family: var(--serif); }
+.post-item h3 {
+  font-family: var(--serif); font-size: 18px; font-weight: 600;
+  margin: 4px 0 5px; line-height: 1.6;
+}
+.post-item p { font-size: 13.5px; color: var(--ink-2); margin: 0; }
+
+/* 記事本文 */
+.post { max-width: 660px; margin: 0 auto; padding: 56px 0 0; }
+.post-head { border-bottom: 1px solid var(--rule); padding-bottom: 26px; margin-bottom: 34px; }
+.post-head .post-date {
+  font-family: var(--serif); font-size: 12.5px;
+  color: var(--accent-2); letter-spacing: .08em;
+}
+.post-head h1 {
+  font-family: var(--serif); font-size: 30px; font-weight: 600;
+  line-height: 1.5; letter-spacing: .03em; margin: 8px 0 0;
+}
+.post-body h2 {
+  font-family: var(--serif); font-size: 20px; font-weight: 600;
+  letter-spacing: .03em;
+  margin: 46px 0 14px; padding-left: 13px;
+  border-left: 3px solid var(--accent);
+}
+.post-body p { margin: 0 0 18px; }
+.post-body ul { margin: 0 0 18px; padding-left: 22px; }
+.post-body li { margin-bottom: 7px; }
+.post-body strong { font-weight: 700; }
+.post-body code {
+  font-family: Consolas, Menlo, monospace; font-size: 13px;
+  background: var(--paper-2); border: 1px solid var(--rule);
+  border-radius: 4px; padding: 1px 6px;
+}
+.post-body pre {
+  background: #2b2622; color: #f0e9dd;
+  border-radius: 10px; padding: 16px 18px;
+  overflow-x: auto; font-size: 12.5px; line-height: 1.75;
+  margin: 0 0 20px;
+}
+.post-body pre code { background: none; border: 0; padding: 0; color: inherit; font-size: inherit; }
+.post-body blockquote {
+  margin: 0 0 20px; padding: 14px 18px;
+  background: var(--paper-2); border-left: 3px solid var(--accent-2);
+  border-radius: 0 8px 8px 0; font-size: 13.5px; color: var(--ink-2);
+}
+.post-nav { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--rule); }
+.post-nav a { font-size: 13px; color: var(--ink-2); text-decoration: none; }
+.post-nav a:hover { color: var(--accent); }
+
+@media (max-width: 760px) {
+  .news-item { flex-direction: column; gap: 3px; }
+  .news-date { width: auto; }
+  .post { padding-top: 40px; }
+  .post-head h1 { font-size: 23px; }
+  .post-body h2 { font-size: 17.5px; margin-top: 36px; }
+}

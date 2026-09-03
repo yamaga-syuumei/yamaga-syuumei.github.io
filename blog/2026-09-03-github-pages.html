@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ブランドサイトをGitHub Pagesで公開しました | 山賀秀明</title>
+<meta name="description" content="何もインストールせずに、個人サイトをGitHub Pagesで公開するまでの記録。年齢確認ページの実装と、つまずいた点について。">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="ブランドサイトをGitHub Pagesで公開しました">
+<meta property="og:description" content="何もインストールせずに、個人サイトを公開するまでの記録。">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/blog/2026-09-03-github-pages.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="../" class="logo">
+      <span class="logo-name">山賀秀明</span>
+      <span class="logo-circle">ヒノガタリ</span>
+    </a>
+    <nav>
+      <a href="../blog.html">ブログ</a>
+      <a href="../#web">WEBゲーム</a>
+      <a href="../#games">ゲーム</a>
+      <a href="../#novels">小説</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <article class="post">
+
+    <div class="post-head">
+      <div class="post-date">2026.09.03</div>
+      <h1>ブランドサイトをGitHub Pagesで公開しました</h1>
+    </div>
+
+    <div class="post-body">
+
+      <p>作品はDLsite、FANZA、小説投稿サイトにばらばらに置いてあって、「山賀秀明が何を作っているのか」を一枚で見せる場所がありませんでした。作る方には時間を注いできましたが、届ける方が手薄だったという自覚があります。その最初の一手として、自分のサイトを作りました。</p>
+
+      <p>公開したのはこちらです。</p>
+
+      <pre><code>https://yamaga-syuumei.github.io/</code></pre>
+
+      <h2>何もインストールせずに作る</h2>
+
+      <p>まず決めたのが「新しいものを入れない」でした。開発環境はできるだけ汚したくありません。何かを試すたびにPATHが増えて、あとから何が入っているのか分からなくなるのが嫌だからです。</p>
+
+      <p>結論から言うと、<strong>gitだけで足りました。</strong>Node.jsもnpmも要りません。</p>
+
+      <p>今どきのサイト作りはフレームワークから入るのが普通ですが、あれはMarkdownを自動でHTMLに変換したり、記事一覧を生成したりするための道具です。ページが数枚なら、HTMLを直接書いた方が速いし、壊れる余地もありません。</p>
+
+      <ul>
+        <li>HTMLとCSSを書く</li>
+        <li>gitでコミットする</li>
+        <li>GitHubにpushする</li>
+      </ul>
+
+      <p>これだけで公開されます。ビルド工程がないので、pushした1〜2分後には反映されています。</p>
+
+      <h2>ユーザーサイト方式を選んだ</h2>
+
+      <p>GitHub Pagesにはリポジトリ名の付け方が2通りあって、URLの形が変わります。</p>
+
+      <ul>
+        <li><code>&lt;ユーザー名&gt;.github.io</code> → <code>https://ユーザー名.github.io/</code></li>
+        <li>任意の名前 → <code>https://ユーザー名.github.io/リポジトリ名/</code></li>
+      </ul>
+
+      <p>前者を選びました。URLが短いのと、あとで独自ドメインに移すときに素直だからです。後者は<code>/リポジトリ名/</code>が挟まる分、画像やCSSのパス指定で事故りやすいという話も聞きます。</p>
+
+      <p>前者はアカウントにつき1つしか作れませんが、後者は無制限です。今後WEBゲームを公開するときは、ゲームごとにリポジトリを分けて<code>/ゲーム名/</code>にぶら下げる予定です。1本が壊れても本体が巻き込まれません。</p>
+
+      <h2>成人向け作品をどう扱うか</h2>
+
+      <p>ここが一番考えたところです。うちはゲーム7本のうち6本が成人向けなので、扱いを間違えるとサイトとして成立しません。</p>
+
+      <p>結論として、<strong>全年齢ページと成人向けページを完全に分け、後者に年齢確認を挟みました。</strong></p>
+
+      <p>実装で気をつけたのは、JavaScriptが無効でも中身が漏れないようにすることです。よくあるのは確認ダイアログを上から被せるやり方ですが、あれはJSを切ると背後の中身が読めてしまいます。そこで逆に、CSSで最初から中身を非表示にしておき、確認が取れて初めて表示される形にしました。</p>
+
+      <pre><code>#site { display: none; }
+body.verified #site { display: block; }</code></pre>
+
+      <p>JSが動かない環境では、確認画面のまま止まります。</p>
+
+      <h2>GitHubの規約を実際に読んでみた</h2>
+
+      <p>気になったので、成人向けの扱いについて条文を確認しました。「成人向けは全部ダメ」だと思い込んでいたのですが、そうではありませんでした。</p>
+
+      <blockquote>当社は、裸体または性に関するコンテンツがすべてわいせつであると認識しているわけではありません。（中略）ただし、当社では、表示する前にオプトインする選択肢をユーザーに提供して、コンテンツを制限できるようにしています。</blockquote>
+
+      <p>禁止されているのは「性行為のあからさまな描写」で、これには画像だけでなくテキストも含まれます。一方で、表示前のオプトイン、つまり年齢確認を挟む方法はGitHub自身が挙げている対処法でした。作品名とストアへのリンクだけなら問題ありません。</p>
+
+      <p>ただし<strong>パッケージ画像は別</strong>です。年齢確認は「訪問者に見せない」仕組みであって、「サーバーに置かない」仕組みではありません。ファイルとして置いた時点でアウトなので、成人向け作品のサムネイルは掲載を見送りました。露出のない差し替え版ができたら足していきます。</p>
+
+      <h2>つまずいた2つ</h2>
+
+      <p><strong>1つめ。pushしたら403で弾かれました。</strong></p>
+
+      <pre><code>remote: Permission to yamaga-syuumei/... denied to i-horse.
+fatal: ... The requested URL returned error: 403</code></pre>
+
+      <p>Windowsの資格情報マネージャーに昔使った別アカウントの認証情報が残っていて、gitが勝手にそちらで認証していました。資格情報を消して入れ直せば直ります。リモートURLに<code>https://ユーザー名@github.com/...</code>とアカウント名を埋め込んでおくと、以後混ざりにくくなります。</p>
+
+      <p><strong>2つめ。DLsiteのサークルページは全作品を出してくれません。</strong></p>
+
+      <p>作品一覧を作るのにサークルプロフィールページを見て回っていたのですが、AI生成フロアのページが3作品あるうち1件しか表示していませんでした。「1件中1～1件目」と書いてあるので、そこで全部だと思い込んでいました。サークル名で検索したら7件出てきました。フロアをまたぐ場合は検索の方が確実です。</p>
+
+      <h2>これから</h2>
+
+      <p>サイトの土台はできたので、次はここに載せる中身を増やしていきます。ブラウザでそのまま遊べるWEBゲームを置きたいと思っています。ダウンロードもインストールも要らずに手を出せるものがあると、入口として強いはずなので。</p>
+
+      <p>このブログでは、制作の過程や、開発に使っている道具の話を書いていく予定です。</p>
+
+    </div>
+
+    <div class="post-nav">
+      <a href="../blog.html">← 記事一覧へ戻る</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="foot-name">山賀秀明 ／ ヒノガタリ</span>
+    <span>
+      <a href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener">X</a>
+      <a href="../">トップへ</a>
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>
