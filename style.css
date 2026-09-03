@@ -75,6 +75,11 @@ header {
   background: #101418;
   color: #fff;
 }
+/* ヘッダ下端の色帯。ヒーローを置かないので、ここでサイトの色を示す */
+header::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 4px;
+  background: linear-gradient(90deg, var(--red) 0%, #f0803f 42%, var(--blue) 100%);
+}
 header .wrap {
   display: flex; align-items: center; justify-content: space-between;
   gap: 18px; height: 60px;
@@ -165,6 +170,7 @@ nav .nav-sep { width: 1px; height: 18px; background: rgba(255,255,255,.18); marg
    セクション
    ========================================================== */
 section { padding: 38px 0 8px; scroll-margin-top: 78px; }
+main > section:first-child { padding-top: 34px; }
 
 .theme-red    { --theme: var(--red);  --theme-dark: var(--red-dark);  --theme-soft: var(--red-soft); }
 .theme-indigo { --theme: var(--blue); --theme-dark: var(--blue-dark); --theme-soft: var(--blue-soft); }
@@ -500,7 +506,7 @@ body.verified #gate { display: none; }
   background: var(--bg-2);
   border: 1px solid var(--rule);
   border-radius: 14px;
-  padding: 26px 22px 18px;
+  padding: 18px 22px 14px;
 }
 
 .wg-board {
