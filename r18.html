@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>年齢確認 | 山賀秀明 / ヒノガタリ</title>
+<meta name="description" content="成人向け作品のご案内。18歳以上の方のみご覧いただけます。">
+
+<!-- 年齢確認ページなので検索結果には載せない。SNS等でのカード表示も抑制する -->
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="年齢確認 | 山賀秀明 / ヒノガタリ">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/r18.html">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ==========================================================
+     年齢確認ゲート
+     CSSで #site を display:none にしてあるため、JSが無効でも
+     確認前の中身は表示されない。「はい」を押すと body に
+     .verified が付いて入れ替わる。
+     ========================================================== -->
+<div id="gate">
+  <div class="gate-box">
+    <span class="mark">R-18</span>
+    <h1>年齢確認</h1>
+    <p>このページには、成人向け（18歳以上を対象とした）作品へのリンクが含まれます。</p>
+    <p>18歳未満（高校生以下）の方の閲覧は固くお断りいたします。</p>
+
+    <div class="gate-actions">
+      <button type="button" class="btn btn-primary" id="gate-yes">18歳以上です（進む）</button>
+      <a class="btn btn-secondary" href="./">18歳未満です（全年齢ページへ戻る）</a>
+    </div>
+
+    <p class="gate-note">
+      ※ 確認結果はご利用のブラウザにのみ保存されます。
+    </p>
+  </div>
+</div>
+
+<!-- ==========================================================
+     確認後に表示される中身
+     ========================================================== -->
+<div id="site">
+
+  <header>
+    <div class="wrap">
+      <a href="./" class="logo">山賀秀明 / ヒノガタリ</a>
+      <nav>
+        <a href="./">全年齢ページへ</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="wrap">
+      <span class="circle-name">R-18</span>
+      <h1>成人向け作品</h1>
+      <p class="romaji">for adults only</p>
+      <p>18歳以上の方を対象とした作品の一覧です。各ストアのページへ移動します。</p>
+    </div>
+  </div>
+
+  <main class="wrap">
+
+    <section id="games">
+      <h2>Games</h2>
+      <p class="section-note">成人向けゲーム</p>
+      <div class="cards">
+        <a class="card" href="https://www.dlsite.com/maniax/circle/profile/=/maker_id/RG44757.html" target="_blank" rel="noopener nofollow">
+          <div class="card-head">
+            <span class="card-title">DLsite（男性向け）</span>
+            <span class="r18">R-18</span>
+          </div>
+          <div class="card-desc">男性成人向けフロアの作品一覧。</div>
+        </a>
+        <a class="card" href="https://www.dlsite.com/aix/circle/profile/=/maker_id/RG44757.html" target="_blank" rel="noopener nofollow">
+          <div class="card-head">
+            <span class="card-title">DLsite（AI生成）</span>
+            <span class="r18">R-18</span>
+          </div>
+          <div class="card-desc">成人向けAI生成フロアの作品一覧。</div>
+        </a>
+        <a class="card" href="https://www.dmm.co.jp/dc/doujin/-/list/=/article=maker/id=77801/" target="_blank" rel="noopener nofollow">
+          <div class="card-head">
+            <span class="card-title">FANZA同人</span>
+            <span class="r18">R-18</span>
+          </div>
+          <div class="card-desc">FANZA での作品一覧。</div>
+        </a>
+      </div>
+    </section>
+
+    <section id="novels">
+      <h2>Novels</h2>
+      <p class="section-note">成人向けWEB小説</p>
+      <div class="cards">
+        <a class="card" href="https://xmypage.syosetu.com/x2594cq/" target="_blank" rel="noopener nofollow">
+          <div class="card-head">
+            <span class="card-title">ノクターンノベルズ</span>
+            <span class="r18">R-18</span>
+          </div>
+          <div class="card-desc">連載作品を掲載しています。</div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <a href="./">← 全年齢ページへ戻る</a><br>
+      &copy; 山賀秀明 / ヒノガタリ
+    </div>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var KEY = 'age-verified';
+  var body = document.body;
+
+  // 一度確認済みならゲートを出さない（保存できない環境でも動くよう try/catch）
+  try {
+    if (localStorage.getItem(KEY) === 'yes') {
+      body.classList.add('verified');
+    }
+  } catch (e) { /* プライベートモード等。ゲートを出したまま続行 */ }
+
+  document.getElementById('gate-yes').addEventListener('click', function () {
+    try { localStorage.setItem(KEY, 'yes'); } catch (e) { /* 保存できなくても表示は進める */ }
+    body.classList.add('verified');
+    window.scrollTo(0, 0);
+  });
+})();
+</script>
+
+</body>
+</html>

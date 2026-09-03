@@ -1,0 +1,204 @@
+/* ============================================
+   共通スタイル（index.html / r18.html で共有）
+   ============================================ */
+
+:root {
+  --bg:         #fdfaf6;
+  --card:       #ffffff;
+  --text:       #241f1a;
+  --text-dim:   #6f665c;
+  --line:       #eee5d9;
+  --accent:     #e2622c;
+  --accent-txt: #b8451a;
+  --accent-bg:  #fff3ea;
+  --shadow:     0 1px 2px rgba(80,60,40,.05), 0 4px 14px rgba(120,90,60,.06);
+  --shadow-lg:  0 2px 4px rgba(80,60,40,.06), 0 10px 26px rgba(120,90,60,.11);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+  line-height: 1.85;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 740px; margin: 0 auto; padding: 0 24px; }
+
+/* ---------- ヘッダー ---------- */
+header {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(253, 250, 246, .88);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+header .wrap {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 62px;
+}
+.logo {
+  font-weight: 700; font-size: 15px; letter-spacing: .04em;
+  text-decoration: none; color: var(--text);
+}
+nav a {
+  color: var(--text-dim); text-decoration: none; font-size: 13px;
+  margin-left: 20px; transition: color .15s;
+}
+nav a:hover { color: var(--accent-txt); }
+
+/* ---------- ヒーロー ---------- */
+.hero {
+  padding: 76px 0 60px;
+  background: linear-gradient(180deg, #fff2e6 0%, rgba(255,242,230,0) 100%);
+  margin-bottom: -20px;
+}
+.circle-name {
+  display: inline-block;
+  background: var(--accent-bg); color: var(--accent-txt);
+  border: 1px solid #f6ddc9; border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+  padding: 3px 14px; margin-bottom: 18px;
+}
+.hero h1 { font-size: 36px; margin: 0 0 2px; letter-spacing: .02em; }
+.hero .romaji {
+  color: var(--accent-txt); font-size: 12px;
+  letter-spacing: .2em; text-transform: uppercase;
+  margin: 0 0 26px;
+}
+.hero p { color: #554d45; margin: 0 0 10px; font-size: 15px; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
+.tag {
+  font-size: 12px; color: var(--text-dim);
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 13px;
+}
+
+/* ---------- セクション ---------- */
+section { padding: 44px 0 8px; }
+section + section { border-top: 1px solid var(--line); }
+
+h2 {
+  font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--accent-txt); margin: 0 0 5px;
+}
+.section-note { color: var(--text-dim); font-size: 14px; margin: 0 0 22px; }
+
+h3 { font-size: 13px; color: var(--text-dim); font-weight: 700; margin: 28px 0 12px; }
+
+/* ---------- カード ---------- */
+.cards { display: grid; gap: 12px; }
+
+.card {
+  display: block; background: var(--card);
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 17px 20px; text-decoration: none; color: var(--text);
+  box-shadow: var(--shadow);
+  transition: box-shadow .18s, transform .18s, border-color .18s;
+}
+a.card:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: #f0cdb2;
+  transform: translateY(-2px);
+}
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card-title { font-weight: 700; font-size: 16px; }
+.card-desc { color: var(--text-dim); font-size: 14px; margin-top: 3px; }
+.arrow { color: #c4b8ab; font-size: 14px; flex-shrink: 0; }
+a.card:hover .arrow { color: var(--accent); }
+
+.card.soon { opacity: .72; box-shadow: none; background: #fbf7f2; }
+.badge {
+  font-size: 11px; border: 1px solid var(--line); color: var(--text-dim);
+  background: var(--card); border-radius: 5px; padding: 1px 9px; flex-shrink: 0;
+}
+.r18 {
+  font-size: 11px; font-weight: 700;
+  background: var(--accent-bg); color: var(--accent-txt);
+  border: 1px solid #f6ddc9; border-radius: 5px;
+  padding: 1px 8px; flex-shrink: 0;
+}
+
+/* ---------- 注意書き ---------- */
+.notice {
+  font-size: 12.5px; color: var(--text-dim);
+  background: #fbf7f2; border: 1px solid var(--line);
+  border-radius: 10px; padding: 12px 16px; margin: 0 0 14px;
+}
+
+/* ---------- フッター ---------- */
+footer {
+  margin-top: 48px; border-top: 1px solid var(--line);
+  padding: 30px 0 46px; color: var(--text-dim); font-size: 12px;
+}
+footer a { color: var(--text-dim); }
+
+/* ============================================
+   年齢確認ゲート（r18.html 専用）
+   ============================================ */
+
+/* JSが無効／未確認のときは中身を出さない。
+   確認が取れたら body に .verified が付いて入れ替わる。 */
+#site  { display: none; }
+#gate  { display: flex; }
+body.verified #site { display: block; }
+body.verified #gate { display: none; }
+
+#gate {
+  position: fixed; inset: 0; z-index: 100;
+  align-items: center; justify-content: center;
+  padding: 24px;
+  background: linear-gradient(180deg, #fff2e6 0%, var(--bg) 60%);
+}
+.gate-box {
+  width: 100%; max-width: 460px;
+  background: var(--card);
+  border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  padding: 34px 30px 28px;
+  text-align: center;
+}
+.gate-box .mark {
+  display: inline-block;
+  font-size: 12px; font-weight: 700; letter-spacing: .1em;
+  background: var(--accent-bg); color: var(--accent-txt);
+  border: 1px solid #f6ddc9; border-radius: 999px;
+  padding: 3px 16px; margin-bottom: 18px;
+}
+.gate-box h1 { font-size: 21px; margin: 0 0 16px; }
+.gate-box p {
+  font-size: 14px; color: var(--text-dim);
+  margin: 0 0 10px; text-align: left; line-height: 1.8;
+}
+.gate-actions { display: grid; gap: 10px; margin-top: 26px; }
+
+.btn {
+  display: block; width: 100%;
+  padding: 13px 18px; border-radius: 10px;
+  font-size: 15px; font-weight: 700;
+  text-decoration: none; text-align: center;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  font-family: inherit;
+  transition: filter .15s, background .15s;
+}
+.btn-primary {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+}
+.btn-primary:hover { filter: brightness(1.07); }
+.btn-secondary { background: var(--card); color: var(--text-dim); }
+.btn-secondary:hover { background: #fbf7f2; }
+
+.gate-note {
+  font-size: 11.5px; color: #9b9289; margin-top: 18px;
+}
+
+@media (max-width: 600px) {
+  .hero { padding: 52px 0 44px; }
+  .hero h1 { font-size: 28px; }
+  nav a { margin-left: 14px; }
+  .gate-box { padding: 28px 22px 24px; }
+}
