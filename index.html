@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>山賀秀明 | 個人ゲーム開発・小説</title>
+<meta name="description" content="山賀秀明（yamaga syuumei）のポートフォリオ。個人開発のゲーム、小説、WEBゲーム、開発ブログ。">
+
+<!-- OGP: SNSでリンクを貼ったときのカード表示用。画像は後日追加 -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="山賀秀明 | 個人ゲーム開発・小説">
+<meta property="og:description" content="企画から絵、Live2D、実装まで。個人でゲームを作っています。">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/">
+<meta name="twitter:card" content="summary_large_image">
+
+<style>
+  :root {
+    --bg:        #0e1117;
+    --bg-card:   #161b25;
+    --bg-hover:  #1d2431;
+    --line:      #262d3b;
+    --text:      #e6e9ef;
+    --text-dim:  #98a2b3;
+    --accent:    #f5a524;
+    --accent-dim:#7a5314;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+    line-height: 1.8;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---------- ヘッダー ---------- */
+  header {
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    background: rgba(14, 17, 23, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+  }
+  header .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+  }
+  .logo {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    font-size: 15px;
+  }
+  nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    margin-left: 20px;
+    transition: color 0.15s;
+  }
+  nav a:hover { color: var(--accent); }
+
+  /* ---------- ヒーロー ---------- */
+  .hero { padding: 72px 0 56px; }
+  .hero h1 {
+    font-size: 34px;
+    margin: 0 0 4px;
+    letter-spacing: 0.02em;
+  }
+  .hero .romaji {
+    color: var(--accent);
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin: 0 0 24px;
+  }
+  .hero p {
+    color: var(--text-dim);
+    margin: 0 0 12px;
+    font-size: 15px;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 24px;
+  }
+  .tag {
+    font-size: 12px;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 12px;
+  }
+
+  /* ---------- セクション ---------- */
+  section { padding: 40px 0; border-top: 1px solid var(--line); }
+
+  h2 {
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 6px;
+  }
+  .section-note {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin: 0 0 24px;
+  }
+
+  /* ---------- カード ---------- */
+  .cards { display: grid; gap: 12px; }
+
+  .card {
+    display: block;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  }
+  a.card:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-dim);
+    transform: translateY(-2px);
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .card-title { font-weight: 700; font-size: 16px; }
+  .card-desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .arrow { color: var(--text-dim); font-size: 14px; flex-shrink: 0; }
+  a.card:hover .arrow { color: var(--accent); }
+
+  .card.soon { opacity: 0.55; }
+  .badge {
+    font-size: 11px;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    border-radius: 4px;
+    padding: 1px 8px;
+    flex-shrink: 0;
+  }
+
+  /* ---------- R-18 注意書き ---------- */
+  .notice {
+    font-size: 12px;
+    color: var(--text-dim);
+    border-left: 2px solid var(--accent-dim);
+    padding-left: 12px;
+    margin-top: 16px;
+  }
+
+  /* ---------- フッター ---------- */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 32px 0 48px;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  @media (max-width: 600px) {
+    .hero { padding: 48px 0 40px; }
+    .hero h1 { font-size: 27px; }
+    nav a { margin-left: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="#" class="logo">山賀秀明</a>
+    <nav>
+      <a href="#games">ゲーム</a>
+      <a href="#novels">小説</a>
+      <a href="#web">WEBゲーム</a>
+      <a href="#blog">ブログ</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="hero">
+    <h1>山賀秀明</h1>
+    <p class="romaji">yamaga syuumei</p>
+    <p>個人でゲームを作っています。企画・シナリオから、絵、Live2D、実装、リリースまで一人で担当。</p>
+    <p>VR作品、ストーリー重視のアドベンチャー、脱出ゲームを中心に制作しています。</p>
+    <div class="tags">
+      <span class="tag">ゲーム開発</span>
+      <span class="tag">VR</span>
+      <span class="tag">アドベンチャー</span>
+      <span class="tag">Live2D</span>
+      <span class="tag">小説</span>
+      <span class="tag">生成AI活用</span>
+    </div>
+  </div>
+
+  <!-- ===== 販売ゲーム ===== -->
+  <section id="games">
+    <h2>Games</h2>
+    <p class="section-note">販売中のゲーム作品</p>
+    <div class="cards">
+
+      <!-- TODO: href を実際のサークルページURLに差し替え -->
+      <a class="card" href="#" target="_blank" rel="noopener">
+        <div class="card-head">
+          <span class="card-title">DLsite</span>
+          <span class="arrow">↗</span>
+        </div>
+        <div class="card-desc">VR作品・アドベンチャー・脱出ゲームを頒布しています。</div>
+      </a>
+
+      <!-- TODO: href を実際のSteamページURLに差し替え -->
+      <a class="card" href="#" target="_blank" rel="noopener">
+        <div class="card-head">
+          <span class="card-title">Steam</span>
+          <span class="arrow">↗</span>
+        </div>
+        <div class="card-desc">Steam でリリースしたタイトル。</div>
+      </a>
+
+    </div>
+    <p class="notice">
+      DLsite で頒布している作品には成人向けの内容が含まれます。閲覧・購入は18歳以上の方に限られます。
+    </p>
+  </section>
+
+  <!-- ===== 小説 ===== -->
+  <section id="novels">
+    <h2>Novels</h2>
+    <p class="section-note">WEB小説</p>
+    <div class="cards">
+
+      <!-- TODO: href を実際のマイページURLに差し替え -->
+      <a class="card" href="#" target="_blank" rel="noopener">
+        <div class="card-head">
+          <span class="card-title">小説家になろう</span>
+          <span class="arrow">↗</span>
+        </div>
+        <div class="card-desc">連載作品を掲載しています。</div>
+      </a>
+
+      <!-- TODO: href を実際のユーザーページURLに差し替え -->
+      <a class="card" href="#" target="_blank" rel="noopener">
+        <div class="card-head">
+          <span class="card-title">カクヨム</span>
+          <span class="arrow">↗</span>
+        </div>
+        <div class="card-desc">連載作品を掲載しています。</div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- ===== WEBゲーム ===== -->
+  <section id="web">
+    <h2>Web Games</h2>
+    <p class="section-note">ブラウザで遊べるゲーム</p>
+    <div class="cards">
+      <div class="card soon">
+        <div class="card-head">
+          <span class="card-title">準備中</span>
+          <span class="badge">Coming soon</span>
+        </div>
+        <div class="card-desc">ブラウザ上で直接遊べる小品を公開予定です。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 開発ブログ ===== -->
+  <section id="blog">
+    <h2>Blog</h2>
+    <p class="section-note">開発の記録</p>
+    <div class="cards">
+      <div class="card soon">
+        <div class="card-head">
+          <span class="card-title">準備中</span>
+          <span class="badge">Coming soon</span>
+        </div>
+        <div class="card-desc">制作の過程や、技術的な工夫について書いていきます。</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    &copy; 山賀秀明 / yamaga syuumei
+  </div>
+</footer>
+
+</body>
+</html>
