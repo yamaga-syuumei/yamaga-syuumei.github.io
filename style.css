@@ -610,3 +610,41 @@ body.verified #gate { display: none; }
   .profile-links li { flex-direction: column; gap: 1px; }
   .profile-links .pl-key { width: auto; }
 }
+
+/* ==========================================================
+   ミニパズルを2本並べる
+   ========================================================== */
+.wg-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.wg-name {
+  font-family: var(--serif); font-size: 15px; font-weight: 600;
+  margin-bottom: 12px; color: var(--ink);
+}
+.wg-name span {
+  font-family: var(--sans); font-size: 11px; font-weight: 700;
+  color: var(--ink-3); margin-left: 8px;
+}
+
+/* ---------- みちつなぎ ---------- */
+#pp-board {
+  display: grid; gap: 4px;
+  align-items: center; justify-items: center;
+  max-width: 300px; margin: 0 auto;
+}
+.pp-mark {
+  font-size: 10px; line-height: 1;
+  color: var(--ink-3); width: 14px; text-align: center;
+}
+.pp-mark.is-on { color: var(--red); }
+
+.pp-cell {
+  width: 100%; aspect-ratio: 1; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid var(--rule); border-radius: 7px;
+  color: #c3ccd7; cursor: pointer;
+  transition: color .16s, border-color .16s, background .16s;
+}
+.pp-cell:hover { border-color: #b9c3d1; background: #fbfcfe; }
+.pp-cell.is-on { color: var(--red); border-color: #f3c4b9; }
+.pp-cell svg { width: 100%; height: 100%; display: block; transition: transform .16s ease; }
+
+#pp-board.is-cleared .pp-cell.is-on { border-color: var(--red); }
