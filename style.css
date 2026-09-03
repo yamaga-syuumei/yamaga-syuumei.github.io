@@ -471,3 +471,27 @@ body.verified #gate { display: none; }
   .work.featured .work-title { font-size: 18px; }
   nav .nav-sep { margin: 12px 4px; }
 }
+
+/* ==========================================================
+   サムネイル付き作品カード
+   画像はカード上端いっぱいに置き、下に本文が続く
+   ========================================================== */
+.work.has-thumb { padding: 0; }
+.work-thumb {
+  display: block; width: 100%; aspect-ratio: 4 / 3;
+  object-fit: cover; background: var(--paper-2);
+  border-bottom: 1px solid var(--rule);
+}
+.work.has-thumb .work-body {
+  display: flex; flex-direction: column; flex: 1;
+  padding: 17px 21px 16px;
+}
+.work.has-thumb .links { margin-top: auto; }
+
+/* 画像がまだ無い作品のプレースホルダ */
+.work-thumb.placeholder {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-3); font-size: 11.5px; letter-spacing: .1em;
+  background: repeating-linear-gradient(
+    45deg, #f6f0e5, #f6f0e5 9px, #f2ebdd 9px, #f2ebdd 18px);
+}
