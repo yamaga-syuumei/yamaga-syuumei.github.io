@@ -172,6 +172,7 @@ section { padding: 68px 0 8px; scroll-margin-top: 78px; }
 
 .theme-red    { --theme: var(--red);  --theme-dark: var(--red-dark);  --theme-soft: var(--red-soft); }
 .theme-indigo { --theme: var(--blue); --theme-dark: var(--blue-dark); --theme-soft: var(--blue-soft); }
+.theme-amber  { --theme: var(--amber); --theme-dark: #8a5200; --theme-soft: var(--amber-soft); }
 
 .sec-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
 .sec-num {
