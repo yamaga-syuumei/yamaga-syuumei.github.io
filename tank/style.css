@@ -1,5 +1,5 @@
 /* ==========================================================
-   荒野の戦車乗り（試作）
+   荒野の戦車乗り（ベータ）
    本体サイトと同じ色を使いつつ、画面は暗く落とす
    ========================================================== */
 :root {
@@ -13,11 +13,27 @@
   --amber: #d9a441;
   --green: #3fb87a;
   --blue:  #3d8be0;
+  --mob-0: #9fb4c6;
+  --mob-1: #f0c53c;
+  --mob-2: #b45cd6;
   --serif: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
   --sans:  "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
+
+/* hidden 属性を確実に効かせる。
+   .tk-actions などに display を指定しているので、
+   ブラウザ既定の [hidden]{display:none} が負けて消えなくなる。 */
+[hidden] { display: none !important; }
+
+/* パネルを出した瞬間にスクロールバーが現れると、その分だけ本文が狭まり、
+   幅100%のキャンバスが縮んで画面がずれる。幅を先に確保しておく。 */
+html { scrollbar-gutter: stable; }
+@supports not (scrollbar-gutter: stable) {
+  html { overflow-y: scroll; }
+}
+
 body {
   margin: 0; background: var(--bg); color: var(--ink);
   font-family: var(--sans); font-size: 14px; line-height: 1.8;
@@ -40,24 +56,66 @@ button { font-family: inherit; }
   background: var(--red); color: #fff; border-radius: 3px; padding: 2px 6px; margin-left: 9px;
   position: relative; top: -2px;
 }
-.tk-hud { margin-left: auto; display: flex; gap: 10px; }
-.tk-stat {
-  font-size: 12px; font-weight: 800; color: var(--ink);
-  background: var(--panel2); border: 1px solid var(--line);
-  border-radius: 6px; padding: 3px 11px; white-space: nowrap;
+/* 目立たせる必要のないボタン。文字の見た目にして、触ったときだけ反応する。
+   padding は見た目を変えずに、押せる範囲だけ広げるために入れている。 */
+.tk-resetwrap { margin-left: auto; display: flex; align-items: center; }
+.tk-reset {
+  background: none; border: 0; padding: 5px 7px;
+  color: #5c6873; font-size: 11.5px; cursor: pointer; white-space: nowrap;
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: #333d46;
 }
+.tk-reset:hover { color: var(--ink-2); text-decoration-color: currentColor; }
+/* 確認はページの中で聞く。ブラウザの confirm はダイアログを止められると黙って失敗する */
+.tk-resetask { display: flex; align-items: center; gap: 2px; }
+.tk-resetask em { font-style: normal; color: var(--ink-2); font-size: 11.5px; margin-right: 6px; }
+.tk-reset.is-danger { color: var(--red); font-weight: 800; }
+.tk-reset.is-danger:hover { color: #ff6a45; }
 
-/* ---------- 画面 ---------- */
-.tk-main { max-width: 1000px; margin: 0 auto; padding: 16px 18px 40px; }
+/* ---------- 地図に重ねる状態表示 ---------- */
+.tk-hud {
+  position: absolute; top: 10px; right: 10px; width: 214px;
+  background: rgba(5,7,10,.84); border: 1px solid var(--line);
+  border-radius: 9px; padding: 9px 11px 10px;
+  font-size: 11.5px; line-height: 1.5;
+  pointer-events: none;   /* 地図の操作を邪魔しない */
+}
+.tk-hud-k { color: var(--ink-2); }
+.tk-hud b { font-weight: 800; }
+.tk-hud-hp { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+.tk-hud-hp .tk-bar i { background: var(--green); }
+.tk-hud-gold { display: flex; justify-content: space-between; margin-top: 5px; }
+.tk-hud-gold b { color: var(--amber); }
+.tk-gear {
+  margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid var(--line); display: grid; gap: 4px;
+}
+.tk-gear > div { display: grid; grid-template-columns: 9px auto 1fr auto; gap: 8px; align-items: center; }
+.tk-st { color: var(--ink-2); font-size: 10.5px; white-space: nowrap; }
+.tk-gear b {
+  font-weight: 600; font-size: 11px; text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tk-sw { width: 9px; height: 9px; border-radius: 2px; background: #39424b; }
+
+/* ---------- 画面：左にフィールド、右に表示エリア ---------- */
+.tk-main {
+  max-width: 1108px; margin: 0 auto; padding: 16px 18px 40px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 352px;
+  gap: 16px; align-items: start;
+}
 .tk-stage { position: relative; }
 canvas {
-  display: block; width: 100%; height: auto;
+  display: block; width: 100%; max-width: 704px; height: auto;
   background: #14181c; border: 1px solid var(--line); border-radius: 10px;
   touch-action: none;
 }
 .tk-help { color: var(--ink-2); font-size: 12px; margin: 10px 2px 0; }
 .tk-help b { color: var(--ink); font-weight: 800; margin-right: 6px; }
 .tk-help b + b { margin-left: 18px; }
+
+/* 右の表示エリア。中身は一度にひとつしか出ないので、ヘッダの下に貼り付けておく */
+.tk-side { position: sticky; top: 62px; }
 
 .tk-toast {
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
@@ -86,56 +144,97 @@ canvas {
 
 /* ---------- パネル共通 ---------- */
 .tk-panel {
-  margin-top: 16px; background: var(--panel);
-  border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px 18px;
+  background: var(--panel);
+  border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 16px;
 }
 .tk-panel h2 {
-  font-family: var(--serif); font-size: 20px; font-weight: 600;
+  font-family: var(--serif); font-size: 19px; font-weight: 600;
   margin: 0 0 10px; letter-spacing: .04em;
 }
-.tk-intro { color: var(--ink-2); font-size: 13px; margin: 0 0 16px; }
+.tk-intro { color: var(--ink-2); font-size: 12.5px; margin: 0 0 16px; }
 
+/* ---------- 待機中：達成状況と凡例 ---------- */
+.tk-goal {
+  background: var(--panel2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 12px; margin-bottom: 14px;
+}
+.tk-goal-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.tk-goal-row span { font-size: 12.5px; font-weight: 700; }
+.tk-goal-row b { font-size: 15px; font-weight: 800; }
+.tk-goal em { display: block; font-style: normal; color: var(--ink-2); font-size: 11px; margin-top: 2px; }
+.tk-goal.is-done { border-color: var(--amber); }
+.tk-goal.is-done b, .tk-goal.is-done em { color: var(--amber); }
+
+/* ---------- クリアの記録 ---------- */
+.tk-result { display: grid; gap: 6px; margin-bottom: 14px; }
+.tk-result > div {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 12.5px; padding-bottom: 5px; border-bottom: 1px solid var(--line);
+}
+.tk-result > div:last-child { border-bottom: 0; padding-bottom: 0; }
+.tk-result span { color: var(--ink-2); }
+.tk-result b { font-weight: 700; text-align: right; }
+
+/* ---------- 凡例 ---------- */
+.tk-legend { display: grid; gap: 8px; font-size: 12.5px; }
+.tk-legend div { display: flex; align-items: center; gap: 10px; }
+.tk-legend em { color: var(--ink-2); font-style: normal; font-size: 11.5px; margin-left: auto; }
+.tk-mark { width: 15px; height: 15px; flex: none; }
+.tk-mark.is-lv0, .tk-mark.is-lv1, .tk-mark.is-lv2 { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.tk-mark.is-lv0  { background: var(--mob-0); transform: scale(.62); }
+.tk-mark.is-lv1  { background: var(--mob-1); transform: scale(.82); }
+.tk-mark.is-lv2  { background: var(--mob-2); }
+.tk-mark.is-boss { background: var(--red); border-radius: 50%; transform: scale(.9); }
+.tk-mark.is-town { background: var(--amber); border-radius: 3px; transform: scale(.7); }
+
+/* ---------- ログ（新しい行が上） ---------- */
 .tk-log {
   background: #0b0e11; border: 1px solid var(--line); border-radius: 8px;
   padding: 12px 14px; font-size: 13px; line-height: 1.95;
-  max-height: 190px; overflow-y: auto; margin-bottom: 14px;
+  max-height: 200px; overflow-y: auto; margin-bottom: 14px;
 }
 .tk-log p { margin: 0; }
+.tk-log p + p { color: var(--ink-2); }   /* 古い行は少し落とす */
 .tk-log .hit  { color: var(--amber); }
 .tk-log .dmg  { color: var(--red); }
 .tk-log .good { color: var(--green); }
 
 .tk-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+/* 主な操作は見出しの直下に固定する。
+   パネルの中身が伸び縮みしても、押す場所が上下に動かない。 */
+.tk-actions-top { margin-bottom: 14px; }
+.tk-panel > *:last-child { margin-bottom: 0; }
 .tk-btn {
   background: var(--panel2); color: var(--ink);
   border: 1px solid var(--line); border-radius: 8px;
-  padding: 9px 18px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
   transition: background .15s, border-color .15s, color .15s;
 }
 .tk-btn:hover:not(:disabled) { background: #2b343d; }
 .tk-btn:disabled { opacity: .4; cursor: default; }
 .tk-btn-main { background: var(--red); border-color: var(--red); color: #fff; }
 .tk-btn-main:hover:not(:disabled) { background: #f04a29; border-color: #f04a29; }
-.tk-btn-quiet { background: transparent; color: var(--ink-2); font-weight: 600; padding: 6px 12px; font-size: 12px; }
 
-/* ---------- 部位 ---------- */
+/* ---------- 部位（幅が狭いので2段組み） ---------- */
 .tk-parts { display: grid; gap: 8px; margin-bottom: 14px; }
 .tk-part {
-  display: grid; grid-template-columns: 92px 1fr 70px auto; gap: 12px;
+  display: grid; grid-template-columns: 1fr auto auto; gap: 5px 10px;
   align-items: center; font-size: 13px;
   background: var(--panel2); border: 1px solid var(--line);
-  border-radius: 8px; padding: 8px 12px;
+  border-radius: 8px; padding: 8px 11px;
 }
 .tk-part.is-broken { opacity: .45; }
-.tk-part-name { font-weight: 700; }
+.tk-part-name { grid-row: 1; grid-column: 1; font-weight: 700; }
+.tk-part-num  { grid-row: 1; grid-column: 2; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; }
+.tk-part > .tk-btn { grid-row: 1 / span 2; grid-column: 3; padding: 7px 13px; }
+.tk-part > .tk-bar { grid-row: 2; grid-column: 1 / span 2; }
 .tk-bar { display: block; height: 8px; background: #0b0e11; border-radius: 4px; overflow: hidden; }
 .tk-bar i { display: block; height: 100%; background: var(--red); border-radius: 4px; transition: width .25s; }
 .tk-part.is-broken .tk-bar i { background: #4a555f; }
-.tk-part-num { font-size: 12px; color: var(--ink-2); text-align: right; }
 
 .tk-selfbar {
-  display: grid; grid-template-columns: 40px 1fr 70px; gap: 12px;
-  align-items: center; font-size: 12.5px; color: var(--ink-2); margin-bottom: 14px;
+  display: grid; grid-template-columns: 36px 1fr auto; gap: 10px;
+  align-items: center; font-size: 12px; color: var(--ink-2); margin-bottom: 14px;
 }
 .tk-selfbar .tk-bar i { background: var(--green); }
 
@@ -144,36 +243,50 @@ canvas {
 .tk-tab {
   background: transparent; color: var(--ink-2);
   border: 1px solid var(--line); border-radius: 7px;
-  padding: 6px 15px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  padding: 6px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer;
 }
 .tk-tab.is-on { background: var(--panel2); color: var(--ink); border-color: #46525d; }
-.tk-tabbody { margin-bottom: 16px; }
+.tk-tabbody {
+  margin-bottom: 16px; max-height: 360px; overflow-y: auto;
+  /* スクロールバーの幅を先に空けておかないと、金額と実行ボタンに重なる */
+  scrollbar-gutter: stable; padding-right: 6px;
+}
+@supports not (scrollbar-gutter: stable) {
+  .tk-tabbody { padding-right: 14px; }
+}
 
-.tk-npc { border-left: 2px solid var(--line); padding: 2px 0 2px 14px; margin-bottom: 14px; }
-.tk-npc-who { font-size: 12px; color: var(--amber); font-weight: 700; }
-.tk-npc p { margin: 2px 0 0; font-size: 13.5px; }
+.tk-npc { border-left: 2px solid var(--line); padding: 2px 0 2px 12px; margin-bottom: 13px; }
+.tk-npc-who { font-size: 11.5px; color: var(--amber); font-weight: 700; }
+.tk-npc p { margin: 2px 0 0; font-size: 13px; }
 
 .tk-item {
-  display: grid; grid-template-columns: 1fr auto auto; gap: 12px;
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 10px;
   align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line);
 }
 .tk-item:last-child { border-bottom: 0; }
-.tk-item-name { font-size: 13.5px; font-weight: 700; }
-.tk-item-desc { font-size: 12px; color: var(--ink-2); }
-.tk-item-price { font-size: 12.5px; color: var(--amber); font-weight: 800; white-space: nowrap; }
+.tk-item > span:first-child { grid-row: 1 / span 2; grid-column: 1; }
+.tk-item-price { grid-row: 1; grid-column: 2; font-size: 12.5px; color: var(--amber); font-weight: 800; white-space: nowrap; text-align: right; }
+.tk-item > .tk-btn { grid-row: 2; grid-column: 2; padding: 5px 12px; font-size: 12px; }
+.tk-item-name { font-size: 13px; font-weight: 700; }
+.tk-item-desc { font-size: 11.5px; color: var(--ink-2); }
+/* 何がいくつからいくつになるのか、と、その装備が何をするのか */
+.tk-stat-row { display: block; margin-top: 2px; }
+.tk-stat-up { color: var(--ink); font-size: 11.5px; margin-right: 12px; white-space: nowrap; }
+.tk-stat-up b { color: var(--green); font-weight: 800; }
+.tk-about { display: block; margin-top: 2px; color: #6f7c88; font-size: 11px; line-height: 1.65; }
 
-/* ---------- フッタ ---------- */
-.tk-foot {
-  max-width: 1000px; margin: 0 auto; padding: 0 18px 40px;
-  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
-  color: var(--ink-2); font-size: 11.5px;
+/* ---------- 横に並べられない幅では、右の表示エリアを下に回す ---------- */
+@media (max-width: 980px) {
+  .tk-main { grid-template-columns: 1fr; }
+  .tk-side { position: static; }
+  canvas { max-width: none; }
 }
-
 @media (max-width: 780px) {
+  .tk-hud { width: 178px; top: 8px; right: 8px; padding: 7px 9px 8px; font-size: 10.5px; }
+  .tk-gear b { font-size: 10px; }
   .tk-head { gap: 10px; padding: 9px 14px; }
+  .tk-resetask em { display: none; }   /* 狭い画面では説明を省く */
   .tk-title { font-size: 15px; }
   .tk-main { padding: 12px 14px 30px; }
   .tk-panel { padding: 16px 15px 14px; }
-  .tk-part { grid-template-columns: 74px 1fr auto; }
-  .tk-part-num { grid-column: 2 / -1; text-align: left; }
 }

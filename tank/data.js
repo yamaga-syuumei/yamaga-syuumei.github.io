@@ -67,22 +67,30 @@ window.GAME_DATA = {
     }
   ],
 
-  /* ---------- パーツ（3系統 × 3段階） ---------- */
+  /* ---------- パーツ（4系統 × 3段階） ---------- */
+  /* color は画面上の戦車にそのまま使う。
+     HUD の色見本と合うので、何を積んでいるかが一目で分かる。 */
   parts: {
     cannon: [
-      { name: '60mm速射砲',   atk: 14, price: 0 },
-      { name: '105mm滑腔砲',  atk: 34, price: 1200 },
-      { name: '155mm重砲',    atk: 70, price: 4200 }
+      { name: '60mm速射砲',   atk: 14, price: 0,    color: '#c8ced4' },
+      { name: '105mm滑腔砲',  atk: 34, price: 1200, color: '#e8d18a' },
+      { name: '155mm重砲',    atk: 70, price: 4200, color: '#ffb454' }
+    ],
+    /* 副砲。最初は積んでいない。積むと主砲の後にもう一発入る */
+    subgun: [
+      { name: 'なし',         atk: 0,  price: 0,    color: null      },
+      { name: '12.7mm機銃',  atk: 9,  price: 900,  color: '#aab6c0' },
+      { name: '20mm機関砲',  atk: 22, price: 3000, color: '#f0784a' }
     ],
     armor: [
-      { name: '鉄板',       def: 4,  hp: 140, price: 0 },
-      { name: '複合装甲',   def: 12, hp: 260, price: 1500 },
-      { name: '反応装甲',   def: 24, hp: 430, price: 5000 }
+      { name: '鉄板',       def: 4,  hp: 140, price: 0,    color: '#4a7f5e' },
+      { name: '複合装甲',   def: 12, hp: 260, price: 1500, color: '#3fb87a' },
+      { name: '反応装甲',   def: 24, hp: 430, price: 5000, color: '#7fe3a6' }
     ],
     engine: [
-      { name: '中古V8',       spd: 2.3, price: 0 },
-      { name: '改造V12',      spd: 3.1, price: 1000 },
-      { name: 'ガスタービン', spd: 4.0, price: 3600 }
+      { name: '中古V8',       spd: 2.3, price: 0,    color: '#2f5f46' },
+      { name: '改造V12',      spd: 3.1, price: 1000, color: '#2f7f9c' },
+      { name: 'ガスタービン', spd: 4.0, price: 3600, color: '#c9a13f' }
     ]
   },
 
@@ -90,13 +98,13 @@ window.GAME_DATA = {
   /* kind: 'mob'  … フィールドの雑魚。ワンボタンのオート戦闘
      kind: 'boss' … 賞金首。ターン制で部位を狙う          */
   enemies: [
-    { id: 'drone',  kind: 'mob', name: '野良ドローン', hp: 40,  atk: 10, def: 2,  gold: 60 },
-    { id: 'buggy',  kind: 'mob', name: '砂バギー',     hp: 70,  atk: 16, def: 5,  gold: 110 },
-    { id: 'junk',   kind: 'mob', name: '廃棄ロボ',     hp: 120, atk: 24, def: 10, gold: 190 },
+    { id: 'drone',  kind: 'mob', name: '野良ドローン', hp: 40,  atk: 10, def: 2,  gold: 180 },
+    { id: 'buggy',  kind: 'mob', name: '砂バギー',     hp: 70,  atk: 16, def: 5,  gold: 340 },
+    { id: 'junk',   kind: 'mob', name: '廃棄ロボ',     hp: 120, atk: 24, def: 10, gold: 620 },
 
     {
       id: 'mantis', kind: 'boss', name: '鋼鉄のカマキリ', town: 'town_01',
-      x: 16, y: 20, gold: 900,
+      x: 16, y: 20, gold: 1800,
       desc: '基地の北をうろつく大型機。鎌で装甲を裂く。',
       parts: [
         { key: 'body',  name: '本体',     hp: 260, atk: 26, def: 10 },
@@ -106,7 +114,7 @@ window.GAME_DATA = {
     },
     {
       id: 'scorpion', kind: 'boss', name: '双胴のサソリ', town: 'town_02',
-      x: 52, y: 20, gold: 1800,
+      x: 52, y: 20, gold: 3600,
       desc: '東の岩場に棲みついた二連装の機体。尾の砲が厄介。',
       parts: [
         { key: 'body',  name: '本体',     hp: 420, atk: 32, def: 16 },
@@ -116,7 +124,7 @@ window.GAME_DATA = {
     },
     {
       id: 'ghost', kind: 'boss', name: '灰色の亡霊', town: 'town_03',
-      x: 38, y: 6, gold: 3600,
+      x: 38, y: 6, gold: 7000,
       desc: '崖の上に据わったまま動かない、正体不明の重機。',
       parts: [
         { key: 'body',   name: '本体',     hp: 640, atk: 44, def: 26 },

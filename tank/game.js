@@ -1,5 +1,5 @@
 /* ==========================================================
-   荒野の戦車乗り（試作）
+   荒野の戦車乗り（ベータ 0.1）
 
    企画書の方針
    - 区画選択制ではなく、2Dトップダウンの地続きのフィールド
@@ -103,8 +103,9 @@
     return {
       gold: 300,
       hp: null,                                   // 後で最大値に合わせる
-      parts: { cannon: 0, armor: 0, engine: 0 },
+      parts: { cannon: 0, subgun: 0, armor: 0, engine: 0 },
       defeated: {},
+      cleared: false,
       x: home.x * TILE + TILE / 2,
       y: (home.y + 2) * TILE + TILE / 2
     };
@@ -115,6 +116,10 @@
       if (raw) S = JSON.parse(raw);
     } catch (e) { /* 保存できない環境でも遊べるようにする */ }
     if (!S) S = fresh();
+    // 副砲を足す前のセーブが残っていても遊べるようにする
+    if (S.parts.subgun == null) S.parts.subgun = 0;
+    if (!S.defeated) S.defeated = {};
+    if (S.cleared == null) S.cleared = bossesLeft() === 0;
     if (S.hp == null) S.hp = maxHp();
     S.hp = Math.min(S.hp, maxHp());
   }
@@ -122,7 +127,39 @@
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {}
   }
 
+  /* 何が強くなるのかを、遊ぶ人がその場で読めるようにしておく。
+     stats は整備で「いくつからいくつへ」を出すため、
+     tag は HUD に今の値を小さく添えるために使う。 */
+  var PART_INFO = {
+    cannon: {
+      label: '主砲', tag: '攻', stats: [{ name: '攻撃力', key: 'atk' }],
+      about: '戦闘で最初に撃つ砲。与えるダメージがそのまま上がる。'
+    },
+    subgun: {
+      label: '副砲', tag: '攻', stats: [{ name: '攻撃力', key: 'atk' }],
+      about: '主砲のあとに続けて撃つ。積むと1ターンの手数が増える。'
+    },
+    armor: {
+      label: '装甲', tag: '防',
+      stats: [{ name: '防御力', key: 'def' }, { name: '最大HP', key: 'hp' }],
+      about: '受けるダメージが減り、最大HPも増える。積み替えると全快する。'
+    },
+    engine: {
+      label: 'エンジン', tag: '速', stats: [{ name: '速さ', key: 'spd', fix: 1 }],
+      about: '荒野を走る速さ。戦闘の強さには影響しない。'
+    }
+  };
+
+  /* ベータ 0.1 のクリア条件は、賞金首を全員倒すこと */
+  function bossDefs() {
+    return D.enemies.filter(function (e) { return e.kind === 'boss'; });
+  }
+  function bossesLeft() {
+    return bossDefs().filter(function (e) { return !S.defeated[e.id]; }).length;
+  }
+
   function cannon() { return D.parts.cannon[S.parts.cannon]; }
+  function subgun() { return D.parts.subgun[S.parts.subgun]; }
   function armor()  { return D.parts.armor[S.parts.armor]; }
   function engine() { return D.parts.engine[S.parts.engine]; }
   function maxHp()  { return armor().hp; }
@@ -207,11 +244,44 @@
     toastT = 150;
   }
 
-  function panel(id, show) { document.getElementById(id).hidden = !show; }
+  function panel(id, show) {
+    document.getElementById(id).hidden = !show;
+    syncIdle();
+  }
+
+  /* 街も戦闘も出ていないときだけ、待機カード（凡例）を見せる */
+  function syncIdle() {
+    var busy = ['mob', 'boss', 'town', 'clear'].some(function (k) {
+      return !document.getElementById(k).hidden;
+    });
+    document.getElementById('idle').hidden = busy;
+    if (busy) return;
+
+    var all = bossDefs().length, done = all - bossesLeft();
+    document.getElementById('goal-count').textContent = done + ' / ' + all;
+    document.getElementById('goal-note').textContent =
+      done === all ? '踏破済み。荒野に賞金首はもういない' : '三体すべて仕留めるとクリア';
+    document.getElementById('goal').classList.toggle('is-done', done === all);
+  }
 
   function hud() {
-    document.getElementById('hud-hp').textContent = 'HP ' + Math.max(0, Math.round(S.hp)) + ' / ' + maxHp();
+    var hp = Math.max(0, Math.round(S.hp)), max = maxHp();
+    document.getElementById('hud-hp').textContent = hp + ' / ' + max;
+    document.getElementById('hud-hpbar').style.width = (hp / max * 100) + '%';
     document.getElementById('hud-gold').textContent = S.gold.toLocaleString() + ' G';
+
+    // 装備名と色見本。色は画面上の戦車に使っているものと同じ
+    [['cannon', cannon()], ['subgun', subgun()],
+     ['armor', armor()],   ['engine', engine()]].forEach(function (pair) {
+      var key = pair[0], part = pair[1];
+      document.getElementById('gear-' + key).textContent = part.name;
+      var info = PART_INFO[key], st = info.stats[0], v = part[st.key];
+      document.getElementById('st-' + key).textContent =
+        v ? info.tag + ' ' + num(v, st.fix) : '—';
+      var sw = document.getElementById('sw-' + key);
+      sw.style.background = part.color || 'transparent';
+      sw.style.border = part.color ? '0' : '1px solid #39424b';
+    });
   }
 
   /* ==========================================================
@@ -260,7 +330,7 @@
 
   function checkTown() {
     var tx = Math.floor(S.x / TILE), ty = Math.floor(S.y / TILE);
-    var here = D.towns.filter(function (t) { return Math.abs(t.x - tx) <= 1 && Math.abs(t.y - ty) <= 1; })[0];
+    var here = D.towns.filter(function (t) { return t.x === tx && t.y === ty; })[0];
     if (!here) { townLock = null; return; }
     if (townLock === here.id) return;
     townLock = here.id;
@@ -318,31 +388,58 @@
     g.fillRect(sx + 5, sy + 24, 23, 3);
   }
 
+  /* 車体は装甲、履帯はエンジン、砲身は主砲と副砲の色。
+     何を積んでいるかが、地図の上の戦車を見るだけで分かるようにする。 */
   function drawTank(x, y) {
     g.save();
     g.translate(x, y);
     g.rotate(ang);
-    g.fillStyle = '#3fb87a';
+
+    g.fillStyle = engine().color;
+    g.fillRect(-11, -10.5, 22, 3.5);
+    g.fillRect(-11, 7, 22, 3.5);
+
+    g.fillStyle = armor().color;
     g.fillRect(-11, -8, 22, 16);
-    g.fillStyle = '#2b8a58';
-    g.fillRect(-11, -10, 22, 3);
-    g.fillRect(-11, 7, 22, 3);
-    g.fillStyle = '#dfe8ef';
-    g.fillRect(0, -2.5, 17, 5);        // 砲身
+
+    var sub = subgun().color;
+    if (sub) {                          // 副砲は車体の脇から短く出す
+      g.fillStyle = sub;
+      g.fillRect(1, -7.5, 12, 3);
+    }
+
+    g.fillStyle = cannon().color;
+    g.fillRect(0, -2.5, 17, 5);         // 主砲の砲身
     g.restore();
   }
 
+  /* 色の差だけだと見分けがつかないので、大きさも変える。
+     強い敵ほど大きい。賞金首の赤とかぶらないよう、最強は紫にしてある。 */
+  var MOB_LOOK = [
+    { col: '#9fb4c6', r: 7   },   // 弱い
+    { col: '#f0c53c', r: 9.5 },   // 中くらい
+    { col: '#b45cd6', r: 12  }    // 強い
+  ];
+
   function drawMob(x, y, lv) {
-    var col = ['#8d93a0', '#c98a3a', '#c0503a'][lv];
-    g.fillStyle = col;
+    var k = MOB_LOOK[lv];
     g.beginPath();
-    g.moveTo(x, y - 9); g.lineTo(x + 8, y + 7); g.lineTo(x - 8, y + 7);
-    g.closePath(); g.fill();
+    g.moveTo(x, y - k.r);
+    g.lineTo(x + k.r * .9, y + k.r * .8);
+    g.lineTo(x - k.r * .9, y + k.r * .8);
+    g.closePath();
+    g.fillStyle = k.col;
+    g.fill();
+    // 砂の上でも輪郭が立つように縁を付ける
+    g.strokeStyle = '#12161a';
+    g.lineWidth = 2;
+    g.stroke();
   }
 
   function drawBoss(x, y) {
     g.fillStyle = '#e03919';
     g.beginPath(); g.arc(x, y, 13, 0, 6.29); g.fill();
+    g.strokeStyle = '#12161a'; g.lineWidth = 2; g.stroke();
     g.fillStyle = '#fff';
     g.font = 'bold 13px sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -350,7 +447,7 @@
   }
 
   function drawMinimap() {
-    var w = 116, h = 88, px = cv.width - w - 12, py = 12;
+    var w = 92, h = 69, px = 12, py = 12;
     g.fillStyle = 'rgba(5,7,10,.78)';
     g.fillRect(px - 4, py - 4, w + 8, h + 8);
     var sx = w / MAPW, sy = h / MAPH;
@@ -392,6 +489,11 @@
       var d1 = Math.max(1, cannon().atk - e.def + Math.floor(Math.random() * 7) - 3);
       ehp -= d1;
       log.push('<p>主砲命中。<span class="hit">' + d1 + '</span> のダメージ。</p>');
+      if (ehp > 0 && subgun().atk > 0) {
+        var ds = Math.max(1, subgun().atk - e.def + Math.floor(Math.random() * 5) - 2);
+        ehp -= ds;
+        log.push('<p>副砲が続けて撃つ。<span class="hit">' + ds + '</span> のダメージ。</p>');
+      }
       if (ehp <= 0) break;
       var d2 = Math.max(1, e.atk - armor().def + Math.floor(Math.random() * 5) - 2);
       S.hp -= d2;
@@ -410,7 +512,7 @@
       warpHome();
     }
 
-    document.getElementById('mob-log').innerHTML = log.join('');
+    document.getElementById('mob-log').innerHTML = log.reverse().join('');
     document.getElementById('mob-fight').hidden = true;
     document.getElementById('mob-run').hidden = true;
     document.getElementById('mob-close').hidden = false;
@@ -493,10 +595,11 @@
     document.getElementById('boss-repair').disabled = B.repairs <= 0 || B.over;
   }
 
+  /* 新しい行を上に積む。長い戦闘でも、直前に何が起きたかを見に行かなくて済む */
   function bossLog(html) {
     var el = document.getElementById('boss-log');
-    el.innerHTML += html;
-    el.scrollTop = el.scrollHeight;
+    el.insertAdjacentHTML('afterbegin', html);
+    el.scrollTop = 0;
   }
 
   function fire(idx) {
@@ -505,6 +608,11 @@
     var d = Math.max(1, cannon().atk - p.def.def + Math.floor(Math.random() * 9) - 4);
     p.hp -= d;
     bossLog('<p>' + p.def.name + 'に命中。<span class="hit">' + d + '</span> のダメージ。</p>');
+    if (p.hp > 0 && subgun().atk > 0) {
+      var ds = Math.max(1, subgun().atk - p.def.def + Math.floor(Math.random() * 5) - 2);
+      p.hp -= ds;
+      bossLog('<p>副砲が続けて撃つ。<span class="hit">' + ds + '</span> のダメージ。</p>');
+    }
     if (p.hp <= 0) {
       p.hp = 0;
       bossLog('<p class="good">' + p.def.name + 'を破壊した。</p>');
@@ -529,6 +637,38 @@
 
   document.getElementById('boss-close').addEventListener('click', function () {
     panel('boss', false); scene = 'field'; cool = 90; B = null;
+    if (bossesLeft() === 0 && !S.cleared) {
+      S.cleared = true;
+      save();
+      openClear();
+    }
+  });
+
+  /* ---------- クリア ---------- */
+  function openClear() {
+    scene = 'clear';
+    var host = document.getElementById('clear-result');
+    host.innerHTML = '';
+    var all = bossDefs().length;
+    [['討伐した賞金首', all + ' / ' + all],
+     ['所持金',        S.gold.toLocaleString() + ' G'],
+     ['主砲',          cannon().name],
+     ['副砲',          subgun().name],
+     ['装甲',          armor().name],
+     ['エンジン',      engine().name]
+    ].forEach(function (row) {
+      var el = document.createElement('div');
+      el.innerHTML = '<span>' + row[0] + '</span><b>' + row[1] + '</b>';
+      host.appendChild(el);
+    });
+    panel('clear', true);
+  }
+
+  document.getElementById('clear-close').addEventListener('click', function () {
+    panel('clear', false);
+    scene = 'field';
+    cool = 90;
+    toast('荒野はまだ続く。');
   });
 
   function enemyTurn() {
@@ -628,14 +768,16 @@
       });
 
     // パーツ強化
-    [['cannon', '主砲'], ['armor', '装甲'], ['engine', 'エンジン']].forEach(function (pair) {
-      var key = pair[0], label = pair[1];
+    ['cannon', 'subgun', 'armor', 'engine'].forEach(function (key) {
+      var info = PART_INFO[key], label = info.label;
       var list = D.parts[key], cur = S.parts[key], next = list[cur + 1];
       if (!next) {
-        addItem(host, label + '：' + list[cur].name, 'これ以上は強化できない', '—', false, null);
+        addItem(host, label + '：' + list[cur].name,
+          statLine(info, list[cur], null) + about(info), '最大', false, null);
         return;
       }
-      var desc = list[cur].name + ' → ' + next.name;
+      var desc = list[cur].name + ' → ' + next.name
+               + statLine(info, list[cur], next) + about(info);
       addItem(host, label + 'の強化', desc, next.price + ' G', S.gold >= next.price, function () {
         S.gold -= next.price;
         S.parts[key] = cur + 1;
@@ -644,6 +786,16 @@
       });
     });
   }
+
+  /* 「攻撃力 14 → 34」の行。next が無いときは今の値だけ並べる */
+  function statLine(info, cur, next) {
+    return '<span class="tk-stat-row">' + info.stats.map(function (st) {
+      return '<span class="tk-stat-up">' + st.name + ' ' + num(cur[st.key], st.fix)
+           + (next ? ' <b>→ ' + num(next[st.key], st.fix) + '</b>' : '') + '</span>';
+    }).join('') + '</span>';
+  }
+  function num(v, fix) { return fix == null ? v : v.toFixed(fix); }
+  function about(info) { return '<span class="tk-about">' + info.about + '</span>'; }
 
   function addItem(host, name, desc, price, can, onBuy) {
     var el = document.createElement('div');
@@ -675,24 +827,47 @@
   document.getElementById('town-close').addEventListener('click', function () {
     panel('town', false);
     scene = 'field';
-    // 街の外へ少し押し出して、閉じた直後に開き直さないようにする
-    S.y = (curTown.y + 2) * TILE + TILE / 2;
+    // 押し出しはしない。街の上に立っている間は townLock が効いているので開き直さない
     save();
   });
 
   /* ==========================================================
      やり直し
      ========================================================== */
-  document.getElementById('reset').addEventListener('click', function () {
-    if (!confirm('最初からやり直しますか。強化したパーツと所持金は消えます。')) return;
+  /* 確認はページの中で聞く。
+     ブラウザの confirm は「このページに追加のダイアログを表示しない」を
+     一度でも選ばれると、何も出さずに false を返して黙って失敗する。 */
+  var resetBtn = document.getElementById('reset');
+  var resetAsk = document.getElementById('reset-ask');
+  var askTimer = null;
+
+  resetBtn.addEventListener('click', function () {
+    resetBtn.hidden = true;
+    resetAsk.hidden = false;
+    clearTimeout(askTimer);
+    askTimer = setTimeout(closeAsk, 10000);   // 放っておいたら引っ込む
+  });
+  document.getElementById('reset-no').addEventListener('click', closeAsk);
+  document.getElementById('reset-yes').addEventListener('click', function () {
+    closeAsk();
+    doReset();
+  });
+
+  function closeAsk() {
+    clearTimeout(askTimer);
+    resetAsk.hidden = true;
+    resetBtn.hidden = false;
+  }
+
+  function doReset() {
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
     S = fresh(); S.hp = maxHp();
     spawnMobs();
-    panel('town', false); panel('mob', false); panel('boss', false);
+    panel('town', false); panel('mob', false); panel('boss', false); panel('clear', false);
     scene = 'field'; townLock = null;
     hud(); save();
     toast('最初から始めます。');
-  });
+  }
 
   /* ==========================================================
      起動
@@ -702,6 +877,7 @@
   spawnMobs();
   setupBosses();
   hud();
+  syncIdle();
 
   (function loop() {
     update();

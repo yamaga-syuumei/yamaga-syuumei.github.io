@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画像を1枚も使わずにブラウザゲームを3本作った | ヒノガタリ開発ブログ</title>
+<meta name="description" content="サイトに埋め込んだパズル2本と、メタルマックス風のフィールドゲーム。素材がなくても遊べるものは作れる、という話。">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="画像を1枚も使わずにブラウザゲームを3本作った">
+<meta property="og:description" content="サイトに埋め込んだパズル2本と、メタルマックス風のフィールドゲーム。素材がなくても遊べるものは作れる、という話。">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/blog/2026-09-04-web-games.html">
+<meta property="og:image" content="https://yamaga-syuumei.github.io/ogp.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:image" content="https://yamaga-syuumei.github.io/ogp.jpg">
+<link rel="canonical" href="https://yamaga-syuumei.github.io/blog/2026-09-04-web-games.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="../" class="logo">
+      <span class="logo-name">ヒノガタリ</span>
+      <span class="logo-circle">山賀秀明</span>
+    </a>
+    <div class="head-right">
+    <nav>
+      <a href="../#news">お知らせ</a>
+      <a href="../blog.html">ブログ</a>
+      <a href="../#web">WEBゲーム</a>
+      <a href="../#games">ゲーム</a>
+      <a href="../#novels">小説</a>
+    </nav>
+      <a class="head-x" href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener" aria-label="X（@SyuumeiYamaga）" title="X ／ @SyuumeiYamaga">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <article class="post">
+
+    <div class="post-head">
+      <div class="post-date">2026.09.04</div>
+      <h1>画像を1枚も使わずにブラウザゲームを3本作った</h1>
+    </div>
+
+    <div class="post-body">
+
+      <p>サイトを公開したあと、WEBゲームの欄が「準備中」のまま残っていました。そこを埋めるために3本作りました。パズルが2本と、フィールドを走り回るゲームが1本です。</p>
+
+      <p>全部ブラウザだけで動きます。ダウンロードも会員登録も要りません。そして<strong>画像ファイルを1枚も使っていません。</strong></p>
+
+      <h2>絵がないなら、絵が要らないものを作る</h2>
+
+      <p>最初に考えたのは「サイトを開いた人が、なんとなく触ってしまうもの」でした。サムネイルを置いて別ページへ送る形ではなく、ページの中にそのまま盤面がある形です。「おっ」と思って手が出る距離に置きたかった。</p>
+
+      <p>ただ、こちらは絵を用意する時間がありませんでした。そこで逆に考えて、<strong>絵が無くても成立する題材</strong>を選びました。</p>
+
+      <h2>いろわけ</h2>
+
+      <p>試験管に入った色を、同じ色ごとにまとめるパズルです。広告でよく見るあれです。</p>
+
+      <p>これを選んだ理由は、<strong>説明を読まなくても目的が分かる</strong>からです。色がバラバラに入った容器が並んでいれば、人は勝手に「揃えるんだな」と理解します。色のついた四角を並べるだけなので、絵は要りません。</p>
+
+      <p>実装で気をつけたのは、解けない問題を出さないことです。ランダムに配ると詰みが混ざるので、<strong>配ったあとに探索して解けるか確かめ、解けない配りは捨てて配り直しています。</strong>探索量に上限を置いてあるので、無限に固まることもありません。</p>
+
+      <h2>みちつなぎ</h2>
+
+      <p>2本目は、管を回して入口から出口まで道をつなぐパズルにしました。1本目と頭の使い方をずらしたかったからです。片方が肌に合わなくても、もう片方で引っかかるかもしれない。</p>
+
+      <p>ここでも「説明を読ませない」を優先しました。仕掛けはひとつで、<strong>入口とつながっている管だけが色を変えます。</strong>タップして向きを変えると、染まる範囲が伸び縮みする。水が流れていく様子に見えるので、何をすればいいかは触れば分かります。どこまで通っているかが常に見えるので、次に回すべき場所も自明になります。</p>
+
+      <p>こちらも必ず解けます。先に正解の道を作ってから、全部のマスの向きをばらしているだけなので、原理的に詰みが存在しません。</p>
+
+      <h2>荒野の戦車乗り</h2>
+
+      <p>3本目は毛色が違います。戦車で荒野を走り、街で車を直し、賞金首を狩るゲームです。メタルマックスが好きなので、ずっと作りたかった形でした。</p>
+
+      <p>参考にしたのは、かつて配信されていたソーシャルゲーム版です。ただし<strong>反面教師として</strong>でした。あれは「簡単に遊べる」を優先してフィールドそのものを削った結果、荒野を自由に走り回る感覚が薄れていました。だから今回は、システムは簡略化しても<strong>フィールドは削らない</strong>と決めました。</p>
+
+      <p>戦闘は2種類に分けています。</p>
+
+      <ul>
+        <li><strong>雑魚</strong> — ボタンひとつで自動処理。結果だけ出る。周回のテンポを削がないため</li>
+        <li><strong>賞金首</strong> — ターン制。部位を選んで撃つ</li>
+      </ul>
+
+      <p>賞金首戦では部位破壊が効きます。キャタピラを壊せば相手の狙いが逸れるようになり、本体を壊せば勝ち。街のNPCが「まず足を潰せ」と助言してきますが、あれは実際に有効な戦術です。</p>
+
+      <p>こちらも絵は使っていません。地形も戦車も敵も、全部Canvasに図形を描いているだけです。それでも「荒野を走っている」感じは出ました。</p>
+
+      <h2>結局、素材がなくても作れた</h2>
+
+      <p>サイトを作り始めた頃、私は「画像がないから見栄えが上がらない」と思っていました。実際、作品一覧のページはパッケージ画像がないと厳しい。あれは商品なので、絵が情報そのものだからです。</p>
+
+      <p>でもゲームは違いました。<strong>遊べれば成立する。</strong>色と線だけで組んだパズルでも、触れば面白いかどうかは伝わります。</p>
+
+      <p>絵が描けるようになるのを待っていたら、WEBゲームの欄は今も「準備中」のままだったと思います。手持ちの道具で組めるものから先に置く。これは他の場面でも使える判断だと感じました。</p>
+
+      <h2>これから</h2>
+
+      <p>戦車ゲームはベータ0.1です。街が3つ、賞金首が3体で、倒しきると一区切りになります。街とストーリーは後から差し込める構造にしてあるので、少しずつ足していく予定です。</p>
+
+      <p>遊んでみて気になったところがあれば、Xで教えてもらえると助かります。</p>
+
+    </div>
+
+    <div class="post-nav">
+      <a href="../blog.html">← 記事一覧へ戻る</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="foot-name">ヒノガタリ</span>
+    <span>
+      <a href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener">X</a>
+      <a href="../">トップへ</a>
+    </span>
+  </div>
+</footer>
+
+<script src="../main.js"></script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
