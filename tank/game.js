@@ -69,6 +69,9 @@
       for (var dy = -1; dy <= 1; dy++)
         for (var dx = -1; dx <= 1; dx++) map[tw.y + dy][tw.x + dx] = ROAD;
       map[tw.y][tw.x] = TOWN;
+      // 出発地点（街の2マス下）も必ず走れるようにしておく。
+      // ここが岩だと、出た瞬間に岩の中に埋まって動けなくなる。
+      if (map[tw.y + 2]) map[tw.y + 2][tw.x] = ROAD;
     });
   }
 
@@ -224,9 +227,12 @@
     if (ax || ay) {
       var len = Math.hypot(ax, ay);
       var nx = S.x + ax / len * sp, ny = S.y + ay / len * sp;
+      // 既に岩の中にいるときは判定を外す。
+      // 外さないと、移動先も同じ岩タイルなので永久に出られなくなる。
+      var stuck = blocked(S.x, S.y);
       // 縦横を別々に判定して、壁ぎわで引っかからないようにする
-      if (!blocked(nx, S.y)) S.x = nx;
-      if (!blocked(S.x, ny)) S.y = ny;
+      if (stuck || !blocked(nx, S.y)) S.x = nx;
+      if (stuck || !blocked(S.x, ny)) S.y = ny;
       ang = Math.atan2(ay, ax);
     }
 

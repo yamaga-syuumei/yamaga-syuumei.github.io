@@ -1,0 +1,8 @@
+# すべて巡回してよい。
+# r18.html と tank/ は HTML 側で noindex を指定している。
+# ここで Disallow にするとクロール自体が止まり、noindex を読んでもらえなくなるため書かない。
+
+User-agent: *
+Allow: /
+
+Sitemap: https://yamaga-syuumei.github.io/sitemap.xml
