@@ -651,3 +651,9 @@ body.verified #gate { display: none; }
 
 /* 埋め込みパズルの下に置く、別ページのゲームへのリンク */
 .wg-more { margin-top: 16px; }
+
+/* このサイトについて欄の但し書き */
+.about-note {
+  font-size: 12.5px; color: var(--ink-3);
+  border-left: 3px solid var(--rule); padding-left: 12px; margin-top: 16px;
+}

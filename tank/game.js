@@ -1,5 +1,5 @@
 /* ==========================================================
-   荒野の戦車乗り（ベータ 0.1）
+   荒野の戦車乗り（ベータ 0.2）
 
    企画書の方針
    - 区画選択制ではなく、2Dトップダウンの地続きのフィールド
@@ -7,18 +7,23 @@
    - 雑魚はワンボタンのオート戦闘、賞金首はターン制で部位を狙う
    - 街とイベントは data.js に外出しし、後から足せるようにする
 
-   外部ライブラリなし。素の Canvas 2D。
+   描画は Phaser 3（CDN から読む。PCには何もインストールしない）。
+   絵は art.js が実行時に生成する。画像ファイルは持たない。
+   街・整備・戦闘のUIは DOM のまま。この種の一覧表示は DOM の方が向く。
+
+   座標系はタイル16px。カメラを2倍に拡大して表示するので、
+   画面上は1タイル32px になる。
    ========================================================== */
 (function () {
   'use strict';
 
   var D = window.GAME_DATA;
-  var cv = document.getElementById('cv');
-  var g  = cv.getContext('2d');
 
-  var TILE = 32, MAPW = 60, MAPH = 45;
+  var TILE = 16, MAPW = 60, MAPH = 45;
+  var WORLD_W = MAPW * TILE, WORLD_H = MAPH * TILE;
+  var VIEW_W = 704, VIEW_H = 448, ZOOM = 2;
   var SAND = 0, ROCK = 1, ROAD = 2, TOWN = 3;
-  var SAVE_KEY = 'tank-save-v1';
+  var SAVE_KEY = 'tank-save-v2';       // 座標系が変わったので旧セーブは読まない
 
   /* ==========================================================
      乱数（種を固定して、毎回同じ地形にする）
@@ -116,7 +121,6 @@
       if (raw) S = JSON.parse(raw);
     } catch (e) { /* 保存できない環境でも遊べるようにする */ }
     if (!S) S = fresh();
-    // 副砲を足す前のセーブが残っていても遊べるようにする
     if (S.parts.subgun == null) S.parts.subgun = 0;
     if (!S.defeated) S.defeated = {};
     if (S.cleared == null) S.cleared = bossesLeft() === 0;
@@ -127,6 +131,9 @@
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {}
   }
 
+  /* ==========================================================
+     装備
+     ========================================================== */
   /* 何が強くなるのかを、遊ぶ人がその場で読めるようにしておく。
      stats は整備で「いくつからいくつへ」を出すため、
      tag は HUD に今の値を小さく添えるために使う。 */
@@ -150,19 +157,29 @@
     }
   };
 
-  /* ベータ 0.1 のクリア条件は、賞金首を全員倒すこと */
+  function cannon() { return D.parts.cannon[S.parts.cannon]; }
+  function subgun() { return D.parts.subgun[S.parts.subgun]; }
+  function armor()  { return D.parts.armor[S.parts.armor]; }
+  function engine() { return D.parts.engine[S.parts.engine]; }
+  function maxHp()  { return armor().hp; }
+
+  /* art.js に渡す色。装備を積み替えると戦車の見た目が変わる */
+  function tankPal() {
+    return {
+      body:   armor().color,
+      tread:  engine().color,
+      barrel: cannon().color,
+      sub:    subgun().color
+    };
+  }
+
+  /* ベータのクリア条件は、賞金首を全員倒すこと */
   function bossDefs() {
     return D.enemies.filter(function (e) { return e.kind === 'boss'; });
   }
   function bossesLeft() {
     return bossDefs().filter(function (e) { return !S.defeated[e.id]; }).length;
   }
-
-  function cannon() { return D.parts.cannon[S.parts.cannon]; }
-  function subgun() { return D.parts.subgun[S.parts.subgun]; }
-  function armor()  { return D.parts.armor[S.parts.armor]; }
-  function engine() { return D.parts.engine[S.parts.engine]; }
-  function maxHp()  { return armor().hp; }
 
   /* ==========================================================
      敵の配置
@@ -181,34 +198,25 @@
       var home = D.towns[0];
       var d = Math.hypot(x - home.x, y - home.y);
       var lv = d < 14 ? 0 : (d < 28 ? 1 : 2);
-      mobs.push(makeMob(x, y, lv, rnd));
+      mobs.push({
+        x: x * TILE + TILE / 2, y: y * TILE + TILE / 2,
+        lv: lv, t: rnd() * 100
+      });
     }
-  }
-  function makeMob(x, y, lv, rnd) {
-    return {
-      x: x * TILE + TILE / 2, y: y * TILE + TILE / 2,
-      lv: lv, t: rnd() * 100,
-      vx: (rnd() - .5) * .5, vy: (rnd() - .5) * .5
-    };
   }
   function nearTown(x, y, r) {
     return D.towns.some(function (t) { return Math.abs(t.x - x) <= r && Math.abs(t.y - y) <= r; });
   }
   function setupBosses() {
-    bosses = D.enemies.filter(function (e) { return e.kind === 'boss'; })
-      .map(function (e) { return { def: e, x: e.x * TILE + TILE / 2, y: e.y * TILE + TILE / 2 }; });
+    bosses = bossDefs().map(function (e) {
+      return { def: e, x: e.x * TILE + TILE / 2, y: e.y * TILE + TILE / 2 };
+    });
   }
 
   /* ==========================================================
      入力
      ========================================================== */
-  var keys = {}, pad = { up: 0, down: 0, left: 0, right: 0 };
-
-  addEventListener('keydown', function (e) {
-    keys[e.key.toLowerCase()] = true;
-    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].indexOf(e.key.toLowerCase()) >= 0) e.preventDefault();
-  });
-  addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
+  var pad = { up: 0, down: 0, left: 0, right: 0 };
 
   Array.prototype.forEach.call(document.querySelectorAll('#pad button'), function (b) {
     var d = b.dataset.dir;
@@ -220,21 +228,13 @@
     b.addEventListener('pointerleave', off);
   });
 
-  function axis() {
-    var ax = 0, ay = 0;
-    if (keys.arrowleft  || keys.a || pad.left)  ax -= 1;
-    if (keys.arrowright || keys.d || pad.right) ax += 1;
-    if (keys.arrowup    || keys.w || pad.up)    ay -= 1;
-    if (keys.arrowdown  || keys.s || pad.down)  ay += 1;
-    return [ax, ay];
-  }
-
   /* ==========================================================
      進行状態
      ========================================================== */
-  var scene = 'field';      // field / mob / boss / town
-  var ang = 0;              // 車体の向き
-  var cool = 0;             // 戦闘直後の無敵時間
+  var scene = 'field';      // field / mob / boss / town / clear
+  var facing = 'right';
+  var flipX = false;
+  var cool = 0;             // 戦闘直後の無敵時間（フレーム）
   var townLock = null;      // 同じ街で繰り返し開かないようにする
 
   var toastEl = document.getElementById('toast'), toastT = 0;
@@ -264,6 +264,8 @@
     document.getElementById('goal').classList.toggle('is-done', done === all);
   }
 
+  function num(v, fix) { return fix == null ? v : v.toFixed(fix); }
+
   function hud() {
     var hp = Math.max(0, Math.round(S.hp)), max = maxHp();
     document.getElementById('hud-hp').textContent = hp + ' / ' + max;
@@ -285,46 +287,176 @@
   }
 
   /* ==========================================================
-     フィールドの更新
+     Phaser のシーン
      ========================================================== */
-  function update() {
-    if (toastT > 0 && --toastT === 0) toastEl.hidden = true;
-    if (scene !== 'field') return;
-    if (cool > 0) cool--;
+  var G = null;          // シーンへの参照。DOM 側から絵を触るのに使う
 
-    var a = axis(), ax = a[0], ay = a[1];
-    var sp = engine().spd;
-    if (ax || ay) {
-      var len = Math.hypot(ax, ay);
-      var nx = S.x + ax / len * sp, ny = S.y + ay / len * sp;
-      // 既に岩の中にいるときは判定を外す。
-      // 外さないと、移動先も同じ岩タイルなので永久に出られなくなる。
-      var stuck = blocked(S.x, S.y);
-      // 縦横を別々に判定して、壁ぎわで引っかからないようにする
-      if (stuck || !blocked(nx, S.y)) S.x = nx;
-      if (stuck || !blocked(S.x, ny)) S.y = ny;
-      ang = Math.atan2(ay, ax);
+  var Field = {
+    key: 'field',
+
+    create: function () {
+      G = this;
+      ART.register(this, tankPal());
+
+      // 地形は一度だけ大きなテクスチャに焼く。毎フレーム2700枚を描くのは無駄
+      var rt = this.add.renderTexture(0, 0, WORLD_W, WORLD_H).setOrigin(0, 0).setDepth(0);
+      rt.beginDraw();
+      for (var y = 0; y < MAPH; y++) {
+        for (var x = 0; x < MAPW; x++) {
+          rt.batchDraw(tileKey(x, y), x * TILE, y * TILE);
+        }
+      }
+      rt.endDraw();
+
+      // 賞金首。部位ごとに重ねて、壊れた部位を消せるようにする
+      this.bossViews = bosses.map(function (b) {
+        var id = b.def.id;
+        var parts = {};
+        var layers = ['track', 'body'].concat(
+          b.def.parts.map(function (p) { return p.key; })
+            .filter(function (k) { return k !== 'body' && k !== 'track'; })
+        );
+        var list = layers.map(function (k) {
+          var sp = G.add.sprite(b.x, b.y, 'boss-' + id + '-' + k).setDepth(b.y);
+          parts[k] = sp;
+          return sp;
+        });
+        return { def: b.def, sprites: list, byKey: parts };
+      });
+
+      // 雑魚
+      this.mobViews = mobs.map(function (m) {
+        return G.add.sprite(m.x, m.y, 'mob-' + m.lv).setDepth(m.y);
+      });
+
+      // 自車
+      this.tank = this.add.sprite(S.x, S.y, 'tank-right').setDepth(S.y + 1);
+
+      this.cameras.main
+        .setBounds(0, 0, WORLD_W, WORLD_H)
+        .setZoom(ZOOM)
+        .startFollow(this.tank, true, 0.18, 0.18);
+
+      this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
+      this.input.keyboard.addCapture('UP,DOWN,LEFT,RIGHT,SPACE');
+
+      refreshBossViews();
+      hud();
+      syncIdle();
+    },
+
+    update: function (time, delta) {
+      var step = Math.min(delta, 50) / 16.667;    // 60fps を1歩とする
+      if (toastT > 0) { toastT -= step; if (toastT <= 0) toastEl.hidden = true; }
+
+      // 雑魚はゆっくり漂う
+      var self = this;
+      mobs.forEach(function (m, i) {
+        m.t += .02 * step;
+        var mx = m.x + Math.cos(m.t) * .18 * step, my = m.y + Math.sin(m.t * .7) * .18 * step;
+        if (!blocked(mx, my)) { m.x = mx; m.y = my; }
+        var v = self.mobViews[i];
+        v.setPosition(Math.round(m.x), Math.round(m.y)).setDepth(m.y);
+      });
+
+      if (scene !== 'field') return;
+      if (cool > 0) cool -= step;
+
+      var a = axis(this), ax = a[0], ay = a[1];
+      var sp = engine().spd * (TILE / 32) * step;
+      if (ax || ay) {
+        var len = Math.hypot(ax, ay);
+        var nx = S.x + ax / len * sp, ny = S.y + ay / len * sp;
+        // 既に岩の中にいるときは判定を外す。
+        // 外さないと、移動先も同じ岩タイルなので永久に出られなくなる。
+        var stuck = blocked(S.x, S.y);
+        // 縦横を別々に判定して、壁ぎわで引っかからないようにする
+        if (stuck || !blocked(nx, S.y)) S.x = nx;
+        if (stuck || !blocked(S.x, ny)) S.y = ny;
+
+        // 向きは4方向。斜めのときは動きの大きい方を採る
+        if (Math.abs(ax) >= Math.abs(ay)) { facing = 'right'; flipX = ax < 0; }
+        else { facing = ay < 0 ? 'up' : 'down'; flipX = false; }
+      }
+
+      this.tank.setTexture('tank-' + facing).setFlipX(flipX)
+        .setPosition(Math.round(S.x), Math.round(S.y)).setDepth(S.y + 1);
+
+      if (cool <= 0) checkEncounter();
+      checkTown();
+      drawMinimap();
     }
+  };
 
-    // 雑魚はゆっくり漂う
-    mobs.forEach(function (m) {
-      m.t += .02;
-      var mx = m.x + Math.cos(m.t) * .35, my = m.y + Math.sin(m.t * .7) * .35;
-      if (!blocked(mx, my)) { m.x = mx; m.y = my; }
-    });
-
-    if (cool === 0) checkEncounter();
-    checkTown();
+  function tileKey(x, y) {
+    var t = map[y][x];
+    if (t === ROCK) return 'tile-rock-' + ((x * 3 + y) % 3);
+    if (t === ROAD) return 'tile-road-' + ((x * 2 + y) % 3);
+    if (t === TOWN) return 'tile-town-0';
+    return 'tile-sand-' + ((x * 5 + y * 3) % 3);
   }
 
+  function axis(sc) {
+    var k = sc.keys, ax = 0, ay = 0;
+    if (k.LEFT.isDown  || k.A.isDown || pad.left)  ax -= 1;
+    if (k.RIGHT.isDown || k.D.isDown || pad.right) ax += 1;
+    if (k.UP.isDown    || k.W.isDown || pad.up)    ay -= 1;
+    if (k.DOWN.isDown  || k.S.isDown || pad.down)  ay += 1;
+    return [ax, ay];
+  }
+
+  /* 倒した賞金首を画面から消す */
+  function refreshBossViews() {
+    if (!G || !G.bossViews) return;
+    G.bossViews.forEach(function (v) {
+      var gone = !!S.defeated[v.def.id];
+      v.sprites.forEach(function (sp) { sp.setVisible(!gone); });
+    });
+  }
+
+  /* 装備を積み替えたら戦車を描き直す */
+  function refreshTank() {
+    if (!G) return;
+    ART.retank(G, tankPal());
+    G.tank.setTexture('tank-' + facing);
+  }
+
+  /* ==========================================================
+     ミニマップ（DOM の小さなキャンバスに描く）
+     ========================================================== */
+  var mmEl = document.getElementById('minimap');
+  var mmG = mmEl ? mmEl.getContext('2d') : null;
+
+  function drawMinimap() {
+    if (!mmG) return;
+    var w = mmEl.width, h = mmEl.height;
+    mmG.fillStyle = 'rgba(5,7,10,.8)';
+    mmG.fillRect(0, 0, w, h);
+    var sx = w / MAPW, sy = h / MAPH;
+    D.towns.forEach(function (t) {
+      mmG.fillStyle = '#d9a441';
+      mmG.fillRect(t.x * sx - 1, t.y * sy - 1, 3, 3);
+    });
+    bosses.forEach(function (b) {
+      if (S.defeated[b.def.id]) return;
+      mmG.fillStyle = '#e03919';
+      mmG.fillRect(b.def.x * sx - 1, b.def.y * sy - 1, 3, 3);
+    });
+    mmG.fillStyle = '#3fb87a';
+    mmG.fillRect((S.x / TILE) * sx - 1, (S.y / TILE) * sy - 1, 3, 3);
+  }
+
+  /* ==========================================================
+     遭遇の判定
+     ========================================================== */
   function checkEncounter() {
     for (var i = 0; i < mobs.length; i++) {
-      if (Math.hypot(mobs[i].x - S.x, mobs[i].y - S.y) < 20) { startMob(i); return; }
+      if (Math.hypot(mobs[i].x - S.x, mobs[i].y - S.y) < 10) { startMob(i); return; }
     }
     for (var j = 0; j < bosses.length; j++) {
       var b = bosses[j];
       if (S.defeated[b.def.id]) continue;
-      if (Math.hypot(b.x - S.x, b.y - S.y) < 26) { startBoss(j); return; }
+      if (Math.hypot(b.x - S.x, b.y - S.y) < 14) { startBoss(j); return; }
     }
   }
 
@@ -335,133 +467,6 @@
     if (townLock === here.id) return;
     townLock = here.id;
     openTown(here);
-  }
-
-  /* ==========================================================
-     描画
-     ========================================================== */
-  function draw() {
-    var camX = Math.max(0, Math.min(S.x - cv.width / 2, MAPW * TILE - cv.width));
-    var camY = Math.max(0, Math.min(S.y - cv.height / 2, MAPH * TILE - cv.height));
-
-    g.fillStyle = '#14181c';
-    g.fillRect(0, 0, cv.width, cv.height);
-
-    var x0 = Math.floor(camX / TILE), y0 = Math.floor(camY / TILE);
-    var x1 = Math.ceil((camX + cv.width) / TILE), y1 = Math.ceil((camY + cv.height) / TILE);
-
-    for (var y = y0; y <= y1; y++) {
-      for (var x = x0; x <= x1; x++) {
-        if (!map[y] || map[y][x] === undefined) continue;
-        var t = map[y][x], sx = x * TILE - camX, sy = y * TILE - camY;
-        if (t === SAND)      { g.fillStyle = ((x + y) % 2) ? '#3a3325' : '#3d3627'; }
-        else if (t === ROAD) { g.fillStyle = '#4a4433'; }
-        else if (t === TOWN) { g.fillStyle = '#5a4a30'; }
-        else                 { g.fillStyle = '#23262a'; }
-        g.fillRect(sx, sy, TILE, TILE);
-
-        if (t === ROCK) {
-          g.fillStyle = '#2c3136';
-          g.beginPath();
-          g.arc(sx + 16, sy + 17, 11, 0, 6.29);
-          g.fill();
-        }
-        if (t === TOWN) drawTown(sx, sy);
-      }
-    }
-
-    bosses.forEach(function (b) {
-      if (S.defeated[b.def.id]) return;
-      drawBoss(b.x - camX, b.y - camY);
-    });
-    mobs.forEach(function (m) { drawMob(m.x - camX, m.y - camY, m.lv); });
-    drawTank(S.x - camX, S.y - camY);
-
-    drawMinimap();
-  }
-
-  function drawTown(sx, sy) {
-    g.fillStyle = '#d9a441';
-    g.fillRect(sx + 7, sy + 12, 8, 12);
-    g.fillRect(sx + 18, sy + 8, 8, 16);
-    g.fillStyle = '#8a6a28';
-    g.fillRect(sx + 5, sy + 24, 23, 3);
-  }
-
-  /* 車体は装甲、履帯はエンジン、砲身は主砲と副砲の色。
-     何を積んでいるかが、地図の上の戦車を見るだけで分かるようにする。 */
-  function drawTank(x, y) {
-    g.save();
-    g.translate(x, y);
-    g.rotate(ang);
-
-    g.fillStyle = engine().color;
-    g.fillRect(-11, -10.5, 22, 3.5);
-    g.fillRect(-11, 7, 22, 3.5);
-
-    g.fillStyle = armor().color;
-    g.fillRect(-11, -8, 22, 16);
-
-    var sub = subgun().color;
-    if (sub) {                          // 副砲は車体の脇から短く出す
-      g.fillStyle = sub;
-      g.fillRect(1, -7.5, 12, 3);
-    }
-
-    g.fillStyle = cannon().color;
-    g.fillRect(0, -2.5, 17, 5);         // 主砲の砲身
-    g.restore();
-  }
-
-  /* 色の差だけだと見分けがつかないので、大きさも変える。
-     強い敵ほど大きい。賞金首の赤とかぶらないよう、最強は紫にしてある。 */
-  var MOB_LOOK = [
-    { col: '#9fb4c6', r: 7   },   // 弱い
-    { col: '#f0c53c', r: 9.5 },   // 中くらい
-    { col: '#b45cd6', r: 12  }    // 強い
-  ];
-
-  function drawMob(x, y, lv) {
-    var k = MOB_LOOK[lv];
-    g.beginPath();
-    g.moveTo(x, y - k.r);
-    g.lineTo(x + k.r * .9, y + k.r * .8);
-    g.lineTo(x - k.r * .9, y + k.r * .8);
-    g.closePath();
-    g.fillStyle = k.col;
-    g.fill();
-    // 砂の上でも輪郭が立つように縁を付ける
-    g.strokeStyle = '#12161a';
-    g.lineWidth = 2;
-    g.stroke();
-  }
-
-  function drawBoss(x, y) {
-    g.fillStyle = '#e03919';
-    g.beginPath(); g.arc(x, y, 13, 0, 6.29); g.fill();
-    g.strokeStyle = '#12161a'; g.lineWidth = 2; g.stroke();
-    g.fillStyle = '#fff';
-    g.font = 'bold 13px sans-serif';
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('!', x, y + 1);
-  }
-
-  function drawMinimap() {
-    var w = 92, h = 69, px = 12, py = 12;
-    g.fillStyle = 'rgba(5,7,10,.78)';
-    g.fillRect(px - 4, py - 4, w + 8, h + 8);
-    var sx = w / MAPW, sy = h / MAPH;
-    D.towns.forEach(function (t) {
-      g.fillStyle = '#d9a441';
-      g.fillRect(px + t.x * sx - 1, py + t.y * sy - 1, 3, 3);
-    });
-    bosses.forEach(function (b) {
-      if (S.defeated[b.def.id]) return;
-      g.fillStyle = '#e03919';
-      g.fillRect(px + b.def.x * sx - 1, py + b.def.y * sy - 1, 3, 3);
-    });
-    g.fillStyle = '#3fb87a';
-    g.fillRect(px + (S.x / TILE) * sx - 1, py + (S.y / TILE) * sy - 1, 3, 3);
   }
 
   /* ==========================================================
@@ -503,8 +508,7 @@
     if (S.hp > 0) {
       S.gold += e.gold;
       log.push('<p class="good">' + e.name + 'を撃破。' + e.gold + ' G を獲得した。</p>');
-      // 倒した敵は別の場所に湧き直す
-      relocate(m);
+      relocate(m);                      // 倒した敵は別の場所に湧き直す
     } else {
       S.hp = Math.max(1, Math.floor(maxHp() * 0.2));
       S.gold = Math.floor(S.gold * 0.7);
@@ -520,11 +524,10 @@
   }
 
   function relocate(m) {
-    var rnd = Math.random;
     for (var i = 0; i < 400; i++) {
-      var x = Math.floor(rnd() * MAPW), y = Math.floor(rnd() * MAPH);
+      var x = Math.floor(Math.random() * MAPW), y = Math.floor(Math.random() * MAPH);
       if (map[y][x] === ROCK || map[y][x] === TOWN || nearTown(x, y, 3)) continue;
-      if (Math.hypot(x * TILE - S.x, y * TILE - S.y) < 260) continue;
+      if (Math.hypot(x * TILE - S.x, y * TILE - S.y) < 130) continue;
       m.x = x * TILE + TILE / 2; m.y = y * TILE + TILE / 2;
       return;
     }
@@ -535,6 +538,7 @@
     S.x = h.x * TILE + TILE / 2;
     S.y = (h.y + 2) * TILE + TILE / 2;
     townLock = h.id;
+    if (G) G.tank.setPosition(S.x, S.y);
   }
 
   document.getElementById('mob-fight').addEventListener('click', resolveMob);
@@ -616,9 +620,17 @@
     if (p.hp <= 0) {
       p.hp = 0;
       bossLog('<p class="good">' + p.def.name + 'を破壊した。</p>');
+      breakPart(B.def.id, p.def.key);
       if (p.def.key === 'body') return winBoss();
     }
     enemyTurn();
+  }
+
+  /* 壊れた部位を地図の上からも消す */
+  function breakPart(bossId, key) {
+    if (!G || !G.bossViews) return;
+    var v = G.bossViews.filter(function (x) { return x.def.id === bossId; })[0];
+    if (v && v.byKey[key]) v.byKey[key].setVisible(false);
   }
 
   document.getElementById('boss-repair').addEventListener('click', function () {
@@ -644,7 +656,51 @@
     }
   });
 
-  /* ---------- クリア ---------- */
+  function enemyTurn() {
+    var trackBroken = B.parts.some(function (p) { return p.def.key === 'track' && p.hp <= 0; });
+    B.parts.forEach(function (p) {
+      if (p.hp <= 0 || !p.def.atk) return;
+      if (trackBroken && Math.random() < 0.4) {
+        bossLog('<p>' + p.def.name + 'の攻撃。足を潰されて狙いが逸れた。</p>');
+        return;
+      }
+      var d = Math.max(1, p.def.atk - armor().def + Math.floor(Math.random() * 7) - 3);
+      S.hp -= d;
+      bossLog('<p>' + p.def.name + 'の攻撃。<span class="dmg">' + d + '</span> を受けた。</p>');
+    });
+
+    if (S.hp <= 0) return loseBoss();
+    renderBoss(); hud(); save();
+  }
+
+  function winBoss() {
+    B.over = true;
+    S.defeated[B.def.id] = true;
+    S.gold += B.def.gold;
+    bossLog('<p class="good">' + B.def.name + 'を撃破した。賞金 ' + B.def.gold + ' G。</p>');
+    refreshBossViews();
+    endBoss();
+  }
+
+  function loseBoss() {
+    B.over = true;
+    S.hp = Math.max(1, Math.floor(maxHp() * 0.2));
+    S.gold = Math.floor(S.gold * 0.7);
+    bossLog('<p class="dmg">大破。牽引されて基地へ戻された。</p>');
+    warpHome();
+    endBoss();
+  }
+
+  function endBoss() {
+    renderBoss();
+    document.getElementById('boss-actions').hidden = true;
+    document.getElementById('boss-end').hidden = false;
+    hud(); save();
+  }
+
+  /* ==========================================================
+     クリア
+     ========================================================== */
   function openClear() {
     scene = 'clear';
     var host = document.getElementById('clear-result');
@@ -670,47 +726,6 @@
     cool = 90;
     toast('荒野はまだ続く。');
   });
-
-  function enemyTurn() {
-    var trackBroken = B.parts.some(function (p) { return p.def.key === 'track' && p.hp <= 0; });
-    B.parts.forEach(function (p) {
-      if (p.hp <= 0 || !p.def.atk) return;
-      if (trackBroken && Math.random() < 0.4) {
-        bossLog('<p>' + p.def.name + 'の攻撃。足を潰されて狙いが逸れた。</p>');
-        return;
-      }
-      var d = Math.max(1, p.def.atk - armor().def + Math.floor(Math.random() * 7) - 3);
-      S.hp -= d;
-      bossLog('<p>' + p.def.name + 'の攻撃。<span class="dmg">' + d + '</span> を受けた。</p>');
-    });
-
-    if (S.hp <= 0) return loseBoss();
-    renderBoss(); hud(); save();
-  }
-
-  function winBoss() {
-    B.over = true;
-    S.defeated[B.def.id] = true;
-    S.gold += B.def.gold;
-    bossLog('<p class="good">' + B.def.name + 'を撃破した。賞金 ' + B.def.gold + ' G。</p>');
-    endBoss();
-  }
-
-  function loseBoss() {
-    B.over = true;
-    S.hp = Math.max(1, Math.floor(maxHp() * 0.2));
-    S.gold = Math.floor(S.gold * 0.7);
-    bossLog('<p class="dmg">大破。牽引されて基地へ戻された。</p>');
-    warpHome();
-    endBoss();
-  }
-
-  function endBoss() {
-    renderBoss();
-    document.getElementById('boss-actions').hidden = true;
-    document.getElementById('boss-end').hidden = false;
-    hud(); save();
-  }
 
   /* ==========================================================
      街
@@ -782,6 +797,7 @@
         S.gold -= next.price;
         S.parts[key] = cur + 1;
         if (key === 'armor') S.hp = maxHp();
+        refreshTank();
         hud(); save(); renderShop();
       });
     });
@@ -794,7 +810,6 @@
            + (next ? ' <b>→ ' + num(next[st.key], st.fix) + '</b>' : '') + '</span>';
     }).join('') + '</span>';
   }
-  function num(v, fix) { return fix == null ? v : v.toFixed(fix); }
   function about(info) { return '<span class="tk-about">' + info.about + '</span>'; }
 
   function addItem(host, name, desc, price, can, onBuy) {
@@ -815,7 +830,7 @@
   function renderBounty() {
     var host = document.getElementById('tab-bounty');
     host.innerHTML = '';
-    var list = D.enemies.filter(function (e) { return e.kind === 'boss' && e.town === curTown.id; });
+    var list = bossDefs().filter(function (e) { return e.town === curTown.id; });
     if (!list.length) { host.innerHTML = '<p class="tk-item-desc">この街に依頼は出ていない。</p>'; return; }
     list.forEach(function (e) {
       var done = !!S.defeated[e.id];
@@ -863,6 +878,17 @@
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
     S = fresh(); S.hp = maxHp();
     spawnMobs();
+    if (G) {
+      G.mobViews.forEach(function (v, i) {
+        v.setTexture('mob-' + mobs[i].lv).setPosition(mobs[i].x, mobs[i].y);
+      });
+      G.tank.setPosition(S.x, S.y);
+      refreshTank();
+      refreshBossViews();
+      G.bossViews.forEach(function (v) {
+        v.sprites.forEach(function (sp) { sp.setVisible(true); });
+      });
+    }
     panel('town', false); panel('mob', false); panel('boss', false); panel('clear', false);
     scene = 'field'; townLock = null;
     hud(); save();
@@ -876,27 +902,33 @@
   load();
   spawnMobs();
   setupBosses();
-  hud();
-  syncIdle();
 
-  (function loop() {
-    update();
-    draw();
-    requestAnimationFrame(loop);
-  })();
+  var game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: 'stage',
+    width: VIEW_W, height: VIEW_H,
+    pixelArt: true,
+    backgroundColor: '#14181c',
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_HORIZONTALLY },
+    scene: Field
+  });
 
   /* URL に ?debug=1 が付いているときだけ、動作確認用の入口を開ける。
      通常の閲覧では何も生えない。 */
   if (/[?&]debug=1/.test(location.search)) {
     window.__tank = {
-      step: function (n) { for (var i = 0; i < (n || 1); i++) update(); },
       state: function () { return S; },
-      info: function () { return { scene: scene, cool: cool, townLock: townLock, mobs: mobs.length }; },
+      info: function () { return { scene: scene, cool: cool, townLock: townLock, mobs: mobs.length, facing: facing }; },
       mobAt: function (i) { return mobs[i]; },
       towns: function () { return D.towns; },
       openTown: openTown,
       startBoss: startBoss,
-      warp: function (tx, ty) { S.x = tx * TILE + TILE / 2; S.y = ty * TILE + TILE / 2; }
+      warp: function (tx, ty) {
+        S.x = tx * TILE + TILE / 2; S.y = ty * TILE + TILE / 2;
+        if (G) G.tank.setPosition(S.x, S.y);
+      },
+      scene: function () { return G; },
+      game: function () { return game; }
     };
   }
 })();

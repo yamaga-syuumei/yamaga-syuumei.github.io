@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ファミコン準拠の検証</title>
+<style>
+  body { margin:0; background:#101010; color:#e7ecf1;
+         font-family:"Yu Gothic","Meiryo",system-ui,sans-serif; padding:18px; font-size:13px; }
+  h2 { font-size:13px; color:#9aa6b2; margin:20px 0 8px; font-weight:700; }
+  p.note { color:#6f7c88; font-size:11.5px; margin:0 0 10px; max-width:760px; line-height:1.7; }
+  .row { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
+  canvas { image-rendering:pixelated; display:block; }
+  .cell { text-align:center; }
+  .cell canvas { background:#181818; border:1px solid #333; }
+  .cell span { display:block; font-size:10px; color:#6f7c88; margin-top:4px; }
+  .pal { display:grid; grid-template-columns:repeat(16,20px); gap:2px; }
+  .pal i { width:20px; height:20px; display:block; }
+  .screen { border:2px solid #444; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+/* ==========================================================
+   ファミコン（PPU 2C02）のマスターパレット
+   ここに無い色は使わない
+   ========================================================== */
+var NES = {};
+[
+ ['00',124,124,124],['01',0,0,252],['02',0,0,188],['03',68,40,188],
+ ['04',148,0,132],['05',168,0,32],['06',168,16,0],['07',136,20,0],
+ ['08',80,48,0],['09',0,120,0],['0A',0,104,0],['0B',0,88,0],
+ ['0C',0,64,88],['0F',0,0,0],
+ ['10',188,188,188],['11',0,120,248],['12',0,88,248],['13',104,68,252],
+ ['14',216,0,204],['15',228,0,88],['16',248,56,0],['17',228,92,16],
+ ['18',172,124,0],['19',0,184,0],['1A',0,168,0],['1B',0,168,68],
+ ['1C',0,136,136],
+ ['20',248,248,248],['21',60,188,252],['22',104,136,252],['23',152,120,248],
+ ['24',248,120,248],['25',248,88,152],['26',248,120,88],['27',252,160,68],
+ ['28',248,184,0],['29',184,248,24],['2A',88,216,84],['2B',88,248,152],
+ ['2C',0,232,216],['2D',120,120,120],
+ ['30',252,252,252],['31',164,228,252],['32',184,184,248],['33',216,184,248],
+ ['34',248,184,248],['35',248,164,192],['36',240,208,176],['37',252,224,168],
+ ['38',248,216,120],['39',216,248,120],['3A',184,248,184],['3B',184,248,216],
+ ['3C',0,252,252],['3D',216,216,216]
+].forEach(function(e){ NES[e[0]] = 'rgb(' + e[1] + ',' + e[2] + ',' + e[3] + ')'; });
+
+var out = document.getElementById('out');
+function h2(t, note){ var h=document.createElement('h2'); h.textContent=t; out.appendChild(h);
+  if(note){ var p=document.createElement('p'); p.className='note'; p.textContent=note; out.appendChild(p); }
+  var r=document.createElement('div'); r.className='row'; out.appendChild(r); return r; }
+function show(row, cv, label, scale){ scale=scale||4;
+  var c=document.createElement('canvas'); c.width=cv.width*scale; c.height=cv.height*scale;
+  var g=c.getContext('2d'); g.imageSmoothingEnabled=false; g.drawImage(cv,0,0,c.width,c.height);
+  var d=document.createElement('div'); d.className='cell'; d.appendChild(c);
+  var s=document.createElement('span'); s.textContent=label; d.appendChild(s); row.appendChild(d); }
+
+/* ==========================================================
+   ドットの並びを文字で書く。
+   . = 透明 / 1,2,3 = そのスプライトのパレット3色
+   1スプライト3色までという制約を、書き方の側で守らせる。
+   ========================================================== */
+function sprite(rows, pal) {
+  var w = rows[0].length, h = rows.length;
+  rows.forEach(function(r, i){ if (r.length !== w) throw new Error('行 ' + i + ' の幅が違う: ' + r.length); });
+  var c = document.createElement('canvas'); c.width=w; c.height=h;
+  var g = c.getContext('2d');
+  for (var y=0; y<h; y++) for (var x=0; x<w; x++) {
+    var ch = rows[y][x];
+    if (ch === '.') continue;
+    var col = pal[+ch - 1];
+    if (!col) throw new Error('色 ' + ch + ' が未定義');
+    g.fillStyle = NES[col]; g.fillRect(x, y, 1, 1);
+  }
+  return c;
+}
+
+/* ---------- 16x16 の戦車。右向き ---------- */
+var TANK = [
+  '................',
+  '................',
+  '..1111111111....',
+  '..1313131311....',
+  '..1111111111....',
+  '.11222222211....',
+  '.12233333221....',
+  '.12333333222111.',
+  '.12333333222331.',
+  '.12233333221111.',
+  '.11222222211....',
+  '..1111111111....',
+  '..1313131311....',
+  '..1111111111....',
+  '................',
+  '................'
+];
+/* パレットを差し替えるだけで装備の見た目が変わる。
+   ファミコンのキャラ色替えと同じやり方 */
+var TANK_PAL = [
+  { name:'初期',   pal:['0F','0A','1A'] },
+  { name:'中位',   pal:['0F','02','12'] },
+  { name:'最上位', pal:['0F','18','28'] }
+];
+
+var DRONE = [
+  '................',
+  '................',
+  '..1..........1..',
+  '.131........131.',
+  '..1..........1..',
+  '..1111111111 1..'.replace(' ','1'),
+  '.....111111.....',
+  '....11222211....',
+  '....12233221....',
+  '....12233221....',
+  '....11222211....',
+  '.....111111.....',
+  '................',
+  '................',
+  '................',
+  '................'
+];
+var BUGGY = [
+  '................',
+  '................',
+  '................',
+  '....111111......',
+  '....122221......',
+  '....123321......',
+  '...11233211.....',
+  '.1111111111111..',
+  '.1222222222221..',
+  '.1233333333321..',
+  '.1222222222221..',
+  '.1111111111111..',
+  '..11......11....',
+  '.1221....1221...',
+  '.1111....1111...',
+  '................'
+];
+var JUNK = [
+  '................',
+  '.......11.......',
+  '......1221......',
+  '.....112211.....',
+  '.....132231.....',
+  '.....111111.....',
+  '..111111111111..',
+  '..122222222221..',
+  '.1123333333211..',
+  '.1123322332211..',
+  '.1122333332211..',
+  '..122222222221..',
+  '..111111111111..',
+  '....11....11....',
+  '...1221..1221...',
+  '...1111..1111...'
+];
+
+/* ---------- 16x16 の地形。BGは16x16ごとに3色＋共通背景色 ---------- */
+function bgTile(rows, pal) { return sprite(rows, pal); }
+var SAND = [
+  '2222222222222222',
+  '2222232222222222',
+  '2232222222232222',
+  '2222222212222222',
+  '2222222222222322',
+  '2212222222222222',
+  '2222223222222122',
+  '2222222222222222',
+  '2222222222322222',
+  '2122222222222212',
+  '2222222222222222',
+  '2223222212222222',
+  '2222222222222222',
+  '2222212222232222',
+  '2222222222222222',
+  '2232222222212222'
+];
+var ROCK = [
+  '2222222222222222',
+  '2222111111222222',
+  '2221333331122222',
+  '2213333333312222',
+  '2133333333331222',
+  '2133333222331222',
+  '2133322222231222',
+  '2113322222231122',
+  '2113222222223122',
+  '2211222222221122',
+  '2221122222211222',
+  '2222111111112222',
+  '2222211111122222',
+  '2222222222222222',
+  '2222222222222222',
+  '2222222222222222'
+];
+var ROAD = [
+  '3333333333333333',
+  '3333323333333333',
+  '3323333333333333',
+  '3333333333233333',
+  '3333333333333333',
+  '3233333332333333',
+  '3333333333333333',
+  '3333233333333233',
+  '3333333333333333',
+  '3333333323333333',
+  '3323333333333333',
+  '3333333333333333',
+  '3333323333332333',
+  '3333333333333333',
+  '3233333333333333',
+  '3333333333333333'
+];
+var TOWNT = [
+  '3333333333333333',
+  '3331111333333333',
+  '3312221333111333',
+  '3312221331222133',
+  '3311111331222133',
+  '3312321331112133',
+  '3312321331232133',
+  '3311111331232133',
+  '3333333331111133',
+  '3311111111111133',
+  '3312222222222133',
+  '3312321232123133',
+  '3312321232123133',
+  '3311111111111133',
+  '3333333333333333',
+  '3333333333333333'
+];
+
+var PAL_SAND = ['0F','08','18'];
+var PAL_ROCK = ['0F','08','00'];
+var PAL_ROAD = ['0F','08','18'];
+var PAL_TOWN = ['0F','07','17'];
+
+/* ==========================================================
+   表示
+   ========================================================== */
+var r = h2('ファミコンのマスターパレット（全54色。これ以外は使えない）');
+var pd = document.createElement('div'); pd.className='pal';
+Object.keys(NES).forEach(function(k){ var i=document.createElement('i');
+  i.style.background=NES[k]; i.title=k; pd.appendChild(i); });
+r.appendChild(pd);
+
+r = h2('戦車 16×16・3色＋透明', 'パレットを差し替えるだけで装備の見た目が変わる。ファミコンのキャラ色替えそのもの。');
+TANK_PAL.forEach(function(p){ show(r, sprite(TANK, p.pal), p.name + '（' + p.pal.join(' ') + '）', 6); });
+
+r = h2('敵 16×16・3色＋透明');
+show(r, sprite(DRONE, ['0F','00','16']), '野良ドローン', 6);
+show(r, sprite(BUGGY, ['0F','18','28']), '砂バギー', 6);
+show(r, sprite(JUNK,  ['0F','04','14']), '廃棄ロボ', 6);
+
+r = h2('地形 16×16・3色＋共通背景色');
+show(r, bgTile(SAND, PAL_SAND), '砂', 6);
+show(r, bgTile(ROCK, PAL_ROCK), '岩', 6);
+show(r, bgTile(ROAD, PAL_ROAD), '道', 6);
+show(r, bgTile(TOWNT, PAL_TOWN), '街', 6);
+
+/* ---------- 256×240 の実画面 ---------- */
+r = h2('実画面 256×240（等倍と3倍）',
+  '16×16タイルで 16列×15行。今の 704×448（22列×14行・32pxタイル）より視野は狭くなる。');
+
+function buildScreen() {
+  var c = document.createElement('canvas'); c.width=256; c.height=240;
+  var g = c.getContext('2d'); g.imageSmoothingEnabled=false;
+  var sand = bgTile(SAND, PAL_SAND), rock = bgTile(ROCK, PAL_ROCK),
+      road = bgTile(ROAD, PAL_ROAD), town = bgTile(TOWNT, PAL_TOWN);
+  var map = [
+    'sssssssssssssrrs',
+    'ssrrssssssssssss',
+    'srrsssRRRRRsssss',
+    'ssssssRsssRssrrs',
+    'sssTssRsssRsssss',
+    'ssssssRsssRsssss',
+    'srrsssRRRRRRRRRs',
+    'ssssssssssssRsss',
+    'ssssrrssssssRsss',
+    'sssssssssssRRsss',
+    'ssrrsssssssRssss',
+    'ssssssssssRRssrr',
+    'srrssssssRRsssss',
+    'sssssssssRsssTss',
+    'ssssssssssssssss'
+  ];
+  for (var y=0; y<15; y++) for (var x=0; x<16; x++) {
+    var ch = map[y][x];
+    g.drawImage(ch==='r'?rock : ch==='R'?road : ch==='T'?town : sand, x*16, y*16);
+  }
+  // 自機と敵
+  g.drawImage(sprite(TANK, TANK_PAL[0].pal), 6*16, 6*16);
+  g.drawImage(sprite(DRONE, ['0F','00','16']), 2*16, 8*16);
+  g.drawImage(sprite(BUGGY, ['0F','18','28']), 11*16, 3*16);
+  g.drawImage(sprite(JUNK,  ['0F','04','14']), 13*16, 11*16);
+  // 会話ウィンドウ（メタルマックス風の枠）
+  g.fillStyle = NES['0F']; g.fillRect(8, 176, 240, 56);
+  g.fillStyle = NES['20']; g.fillRect(8, 176, 240, 2); g.fillRect(8, 230, 240, 2);
+  g.fillRect(8, 176, 2, 56); g.fillRect(246, 176, 2, 56);
+  return c;
+}
+var sc = buildScreen();
+show(r, sc, '等倍 256×240', 1);
+var big = document.createElement('canvas'); big.width=768; big.height=720; big.className='screen';
+var bg = big.getContext('2d'); bg.imageSmoothingEnabled=false;
+bg.drawImage(sc, 0, 0, 768, 720);
+var d = document.createElement('div'); d.className='cell'; d.appendChild(big);
+var s2 = document.createElement('span'); s2.textContent='3倍 768×720'; d.appendChild(s2);
+r.appendChild(d);
+</script>
+</body>
+</html>

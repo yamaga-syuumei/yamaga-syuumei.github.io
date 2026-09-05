@@ -105,10 +105,20 @@ button { font-family: inherit; }
   gap: 16px; align-items: start;
 }
 .tk-stage { position: relative; }
-canvas {
-  display: block; width: 100%; max-width: 704px; height: auto;
+#stage { max-width: 704px; }
+#stage canvas {
+  display: block; width: 100% !important; height: auto !important;
   background: #14181c; border: 1px solid var(--line); border-radius: 10px;
   touch-action: none;
+  image-rendering: pixelated;          /* 拡大してもドットを保つ */
+}
+
+/* 地図の左上に重ねるミニマップ */
+.tk-minimap {
+  position: absolute; top: 10px; left: 10px;
+  width: 92px; height: 69px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: rgba(5,7,10,.8); pointer-events: none;
 }
 .tk-help { color: var(--ink-2); font-size: 12px; margin: 10px 2px 0; }
 .tk-help b { color: var(--ink); font-weight: 800; margin-right: 6px; }
@@ -279,7 +289,7 @@ canvas {
 @media (max-width: 980px) {
   .tk-main { grid-template-columns: 1fr; }
   .tk-side { position: static; }
-  canvas { max-width: none; }
+  #stage { max-width: none; }
 }
 @media (max-width: 780px) {
   .tk-hud { width: 178px; top: 8px; right: 8px; padding: 7px 9px 8px; font-size: 10.5px; }

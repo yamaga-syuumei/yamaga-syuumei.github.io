@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>荒野の戦車乗り（ベータ 0.1） | ヒノガタリ</title>
+<title>荒野の戦車乗り（ベータ 0.2） | ヒノガタリ</title>
 <meta name="description" content="戦車で荒野を走り、賞金首を狩るブラウザゲームのベータ版。">
 <meta property="og:type" content="website">
-<meta property="og:title" content="荒野の戦車乗り（ベータ 0.1） | ヒノガタリ">
+<meta property="og:title" content="荒野の戦車乗り（ベータ 0.2） | ヒノガタリ">
 <meta property="og:url" content="https://yamaga-syuumei.github.io/tank/">
 <meta property="og:description" content="戦車で荒野を走り、賞金首を狩る。街で車を直し、主砲と装甲を積み替えて奥へ進む。ブラウザだけで遊べます。">
 <meta property="og:image" content="https://yamaga-syuumei.github.io/ogp.jpg">
@@ -19,13 +19,13 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=0.1">
+<link rel="stylesheet" href="style.css?v=0.2">
 </head>
 <body>
 
 <header class="tk-head">
   <a href="../" class="tk-logo">← ヒノガタリ</a>
-  <span class="tk-title">荒野の戦車乗り<b>β0.1</b></span>
+  <span class="tk-title">荒野の戦車乗り<b>β0.2</b></span>
   <span class="tk-resetwrap">
     <button class="tk-reset" id="reset">最初からやり直す</button>
     <span class="tk-resetask" id="reset-ask" hidden>
@@ -43,7 +43,8 @@
        ========================================================== -->
   <div class="tk-left">
     <div class="tk-stage">
-      <canvas id="cv" width="704" height="448"></canvas>
+      <div id="stage"></div>
+      <canvas class="tk-minimap" id="minimap" width="92" height="69"></canvas>
 
       <!-- 地図に重ねる状態表示。色見本は車体の色とそろえてある -->
       <div class="tk-hud">
@@ -154,7 +155,7 @@
       </div>
       <p class="tk-intro">賞金首を三体とも仕留めた。この荒野に、あんたより強い名前はもう残っていない。</p>
       <div class="tk-result" id="clear-result"></div>
-      <p class="tk-about">ベータ 0.1 はここまで。街とストーリーは今後追加していきます。</p>
+      <p class="tk-about">ベータ 0.2 はここまで。街とストーリーは今後追加していきます。</p>
     </div>
 
     <!-- ==========================================================
@@ -182,8 +183,10 @@
 
 </main>
 
-<script src="data.js?v=0.1"></script>
-<script src="game.js?v=0.1"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
+<script src="data.js?v=0.2"></script>
+<script src="art.js?v=0.2"></script>
+<script src="game.js?v=0.2"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
