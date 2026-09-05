@@ -1,5 +1,5 @@
 /* ==========================================================
-   荒野の戦車乗り（ベータ 0.2）
+   荒野の戦車乗り（ベータ 0.3）
 
    企画書の方針
    - 区画選択制ではなく、2Dトップダウンの地続きのフィールド
@@ -341,6 +341,7 @@
       this.input.keyboard.addCapture('UP,DOWN,LEFT,RIGHT,SPACE');
 
       refreshBossViews();
+      buildLegend();
       hud();
       syncIdle();
     },
@@ -388,6 +389,299 @@
     }
   };
 
+  /* ==========================================================
+     戦闘シーン
+
+     数値の計算とログはこれまでどおり DOM 側が持つ。
+     このシーンは「見せる」ことだけを担当し、
+     game.js から Battle.xxx() を呼んで演出を差し込む。
+     操作ボタンは右の表示エリアに残す。押す場所を動かさないため。
+     ========================================================== */
+  var BG = null;                       // 戦闘シーンへの参照
+  var battleOpen = false;
+  var CX = VIEW_W / 2;
+  var ENEMY_Y = 168, PLAYER_Y = 360;
+
+  /* Phaser の scene 配列は先頭しか自動で始まらない。
+     戦闘は必要になったときに launch し、終わったら stop する。
+     背景を毎回作り直すことになるが、中身は数個の図形なので安い。 */
+  var BattleScene = {
+    key: 'battle',
+
+    create: function (data) {
+      BG = this;
+      this.parts = {};
+
+      // 地面。砂タイルを敷いて暗く落とす
+      this.add.tileSprite(0, 0, VIEW_W, VIEW_H, 'tile-sand-0')
+        .setOrigin(0, 0).setTileScale(2, 2).setTint(0x7a6642);
+
+      // 上へ行くほど暗くして奥行きを出す
+      var sky = this.add.graphics();
+      for (var i = 0; i < 26; i++) {
+        sky.fillStyle(0x0d1013, 0.60 - i * 0.023);
+        sky.fillRect(0, i * 7, VIEW_W, 7);
+      }
+
+      // 四隅を落とす
+      var vig = this.add.graphics();
+      vig.fillStyle(0x000000, 0.40);
+      vig.fillRect(0, 0, VIEW_W, 24);
+      vig.fillRect(0, VIEW_H - 24, VIEW_W, 24);
+      vig.fillRect(0, 0, 24, VIEW_H);
+      vig.fillRect(VIEW_W - 24, 0, 24, VIEW_H);
+
+      this.shadow = this.add.ellipse(CX, ENEMY_Y + 60, 120, 22, 0x000000, 0.3).setDepth(4);
+      this.enemyBox = this.add.container(CX, ENEMY_Y).setDepth(5);
+
+      this.playerShadow = this.add.ellipse(CX, PLAYER_Y + 40, 76, 16, 0x000000, 0.3).setDepth(5);
+      this.player = this.add.sprite(CX, PLAYER_Y, 'tank-up').setScale(5).setDepth(6);
+
+      this.flash = this.add.rectangle(0, 0, VIEW_W, VIEW_H, 0xffffff)
+        .setOrigin(0, 0).setDepth(50).setAlpha(0);
+
+      var sc = this;
+      if (data.kind === 'mob') {
+        sc.enemyMain = sc.add.sprite(0, 0, 'mob-' + data.def.lv).setScale(6);
+        sc.enemyBox.add(sc.enemyMain);
+        sc.shadow.setPosition(CX, ENEMY_Y + 54).setDisplaySize(110, 20);
+      } else {
+        // 賞金首は部位ごとに重ねる。壊れたら消せるようにする
+        var order = ['track', 'body'].concat(
+          data.def.parts.map(function (p) { return p.key; })
+            .filter(function (k) { return k !== 'body' && k !== 'track'; })
+        );
+        order.forEach(function (k) {
+          var sp = sc.add.sprite(0, 0, 'boss-' + data.def.id + '-' + k).setScale(5);
+          sc.enemyBox.add(sp);
+          sc.parts[k] = sp;
+        });
+        sc.enemyMain = sc.parts.body;
+        sc.shadow.setPosition(CX, ENEMY_Y + 76).setDisplaySize(150, 26);
+      }
+
+      sc.enemyBox.setScale(0.6).setAlpha(0);
+      sc.tweens.add({ targets: sc.enemyBox, scale: 1, alpha: 1, duration: 260, ease: 'Back.easeOut' });
+    }
+  };
+
+  var Battle = {
+    /* 戦闘の開始。kind は 'mob' か 'boss' */
+    open: function (kind, def) {
+      if (!G) return;
+      battleOpen = true;
+      G.scene.pause();
+      G.scene.launch('battle', { kind: kind, def: def });
+      if (mmEl) mmEl.hidden = true;          // 戦闘中は地図を出さない
+      SFX.encounter();
+    },
+
+    /* 自車が撃つ */
+    playerFire: function (sub, damage, targetKey) {
+      if (!Battle.isOpen()) return;
+      var sc = BG;
+      var bx = CX + (sub ? 26 : 0), by = PLAYER_Y - 40;
+
+      var mf = sc.add.circle(bx, by, sub ? 7 : 12, 0xffe9a8, 0.95).setDepth(7);
+      sc.tweens.add({ targets: mf, scale: 0.2, alpha: 0, duration: 130,
+                      onComplete: function () { mf.destroy(); } });
+      sc.cameras.main.shake(sub ? 60 : 110, sub ? 0.002 : 0.005);
+      if (sub) { SFX.subFire(); } else { SFX.fire(); }
+
+      var shell = sc.add.rectangle(bx, by, sub ? 4 : 6, sub ? 10 : 16,
+                                   sub ? 0xd6e2ee : 0xffd479).setDepth(7);
+      var tx = CX + (Math.random() * 40 - 20), ty = ENEMY_Y + 8;
+      sc.tweens.add({
+        targets: shell, x: tx, y: ty, duration: sub ? 130 : 180, ease: 'Quad.easeIn',
+        onComplete: function () {
+          shell.destroy();
+          Battle.impact(tx, ty, damage, sub, targetKey);
+        }
+      });
+    },
+
+    /* 着弾。破片を散らして数字を出す */
+    impact: function (x, y, damage, small, targetKey) {
+      if (!Battle.isOpen()) return;
+      var sc = BG;
+      SFX.hit();
+
+      var burst = sc.add.circle(x, y, small ? 12 : 20, 0xfff0c0, 0.9).setDepth(8);
+      sc.tweens.add({ targets: burst, scale: 2.2, alpha: 0, duration: 240,
+                      onComplete: function () { burst.destroy(); } });
+
+      for (var i = 0; i < (small ? 5 : 10); i++) {
+        (function () {
+          var ang = Math.random() * Math.PI * 2, dist = 30 + Math.random() * 55;
+          var sp = sc.add.rectangle(x, y, 4, 4, i % 2 ? 0xffb454 : 0xc8ced4).setDepth(8);
+          sc.tweens.add({
+            targets: sp, x: x + Math.cos(ang) * dist, y: y + Math.sin(ang) * dist + 30,
+            alpha: 0, angle: 180, duration: 380 + Math.random() * 180,
+            onComplete: function () { sp.destroy(); }
+          });
+        })();
+      }
+
+      // 当たった部位を白く光らせる
+      var target = (targetKey && sc.parts[targetKey]) || sc.enemyMain;
+      if (target && target.active) {
+        target.setTintFill(0xffffff);
+        sc.time.delayedCall(70, function () { if (target.active) target.clearTint(); });
+      }
+      sc.enemyBox.x = CX + (small ? 4 : 8);
+      sc.tweens.add({ targets: sc.enemyBox, x: CX, duration: 160, ease: 'Elastic.easeOut' });
+
+      Battle.number(x, y - 16, damage, small ? '#ffe9a8' : '#ffd479', small ? 20 : 28);
+    },
+
+    /* 敵の攻撃 */
+    enemyFire: function (damage) {
+      if (!Battle.isOpen()) return;
+      var sc = BG;
+      var shell = sc.add.rectangle(CX, ENEMY_Y + 40, 6, 14, 0xff8a5a).setDepth(7);
+      sc.tweens.add({
+        targets: shell, x: CX + (Math.random() * 30 - 15), y: PLAYER_Y - 20,
+        duration: 200, ease: 'Quad.easeIn',
+        onComplete: function () {
+          shell.destroy();
+          if (!Battle.isOpen()) return;
+          SFX.damage();
+          sc.cameras.main.shake(200, 0.012);
+          sc.flash.setFillStyle(0xe03919).setAlpha(0.35);
+          sc.tweens.add({ targets: sc.flash, alpha: 0, duration: 220 });
+          sc.player.setTintFill(0xffffff);
+          sc.time.delayedCall(80, function () { sc.player.clearTint(); });
+          Battle.number(CX, PLAYER_Y - 50, damage, '#ff7a5a', 26);
+        }
+      });
+    },
+
+    /* ダメージの数字を浮かせる */
+    number: function (x, y, v, color, size) {
+      if (!Battle.isOpen()) return;
+      var sc = BG;
+      var t = sc.add.text(x, y, String(v), {
+        fontFamily: '"Yu Gothic", "Meiryo", sans-serif',
+        fontSize: size + 'px', fontStyle: 'bold', color: color,
+        stroke: '#12161a', strokeThickness: 5
+      }).setOrigin(0.5).setDepth(20);
+      sc.tweens.add({
+        targets: t, y: y - 46, alpha: 0, duration: 780, ease: 'Quad.easeOut',
+        onComplete: function () { t.destroy(); }
+      });
+    },
+
+    /* 部位の破壊 */
+    breakPart: function (key) {
+      if (!Battle.isOpen()) return;
+      var sc = BG, sp = sc.parts[key];
+      SFX.destroy();
+      sc.cameras.main.shake(280, 0.016);
+      var wx = CX + (Math.random() * 60 - 30), wy = ENEMY_Y;
+      var ring = sc.add.circle(wx, wy, 16, 0xffc46a, 0.85).setDepth(9);
+      sc.tweens.add({ targets: ring, scale: 4.5, alpha: 0, duration: 420,
+                      onComplete: function () { ring.destroy(); } });
+      for (var i = 0; i < 16; i++) {
+        (function () {
+          var ang = Math.random() * Math.PI * 2, d = 40 + Math.random() * 90;
+          var f = sc.add.rectangle(wx, wy, 5, 5, i % 3 ? 0xff9a4a : 0x9aa6b2).setDepth(9);
+          sc.tweens.add({
+            targets: f, x: wx + Math.cos(ang) * d, y: wy + Math.sin(ang) * d + 50,
+            alpha: 0, angle: 360, duration: 520 + Math.random() * 260,
+            onComplete: function () { f.destroy(); }
+          });
+        })();
+      }
+      if (sp) sc.tweens.add({ targets: sp, alpha: 0, duration: 260 });
+    },
+
+    /* 撃破 */
+    win: function () {
+      if (!Battle.isOpen()) return;
+      var sc = BG;
+      SFX.defeat();
+      sc.cameras.main.shake(500, 0.02);
+      sc.flash.setFillStyle(0xffffff).setAlpha(0.6);
+      sc.tweens.add({ targets: sc.flash, alpha: 0, duration: 420 });
+      sc.tweens.add({ targets: sc.enemyBox, alpha: 0, scale: 1.3, angle: 8, duration: 520 });
+      sc.tweens.add({ targets: sc.shadow, alpha: 0, duration: 420 });
+    },
+
+    /* 大破 */
+    lose: function () {
+      if (!Battle.isOpen()) return;
+      var sc = BG;
+      SFX.defeat();
+      sc.cameras.main.shake(500, 0.022);
+      sc.flash.setFillStyle(0xe03919).setAlpha(0.55);
+      sc.tweens.add({ targets: sc.flash, alpha: 0, duration: 520 });
+      sc.tweens.add({ targets: sc.player, alpha: 0.25, angle: -14, duration: 520 });
+      sc.tweens.add({ targets: sc.playerShadow, alpha: 0, duration: 420 });
+    },
+
+    /* 応急修理 */
+    repair: function (amount) {
+      if (!Battle.isOpen()) return;
+      var sc = BG;
+      SFX.repair();
+      var ring = sc.add.circle(CX, PLAYER_Y, 30, 0x3fb87a, 0)
+        .setStrokeStyle(3, 0x7fe3a6, 0.9).setDepth(9);
+      sc.tweens.add({ targets: ring, scale: 2.4, alpha: 0, duration: 480,
+                      onComplete: function () { ring.destroy(); } });
+      Battle.number(CX, PLAYER_Y - 50, '+' + amount, '#7fe3a6', 26);
+    },
+
+    /* 戦闘の終了。フィールドへ戻す */
+    close: function () {
+      if (!battleOpen) return;
+      battleOpen = false;
+      if (BG) { BG.scene.stop(); BG = null; }
+      if (mmEl) mmEl.hidden = false;
+      if (G) G.scene.resume();
+    },
+
+    isOpen: function () { return battleOpen; }
+  };
+
+  /* 待機カードの凡例。実際のスプライトを描き写す。
+     手書きの図形で代用すると、絵を描き変えたときに黙ってずれる。 */
+  function buildLegend() {
+    var host = document.getElementById('legend');
+    if (!host || !G) return;
+    host.innerHTML = '';
+
+    var boss = bossDefs()[0];
+    var bossKeys = ['track', 'body'].concat(
+      boss.parts.map(function (p) { return p.key; })
+        .filter(function (k) { return k !== 'body' && k !== 'track'; })
+    ).map(function (k) { return 'boss-' + boss.id + '-' + k; });
+
+    [{ keys: ['mob-0'], name: D.enemies[0].name, note: '弱い',   scale: 2 },
+     { keys: ['mob-1'], name: D.enemies[1].name, note: '中くらい', scale: 2 },
+     { keys: ['mob-2'], name: D.enemies[2].name, note: '強い',   scale: 2 },
+     { keys: bossKeys,  name: '賞金首',          note: '地図の赤い点',   scale: 1 },
+     { keys: ['tile-town-0'], name: '街',        note: '地図の黄色い点', scale: 2 }
+    ].forEach(function (r) {
+      var c = document.createElement('canvas');
+      c.width = 32; c.height = 32;
+      var g2 = c.getContext('2d');
+      g2.imageSmoothingEnabled = false;
+      r.keys.forEach(function (k) {
+        if (!G.textures.exists(k)) return;
+        var img = G.textures.get(k).getSourceImage();
+        var w = img.width * r.scale, h = img.height * r.scale;
+        g2.drawImage(img, (32 - w) / 2, (32 - h) / 2, w, h);
+      });
+      var row = document.createElement('div');
+      var nm = document.createElement('span');
+      nm.textContent = r.name;
+      var note = document.createElement('em');
+      note.textContent = r.note;
+      row.appendChild(c); row.appendChild(nm); row.appendChild(note);
+      host.appendChild(row);
+    });
+  }
+
   function tileKey(x, y) {
     var t = map[y][x];
     if (t === ROCK) return 'tile-rock-' + ((x * 3 + y) % 3);
@@ -419,6 +713,7 @@
     if (!G) return;
     ART.retank(G, tankPal());
     G.tank.setTexture('tank-' + facing);
+    if (BG && BG.player) BG.player.setTexture('tank-up');
   }
 
   /* ==========================================================
@@ -478,6 +773,7 @@
     mobIdx = i;
     scene = 'mob';
     var e = D.enemies[mobs[i].lv];
+    Battle.open('mob', { lv: mobs[i].lv });
     document.getElementById('mob-title').textContent = e.name + 'と遭遇';
     document.getElementById('mob-log').innerHTML = '<p>' + e.name + 'が向かってくる。</p>';
     document.getElementById('mob-fight').hidden = false;
@@ -488,22 +784,28 @@
 
   function resolveMob() {
     var m = mobs[mobIdx], e = D.enemies[m.lv];
-    var ehp = e.hp, log = [], guard = 0;
+    var ehp = e.hp, log = [], shots = [], guard = 0;
 
     while (ehp > 0 && S.hp > 0 && guard++ < 40) {
       var d1 = Math.max(1, cannon().atk - e.def + Math.floor(Math.random() * 7) - 3);
       ehp -= d1;
       log.push('<p>主砲命中。<span class="hit">' + d1 + '</span> のダメージ。</p>');
+      shots.push({ who: 'main', d: d1 });
       if (ehp > 0 && subgun().atk > 0) {
         var ds = Math.max(1, subgun().atk - e.def + Math.floor(Math.random() * 5) - 2);
         ehp -= ds;
         log.push('<p>副砲が続けて撃つ。<span class="hit">' + ds + '</span> のダメージ。</p>');
+        shots.push({ who: 'sub', d: ds });
       }
       if (ehp <= 0) break;
       var d2 = Math.max(1, e.atk - armor().def + Math.floor(Math.random() * 5) - 2);
       S.hp -= d2;
       log.push('<p>' + e.name + 'の反撃。<span class="dmg">' + d2 + '</span> を受けた。</p>');
+      shots.push({ who: 'enemy', d: d2 });
     }
+
+    // オート戦闘なので、撃ち合いを早回しで見せる
+    playVolley(shots, S.hp > 0);
 
     if (S.hp > 0) {
       S.gold += e.gold;
@@ -521,6 +823,24 @@
     document.getElementById('mob-run').hidden = true;
     document.getElementById('mob-close').hidden = false;
     hud(); save();
+  }
+
+  /* 雑魚戦の撃ち合いを順に再生する。長引くと待たせるので上限を切る */
+  function playVolley(shots, won) {
+    if (!Battle.isOpen()) return;
+    var step = 150, shown = shots.slice(0, 10), t = 0;
+    shown.forEach(function (sh) {
+      setTimeout(function () {
+        if (!Battle.isOpen()) return;
+        if (sh.who === 'enemy') Battle.enemyFire(sh.d);
+        else Battle.playerFire(sh.who === 'sub', sh.d, null);
+      }, t);
+      t += step;
+    });
+    setTimeout(function () {
+      if (!Battle.isOpen()) return;
+      if (won) Battle.win(); else Battle.lose();
+    }, t + 120);
   }
 
   function relocate(m) {
@@ -548,10 +868,11 @@
   document.getElementById('mob-close').addEventListener('click', function () { closeMob(''); });
 
   function closeMob(msg) {
+    Battle.close();
     panel('mob', false);
     scene = 'field';
     cool = 60;
-    if (msg) toast(msg);
+    if (msg) { SFX.escape(); toast(msg); }
   }
 
   /* ==========================================================
@@ -567,6 +888,7 @@
       repairs: 2, over: false
     };
     scene = 'boss';
+    Battle.open('boss', def);
     document.getElementById('boss-title').textContent = def.name;
     document.getElementById('boss-log').innerHTML = '<p>' + def.desc + '</p>';
     document.getElementById('boss-actions').hidden = false;
@@ -612,15 +934,18 @@
     var d = Math.max(1, cannon().atk - p.def.def + Math.floor(Math.random() * 9) - 4);
     p.hp -= d;
     bossLog('<p>' + p.def.name + 'に命中。<span class="hit">' + d + '</span> のダメージ。</p>');
+    Battle.playerFire(false, d, p.def.key);
     if (p.hp > 0 && subgun().atk > 0) {
       var ds = Math.max(1, subgun().atk - p.def.def + Math.floor(Math.random() * 5) - 2);
       p.hp -= ds;
       bossLog('<p>副砲が続けて撃つ。<span class="hit">' + ds + '</span> のダメージ。</p>');
+      setTimeout(function () { Battle.playerFire(true, ds, p.def.key); }, 260);
     }
     if (p.hp <= 0) {
       p.hp = 0;
       bossLog('<p class="good">' + p.def.name + 'を破壊した。</p>');
       breakPart(B.def.id, p.def.key);
+      setTimeout(function () { Battle.breakPart(p.def.key); }, 480);
       if (p.def.key === 'body') return winBoss();
     }
     enemyTurn();
@@ -639,15 +964,19 @@
     var heal = Math.floor(maxHp() * 0.28);
     S.hp = Math.min(maxHp(), S.hp + heal);
     bossLog('<p class="good">応急修理。' + heal + ' 回復した。（残り ' + B.repairs + ' 回）</p>');
+    Battle.repair(heal);
     enemyTurn();
   });
 
   document.getElementById('boss-run').addEventListener('click', function () {
+    Battle.close();
     panel('boss', false); scene = 'field'; cool = 90; B = null;
+    SFX.escape();
     toast('撤退した。');
   });
 
   document.getElementById('boss-close').addEventListener('click', function () {
+    Battle.close();
     panel('boss', false); scene = 'field'; cool = 90; B = null;
     if (bossesLeft() === 0 && !S.cleared) {
       S.cleared = true;
@@ -657,6 +986,7 @@
   });
 
   function enemyTurn() {
+    var turn = 0;
     var trackBroken = B.parts.some(function (p) { return p.def.key === 'track' && p.hp <= 0; });
     B.parts.forEach(function (p) {
       if (p.hp <= 0 || !p.def.atk) return;
@@ -667,6 +997,8 @@
       var d = Math.max(1, p.def.atk - armor().def + Math.floor(Math.random() * 7) - 3);
       S.hp -= d;
       bossLog('<p>' + p.def.name + 'の攻撃。<span class="dmg">' + d + '</span> を受けた。</p>');
+      setTimeout(function () { Battle.enemyFire(d); }, 620 + turn * 200);
+      turn++;
     });
 
     if (S.hp <= 0) return loseBoss();
@@ -678,6 +1010,7 @@
     S.defeated[B.def.id] = true;
     S.gold += B.def.gold;
     bossLog('<p class="good">' + B.def.name + 'を撃破した。賞金 ' + B.def.gold + ' G。</p>');
+    setTimeout(function () { Battle.win(); }, 200);
     refreshBossViews();
     endBoss();
   }
@@ -687,6 +1020,7 @@
     S.hp = Math.max(1, Math.floor(maxHp() * 0.2));
     S.gold = Math.floor(S.gold * 0.7);
     bossLog('<p class="dmg">大破。牽引されて基地へ戻された。</p>');
+    setTimeout(function () { Battle.lose(); }, 200);
     warpHome();
     endBoss();
   }
@@ -703,6 +1037,7 @@
      ========================================================== */
   function openClear() {
     scene = 'clear';
+    SFX.clear();
     var host = document.getElementById('clear-result');
     host.innerHTML = '';
     var all = bossDefs().length;
@@ -779,7 +1114,7 @@
     var cost = Math.ceil(need * 1.4);
     addItem(host, '車体の修理', need > 0 ? ('HP を ' + Math.round(need) + ' 回復') : '損傷なし',
       need > 0 ? cost + ' G' : '—', need > 0 && S.gold >= cost, function () {
-        S.gold -= cost; S.hp = maxHp(); hud(); save(); renderShop();
+        S.gold -= cost; S.hp = maxHp(); SFX.coin(); hud(); save(); renderShop();
       });
 
     // パーツ強化
@@ -797,6 +1132,7 @@
         S.gold -= next.price;
         S.parts[key] = cur + 1;
         if (key === 'armor') S.hp = maxHp();
+        SFX.coin();
         refreshTank();
         hud(); save(); renderShop();
       });
@@ -875,6 +1211,7 @@
   }
 
   function doReset() {
+    Battle.close();
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
     S = fresh(); S.hp = maxHp();
     spawnMobs();
@@ -896,6 +1233,36 @@
   }
 
   /* ==========================================================
+     音
+     ========================================================== */
+  /* ブラウザは操作より前に音を鳴らさせないので、最初の操作で解錠する */
+  ['pointerdown', 'keydown'].forEach(function (ev) {
+    window.addEventListener(ev, function once() {
+      SFX.unlock();
+      window.removeEventListener(ev, once);
+    });
+  });
+
+  var muteBtn = document.getElementById('mute');
+  if (muteBtn) {
+    var MUTE_KEY = 'tank-mute';
+    var muted = false;
+    try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch (e) {}
+    function applyMute() {
+      SFX.setEnabled(!muted);
+      muteBtn.textContent = muted ? '音 なし' : '音 あり';
+      muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+    }
+    muteBtn.addEventListener('click', function () {
+      muted = !muted;
+      try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch (e) {}
+      applyMute();
+      if (!muted) SFX.coin();
+    });
+    applyMute();
+  }
+
+  /* ==========================================================
      起動
      ========================================================== */
   buildMap();
@@ -910,7 +1277,7 @@
     pixelArt: true,
     backgroundColor: '#14181c',
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_HORIZONTALLY },
-    scene: Field
+    scene: [Field, BattleScene]
   });
 
   /* URL に ?debug=1 が付いているときだけ、動作確認用の入口を開ける。
@@ -928,6 +1295,9 @@
         if (G) G.tank.setPosition(S.x, S.y);
       },
       scene: function () { return G; },
+      battle: function () { return BG; },
+      battleApi: Battle,
+      sfx: function () { return window.SFX; },
       game: function () { return game; }
     };
   }

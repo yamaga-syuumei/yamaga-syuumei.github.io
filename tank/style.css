@@ -189,13 +189,12 @@ button { font-family: inherit; }
 .tk-legend { display: grid; gap: 8px; font-size: 12.5px; }
 .tk-legend div { display: flex; align-items: center; gap: 10px; }
 .tk-legend em { color: var(--ink-2); font-style: normal; font-size: 11.5px; margin-left: auto; }
-.tk-mark { width: 15px; height: 15px; flex: none; }
-.tk-mark.is-lv0, .tk-mark.is-lv1, .tk-mark.is-lv2 { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-.tk-mark.is-lv0  { background: var(--mob-0); transform: scale(.62); }
-.tk-mark.is-lv1  { background: var(--mob-1); transform: scale(.82); }
-.tk-mark.is-lv2  { background: var(--mob-2); }
-.tk-mark.is-boss { background: var(--red); border-radius: 50%; transform: scale(.9); }
-.tk-mark.is-town { background: var(--amber); border-radius: 3px; transform: scale(.7); }
+/* 凡例の絵は実際のスプライトをそのまま描く */
+.tk-legend canvas {
+  width: 32px; height: 32px; flex: none;
+  image-rendering: pixelated;
+  background: #3b3324; border-radius: 4px;
+}
 
 /* ---------- ログ（新しい行が上） ---------- */
 .tk-log {
