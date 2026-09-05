@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ドット絵の確認</title>
+<style>
+  body { margin:0; background:#0d1013; color:#e7ecf1;
+         font-family:"Yu Gothic","Meiryo",system-ui,sans-serif; padding:20px; }
+  h2 { font-size:14px; color:#9aa6b2; margin:22px 0 8px; font-weight:700; }
+  .row { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
+  .cell { text-align:center; }
+  .cell canvas { image-rendering:pixelated; background:#1a1f24; border:1px solid #2c353d; display:block; }
+  .cell span { display:block; font-size:10px; color:#6f7c88; margin-top:4px; }
+  .scene { image-rendering:pixelated; border:1px solid #2c353d; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+
+<script src="art.js"></script>
+<script>
+var out = document.getElementById('out');
+function section(title) { var h = document.createElement('h2'); h.textContent = title; out.appendChild(h);
+  var r = document.createElement('div'); r.className = 'row'; out.appendChild(r); return r; }
+function show(row, canvas, label, scale) {
+  scale = scale || 4;
+  var c = document.createElement('canvas');
+  c.width = canvas.width * scale; c.height = canvas.height * scale;
+  var g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.drawImage(canvas, 0, 0, c.width, c.height);
+  var d = document.createElement('div'); d.className = 'cell';
+  d.appendChild(c);
+  var s = document.createElement('span'); s.textContent = label; d.appendChild(s);
+  row.appendChild(d);
+}
+
+var M = ART._make, T = ART._tank;
+
+// --- 装備3段階の戦車 ---
+var PALS = [
+  { name:'初期',   body:'#4a7f5e', tread:'#2f5f46', barrel:'#c8ced4', sub:null },
+  { name:'中位',   body:'#3fb87a', tread:'#2f7f9c', barrel:'#e8d18a', sub:'#aab6c0' },
+  { name:'最上位', body:'#7fe3a6', tread:'#c9a13f', barrel:'#ffb454', sub:'#f0784a' }
+];
+var r = section('戦車：装備で色が変わる（右向き）');
+PALS.forEach(function(p){ show(r, T('right', p), p.name); });
+r = section('戦車：向き（最上位装備）');
+['right','up','down'].forEach(function(d){ show(r, T(d, PALS[2]), d); });
+
+// --- タイル ---
+r = section('地形タイル');
+var tiles = ART.tileVariants;
+var reg = {};
+// register を使わず、内部の並びを再現して取り出す
+var probe = { textures: { exists:function(){return false;}, remove:function(){},
+  addCanvas:function(k,c){ reg[k]=c; } } };
+ART.register(probe, PALS[2]);
+Object.keys(reg).filter(function(k){ return /^tile-/.test(k); })
+  .forEach(function(k){ show(r, reg[k], k.replace('tile-','')); });
+
+// --- 敵 ---
+r = section('雑魚');
+['mob-0','mob-1','mob-2'].forEach(function(k){ show(r, reg[k], k); });
+r = section('賞金首（部位ごと）');
+Object.keys(reg).filter(function(k){ return /^boss-/.test(k); })
+  .forEach(function(k){ show(r, reg[k], k.replace('boss-',''), 3); });
+
+// --- 賞金首を重ねた完成形 ---
+r = section('賞金首：部位を重ねたところ');
+['mantis','scorpion','ghost'].forEach(function(id){
+  var c = document.createElement('canvas'); c.width = 32; c.height = 32;
+  var g = c.getContext('2d');
+  ['track','body','arm','tail','cannon'].forEach(function(part){
+    var t = reg['boss-' + id + '-' + part];
+    if (t) g.drawImage(t, 0, 0);
+  });
+  show(r, c, id, 4);
+});
+
+// --- 実際の縮尺で並べた画面 ---
+r = section('実際の縮尺（タイル32px・戦車48px）');
+var sc = document.createElement('canvas');
+sc.width = 32 * 14; sc.height = 32 * 7;
+sc.className = 'scene';
+var g = sc.getContext('2d');
+g.imageSmoothingEnabled = false;
+var map = [
+  'ssssssssssssss',
+  'srrsssssssrrss',
+  'sssRRRRRRRssss',
+  'ssTRRRRRRRsBss',
+  'sssRRRRRRRssss',
+  'srrssssssssrrs',
+  'ssssssssssssss'
+];
+for (var y = 0; y < map.length; y++) {
+  for (var x = 0; x < map[y].length; x++) {
+    var ch = map[y][x], key;
+    if (ch === 'r') key = 'tile-rock-0';
+    else if (ch === 'R') key = 'tile-road-' + ((x + y) % 2);
+    else if (ch === 'T') key = 'tile-town-0';
+    else key = 'tile-sand-' + ((x * 3 + y) % 3);
+    g.drawImage(reg[key], x * 32, y * 32, 32, 32);
+  }
+}
+// 敵と戦車を実寸で置く
+g.drawImage(reg['mob-0'], 32 * 6 + 4, 32 * 1 + 4, 32, 32);
+g.drawImage(reg['mob-1'], 32 * 9 + 4, 32 * 5 + 4, 32, 32);
+g.drawImage(reg['mob-2'], 32 * 2 + 2, 32 * 5 + 2, 36, 36);
+var boss = document.createElement('canvas'); boss.width = 32; boss.height = 32;
+var bg = boss.getContext('2d');
+['track','body','arm'].forEach(function(p){ var t = reg['boss-mantis-' + p]; if (t) bg.drawImage(t,0,0); });
+g.drawImage(boss, 32 * 11, 32 * 2, 64, 64);
+g.drawImage(T('right', PALS[2]), 32 * 4, 32 * 3 - 8, 48, 48);
+var d = document.createElement('div'); d.className = 'cell'; d.appendChild(sc); r.appendChild(d);
+</script>
+</body>
+</html>
