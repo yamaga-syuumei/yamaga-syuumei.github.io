@@ -169,8 +169,8 @@ nav .nav-sep { width: 1px; height: 18px; background: rgba(255,255,255,.18); marg
 /* ==========================================================
    セクション
    ========================================================== */
-section { padding: 38px 0 8px; scroll-margin-top: 78px; }
-main > section:first-child { padding-top: 34px; }
+section { padding: 24px 0 8px; scroll-margin-top: 78px; }
+main > section:first-child { padding-top: 20px; }
 
 .theme-red    { --theme: var(--red);  --theme-dark: var(--red-dark);  --theme-soft: var(--red-soft); }
 .theme-indigo { --theme: var(--blue); --theme-dark: var(--blue-dark); --theme-soft: var(--blue-soft); }
@@ -195,7 +195,7 @@ main > section:first-child { padding-top: 34px; }
   background: var(--theme); border-radius: 999px;
   padding: 3px 13px; flex-shrink: 0;
 }
-.sec-note { color: var(--ink-2); font-size: 14px; margin: 0 0 18px; max-width: 660px; }
+.sec-note { color: var(--ink-2); font-size: 14px; margin: 0 0 14px; max-width: 660px; }
 
 /* ==========================================================
    ゲーム：カバー面を持つカード
@@ -349,19 +349,30 @@ a.card:hover .arrow { color: var(--theme); }
 .news { border-top: 2px solid var(--ink); }
 .news-item {
   display: flex; gap: 20px; align-items: baseline;
-  padding: 16px 8px; border-bottom: 1px solid var(--rule);
+  padding: 13px 4px; border-bottom: 1px solid var(--rule);
   text-decoration: none; color: inherit;
 }
 .news-date {
   font-family: var(--sans); font-size: 12.5px; font-weight: 800;
-  color: var(--amber); flex-shrink: 0; width: 96px;
+  color: var(--amber); flex-shrink: 0; width: 90px;
 }
-.news-body { font-size: 15px; }
+.news-body { font-size: 14px; flex: 1; min-width: 0; }
 .news-tag {
-  font-size: 10.5px; font-weight: 800; letter-spacing: .06em;
+  font-size: 10px; font-weight: 800; letter-spacing: .06em;
   background: var(--amber-soft); color: var(--amber);
-  border-radius: 4px; padding: 2px 9px; margin-right: 12px;
+  border-radius: 4px; padding: 1px 8px; margin-right: 10px;
 }
+
+/* トップページの teaser 用。1件＝1行に切り詰める。
+   詳細を全部読ませる場所ではなく、更新があったと分かればよい場所なので、
+   はみ出た分は省略する。全件を読む news.html では使わない。 */
+.news-compact .news-item { padding: 8px 4px; gap: 14px; }
+.news-compact .news-date { font-size: 11.5px; width: 78px; }
+.news-compact .news-body {
+  font-size: 13px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.news-compact .news-tag { font-size: 9.5px; padding: 1px 7px; margin-right: 8px; }
 
 /* ==========================================================
    ブログ
@@ -369,13 +380,13 @@ a.card:hover .arrow { color: var(--theme); }
 .post-list { border-top: 2px solid var(--ink); }
 .post-item {
   display: block; text-decoration: none; color: inherit;
-  padding: 22px 8px; border-bottom: 1px solid var(--rule);
+  padding: 12px 8px; border-bottom: 1px solid var(--rule);
   transition: background .16s;
 }
 .post-item:hover { background: var(--amber-soft); }
-.post-item .post-date { font-size: 12.5px; font-weight: 800; color: var(--amber); }
-.post-item h3 { font-family: var(--serif); font-size: 20px; font-weight: 600; margin: 6px 0 6px; line-height: 1.55; }
-.post-item p { font-size: 14px; color: var(--ink-2); margin: 0; }
+.post-item .post-date { font-size: 11.5px; font-weight: 800; color: var(--amber); }
+.post-item h3 { font-family: var(--serif); font-size: 17px; font-weight: 600; margin: 3px 0 4px; line-height: 1.5; }
+.post-item p { font-size: 13px; color: var(--ink-2); margin: 0; }
 
 .post { max-width: 700px; margin: 0 auto; padding: 56px 0 0; }
 .post-head { border-bottom: 2px solid var(--ink); padding-bottom: 26px; margin-bottom: 38px; }
@@ -490,6 +501,8 @@ body.verified #gate { display: none; }
 
   .news-item { flex-direction: column; gap: 2px; }
   .news-date { width: auto; }
+  /* 縦積みだと横幅に余裕がないので、省略せず折り返す */
+  .news-compact .news-body { white-space: normal; overflow: visible; text-overflow: clip; }
 
   .post { padding-top: 40px; }
   .post-body h2 { font-size: 19px; margin-top: 40px; }
