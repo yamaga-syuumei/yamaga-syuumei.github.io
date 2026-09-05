@@ -1,25 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- 検索エンジンに知らせるページの一覧。
-     年齢確認ページ（r18.html）と試作ゲーム（tank/）は noindex なので載せない。
+     年齢確認ページ（r18.html）は noindex なので載せない。
      記事を追加したら <url> を足す。 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://yamaga-syuumei.github.io/</loc>
-    <lastmod>2026-09-04</lastmod>
+    <lastmod>2026-09-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://yamaga-syuumei.github.io/blog.html</loc>
-    <lastmod>2026-09-04</lastmod>
+    <lastmod>2026-09-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://yamaga-syuumei.github.io/tank/</loc>
-    <lastmod>2026-09-04</lastmod>
+    <lastmod>2026-09-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://yamaga-syuumei.github.io/blog/2026-09-05-tank-pixel-art.html</loc>
+    <lastmod>2026-09-05</lastmod>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://yamaga-syuumei.github.io/blog/2026-09-04-web-games.html</loc>

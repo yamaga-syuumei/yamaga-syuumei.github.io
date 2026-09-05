@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>「荒野の戦車乗り」をドット絵に描き直した | ヒノガタリ開発ブログ</title>
+<meta name="description" content="色付きの四角で組んでいたフィールドを、ドット絵とPhaserに置き換えた話。演出と効果音も足した。">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="「荒野の戦車乗り」をドット絵に描き直した">
+<meta property="og:description" content="色付きの四角で組んでいたフィールドを、ドット絵とPhaserに置き換えた話。演出と効果音も足した。">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/blog/2026-09-05-tank-pixel-art.html">
+<meta property="og:image" content="https://yamaga-syuumei.github.io/ogp.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:image" content="https://yamaga-syuumei.github.io/ogp.jpg">
+<link rel="canonical" href="https://yamaga-syuumei.github.io/blog/2026-09-05-tank-pixel-art.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="../" class="logo">
+      <span class="logo-name">ヒノガタリ</span>
+      <span class="logo-circle">山賀秀明</span>
+    </a>
+    <div class="head-right">
+    <nav>
+      <a href="../#news">お知らせ</a>
+      <a href="../blog.html">ブログ</a>
+      <a href="../#web">WEBゲーム</a>
+      <a href="../#games">ゲーム</a>
+      <a href="../#novels">小説</a>
+    </nav>
+      <a class="head-x" href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener" aria-label="X（@SyuumeiYamaga）" title="X ／ @SyuumeiYamaga">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <article class="post">
+
+    <div class="post-head">
+      <div class="post-date">2026.09.05</div>
+      <h1>「荒野の戦車乗り」をドット絵に描き直した</h1>
+    </div>
+
+    <div class="post-body">
+
+      <p>前回の記事で「画像を1枚も使わずに3本作った」と書きましたが、そのうちの1本、戦車ゲームの見た目を作り直しました。色付きの四角で地形と敵を表していたのを、ドット絵に描き直しています。あわせて、サイトのファビコン（タブに出る小さいアイコン）も焚き火のドット絵にしました。</p>
+
+      <h2>四角で組んでいたものを、ドットで組み直す</h2>
+
+      <p>最初の版は、素のCanvasに矩形と円を描くだけの実装でした。地形は色の違うタイル、敵は色付きの三角形、戦車も色の塊。動きはするけれど、見た瞬間に「荒野」と分かる絵ではありませんでした。</p>
+
+      <p>そこで、地形・戦車・敵をすべて16×16のドット絵として描き直しました。画像ファイルは今回も使っていません。すべてコードでドットを打って生成しています。装備を積み替えると、その部品の色がそのまま戦車の見た目に反映されます。強くなったことが数字だけでなく、見た目でも分かるようにしたかったからです。</p>
+
+      <h2>賞金首は部位が壊れると、見た目からも消える</h2>
+
+      <p>賞金首（ボスの敵）は複数の部位を持っていて、部位ごとに耐久力があります。今までは数値のバーが減るだけでしたが、今回から<strong>部位が壊れると、その部位のスプライト自体が画面から消える</strong>ようにしました。キャタピラを壊せば絵の上でもキャタピラが無くなる。壊した実感が数字より先に目に入るようにしています。</p>
+
+      <h2>戦闘を、ログではなく画面で見せる</h2>
+
+      <p>これまでの戦闘は「◯◯に命中、△△のダメージ」というテキストのログを流すだけでした。読めば分かるけれど、見ていて面白いものではありません。</p>
+
+      <p>今回、戦闘専用の画面を作り、そこで実際に絵を動かすようにしました。</p>
+
+      <ul>
+        <li>砲口の発光</li>
+        <li>飛んでいく砲弾</li>
+        <li>着弾の爆発</li>
+        <li>浮き上がるダメージ数値</li>
+        <li>被弾時の画面の揺れ</li>
+        <li>部位が壊れた瞬間の演出</li>
+      </ul>
+
+      <p>効果音も付けました。音声ファイルは使わず、Web Audioでその場で波形を作って鳴らしています。発砲音、着弾音、部位破壊音などをコードで合成しているので、こちらも素材はゼロです。</p>
+
+      <h2>描画の土台を、自作からPhaserに変えた</h2>
+
+      <p>地形やスプライトの管理が増えてきたので、描画の土台を素のCanvasから<a href="https://phaser.io/" target="_blank" rel="noopener">Phaser</a>というゲーム用のライブラリに乗り換えました。CDNから読み込むだけなので、パソコンには何もインストールしていません。今まで通り、開いた瞬間に動く形は変わっていません。</p>
+
+      <p>スプライトの表示・当たり判定・カメラの追従といった、自分で書くと面倒な部分をライブラリに任せられるので、今後ステージを増やしたり演出を足したりする作業がやりやすくなりました。</p>
+
+      <h2>ミニマップと凡例も直した</h2>
+
+      <p>右上のミニマップは今まで通り残しつつ、フィールド上の敵の見分け方を説明する凡例を、CSSで描いた図形から実際のスプライトに差し替えました。ゲーム画面で見えているものと、説明で見せているものが同じ絵になったので、見比べたときに迷わなくなったはずです。</p>
+
+      <h2>これから</h2>
+
+      <p>現在ベータ0.3です。見た目の骨組みができたので、次はここに街やイベントを足していく作業に入れます。遊んでみて気になったところがあれば、Xで教えてもらえると助かります。</p>
+
+    </div>
+
+    <div class="post-nav">
+      <a href="../blog.html">← 記事一覧へ戻る</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="foot-name">ヒノガタリ</span>
+    <span>
+      <a href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener">X</a>
+      <a href="../">トップへ</a>
+    </span>
+  </div>
+</footer>
+
+<script src="../main.js"></script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
