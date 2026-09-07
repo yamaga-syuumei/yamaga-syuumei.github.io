@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>荒野の車載工房（ベータ 0.1）</title>
+<meta name="description" content="荒野の車載工房 - 車体のグリッドに部品を敷き詰め、オートバトルで賞金首を狩るブラウザゲーム。">
+<link rel="stylesheet" href="style.css?v=1.4">
+</head>
+<body>
+
+<a class="ss-skip" href="#main">本文へ移動</a>
+
+<header class="ss-head">
+  <span class="ss-title">荒野の車載工房<b>β0.1</b></span>
+
+  <div class="ss-status" id="status" hidden>
+    <span class="ss-stat ss-stat-hp">
+      <i>装甲</i>
+      <span class="ss-bar"><em id="st-hpbar"></em></span>
+      <b id="st-hp">--</b>
+    </span>
+    <span class="ss-stat"><i>所持金</i><b id="st-gold">0 G</b></span>
+    <span class="ss-stat"><i>階層</i><b id="st-floor">1 / 12</b></span>
+  </div>
+
+  <span class="ss-headbtns">
+    <button class="ss-icon" id="open-help" title="あそびかた" aria-label="あそびかた">？</button>
+    <button class="ss-icon" id="open-opt" title="設定" aria-label="設定">⚙</button>
+  </span>
+</header>
+
+<main class="ss-main" id="main">
+
+  <!-- ==========================================================
+       タイトル
+       ========================================================== -->
+  <section class="ss-screen" id="sc-title">
+    <div class="ss-card ss-card-center">
+      <h1>荒野の車載工房</h1>
+      <p class="ss-lead">
+        車体のグリッドに砲と機関を積み、賞金首を狩りながら12階層を登る。<br>
+        戦闘は自動。勝敗は<b>「何を、どこに置いたか」</b>で決まる。
+      </p>
+
+      <ol class="ss-flow">
+        <li><span class="ss-flow-n">1</span><div><b>車体を選ぶ</b>車体そのものが部品を積むグリッドになる</div></li>
+        <li><span class="ss-flow-n">2</span><div><b>部品を積む</b>倉庫の部品をグリッドへ。置き方が強さを決める</div></li>
+        <li><span class="ss-flow-n">3</span><div><b>出撃する</b>マップでノードを選ぶ。戦闘は自動で進む</div></li>
+        <li><span class="ss-flow-n">4</span><div><b>登り続ける</b>勝てば戦利品。ボスを倒せばクリア</div></li>
+      </ol>
+
+      <div class="ss-bounty" id="title-bounty">
+        <canvas id="bounty-art"></canvas>
+        <div>
+          <em>指名手配</em>
+          <b id="bounty-name">――</b>
+          <span id="bounty-note">――</span>
+        </div>
+      </div>
+
+      <div class="ss-btns">
+        <button class="ss-btn ss-btn-main" id="title-new">新しく走り出す</button>
+        <button class="ss-btn" id="title-continue" hidden>続きから</button>
+        <button class="ss-btn" id="title-codex">図鑑</button>
+      </div>
+      <p class="ss-sub" style="text-align:center; margin-top:20px;">覚えておくこと</p>
+      <ul class="ss-rules">
+        <li><b>重さ</b> 積んだ部品の重さ合計が積載量を超えると、全体の速度が落ちる</li>
+        <li><b>隣接</b> 弾薬箱・冷却器・照準装置は<b>隣のマスに接した武器</b>だけを強化する</li>
+        <li><b>装甲</b> 敵の装甲は1発ごとに引かれる。副砲だけでは硬い敵を抜けない</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       車体選択
+       ========================================================== -->
+  <section class="ss-screen" id="sc-pick" hidden>
+    <div class="ss-card">
+      <h2>車体を選ぶ</h2>
+      <p class="ss-lead">車体はグリッドそのもの。マスの数と積載量が、この走行でできることを決める。</p>
+      <div class="ss-picklist" id="pick-list"></div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       マップ
+       ========================================================== -->
+  <section class="ss-screen" id="sc-map" hidden>
+    <div class="ss-card">
+      <div class="ss-cardhead">
+        <h2>行き先</h2>
+        <button class="ss-btn" id="map-garage">整備する</button>
+      </div>
+      <p class="ss-lead" id="map-hint">光っているノードを選ぶ。上へ進むほど敵は強くなる。</p>
+      <div class="ss-legend" id="map-legend"></div>
+      <div class="ss-map" id="map-body">
+        <svg class="ss-map-lines" id="map-lines"></svg>
+        <div class="ss-map-nodes" id="map-nodes"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       整備（グリッド配置）
+       ========================================================== -->
+  <section class="ss-screen" id="sc-garage" hidden>
+    <div class="ss-card">
+      <div class="ss-cardhead">
+        <h2 id="garage-title">整備</h2>
+        <button class="ss-btn ss-btn-main" id="garage-done">出発する</button>
+      </div>
+
+      <div class="ss-tut" id="garage-tut" hidden>
+        <p>
+          <b>グリッドが車体そのもの。</b>倉庫の部品をドラッグしてマスへ積む。
+          足りない部品は戦闘の戦利品やショップで増える。並べ終えたら右上の
+          <b>「出発する」</b>へ。
+        </p>
+        <button class="ss-plain" id="garage-tut-close">わかった</button>
+      </div>
+
+      <div class="ss-garage">
+        <div class="ss-gridwrap">
+          <div class="ss-gridhead">
+            <b id="grid-chassis">車体</b>
+            <span class="ss-weight" id="grid-weight">重量 0 / 0</span>
+          </div>
+          <div class="ss-grid" id="grid"></div>
+          <p class="ss-tip">
+            部品はドラッグで移動。<b>タップ／クリックでつかんで、置きたいマスでもう一度</b>でも動く。<br>
+            回転は <b>R キー</b>／右クリック／つかんでいる間に出る<b>回転</b>ボタン。
+          </p>
+          <div class="ss-summary" id="grid-summary"></div>
+        </div>
+
+        <div class="ss-stashwrap">
+          <div class="ss-gridhead">
+            <b>持ち物</b><span class="ss-weight" id="bag-count">0</span>
+          </div>
+          <div class="ss-bag" id="bag"></div>
+
+          <div class="ss-gridhead" style="margin-top:14px;">
+            <b>倉庫</b><span class="ss-weight" id="stash-count">0</span>
+          </div>
+          <div class="ss-stash" id="stash"></div>
+          <div class="ss-detail" id="detail">
+            <p class="ss-detail-empty">部品を選ぶと、ここに性能が出ます。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       戦闘
+       ========================================================== -->
+  <section class="ss-screen" id="sc-battle" hidden>
+    <div class="ss-card">
+      <div class="ss-cardhead">
+        <h2 id="battle-title">遭遇</h2>
+        <span class="ss-speed">
+          <button class="ss-plain" id="battle-speed">速度 x1</button>
+        </span>
+      </div>
+
+      <div class="ss-field">
+        <div class="ss-side ss-side-me">
+          <div class="ss-fighter">
+            <canvas class="ss-sprite" id="battle-me"></canvas>
+            <div class="ss-name" id="battle-mename">自車</div>
+            <div class="ss-hpline"><span class="ss-bar"><em id="battle-mehp"></em></span><b id="battle-menum">--</b></div>
+          </div>
+          <div class="ss-guns" id="battle-guns"></div>
+        </div>
+
+        <div class="ss-vs">VS</div>
+
+        <div class="ss-side ss-side-foe">
+          <div class="ss-fighter">
+            <canvas class="ss-sprite" id="battle-foe"></canvas>
+            <div class="ss-name" id="battle-foename">敵</div>
+            <div class="ss-hpline"><span class="ss-bar ss-bar-foe"><em id="battle-foehp"></em></span><b id="battle-foenum">--</b></div>
+
+            <!-- 敵の次の手。いつ殴られるかが見えないと、見ているだけになる -->
+            <div class="ss-intent" id="battle-intent">
+              <div class="ss-intent-row">
+                <span class="ss-intent-k" id="intent-label">次の攻撃</span>
+                <span class="ss-intent-bar"><i id="intent-fill"></i></span>
+                <b id="intent-num">--</b>
+              </div>
+              <div class="ss-intent-row is-salvo" id="intent-salvo" hidden>
+                <span class="ss-intent-k">一斉射撃</span>
+                <span class="ss-intent-bar"><i id="salvo-fill"></i></span>
+                <b id="salvo-num">--</b>
+              </div>
+            </div>
+
+            <div class="ss-foeinfo" id="battle-foeinfo"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ss-log" id="battle-log"></div>
+
+      <div class="ss-btns" id="battle-end" hidden>
+        <button class="ss-btn ss-btn-main" id="battle-next">つづける</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       報酬
+       ========================================================== -->
+  <section class="ss-screen" id="sc-reward" hidden>
+    <div class="ss-card">
+      <h2>戦利品</h2>
+      <p class="ss-lead" id="reward-gold"></p>
+      <div class="ss-offer" id="reward-offer"></div>
+      <div class="ss-btns">
+        <button class="ss-btn" id="reward-skip">受け取らずに進む</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       ショップ
+       ========================================================== -->
+  <section class="ss-screen" id="sc-shop" hidden>
+    <div class="ss-card">
+      <div class="ss-cardhead">
+        <h2>行商のガレージ</h2>
+        <button class="ss-btn ss-btn-main" id="shop-leave">立ち去る</button>
+      </div>
+      <p class="ss-lead">売り物は一点もの。強化は買うたびに値が上がる（この店に値引きはない）。</p>
+      <div class="ss-shop" id="shop-goods"></div>
+      <h3 class="ss-sub">消耗品</h3>
+      <div class="ss-shop" id="shop-items"></div>
+      <h3 class="ss-sub">整備メニュー</h3>
+      <div class="ss-shop" id="shop-services"></div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       イベント（？）
+       ========================================================== -->
+  <section class="ss-screen" id="sc-event" hidden>
+    <div class="ss-card">
+      <h2 id="event-name">出来事</h2>
+      <p class="ss-lead" id="event-text"></p>
+      <div class="ss-shop" id="event-opts"></div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       休憩
+       ========================================================== -->
+  <section class="ss-screen" id="sc-rest" hidden>
+    <div class="ss-card">
+      <h2>焚き火</h2>
+      <p class="ss-lead">できることは一つだけ。</p>
+      <div class="ss-shop" id="rest-menu"></div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       決着
+       ========================================================== -->
+  <section class="ss-screen" id="sc-end" hidden>
+    <div class="ss-card ss-card-center">
+      <h1 id="end-title">終わり</h1>
+      <p class="ss-lead" id="end-text"></p>
+      <div class="ss-result" id="end-result"></div>
+      <div class="ss-btns">
+        <button class="ss-btn ss-btn-main" id="end-again">もう一度走る</button>
+        <button class="ss-btn" id="end-codex">図鑑</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       図鑑（部品・敵・実績。ラン間で引き継ぐ）
+       ========================================================== -->
+  <section class="ss-screen" id="sc-codex" hidden>
+    <div class="ss-card">
+      <div class="ss-cardhead">
+        <h2>図鑑</h2>
+        <button class="ss-btn ss-btn-main" id="codex-close">閉じる</button>
+      </div>
+      <div class="ss-tabs">
+        <button class="ss-tab is-on" data-tab="parts">部品<span class="ss-tabcount" id="codex-parts-count"></span></button>
+        <button class="ss-tab" data-tab="enemies">敵<span class="ss-tabcount" id="codex-enemies-count"></span></button>
+        <button class="ss-tab" data-tab="ach">実績<span class="ss-tabcount" id="codex-ach-count"></span></button>
+      </div>
+      <div class="ss-shop" id="codex-parts"></div>
+      <div class="ss-shop" id="codex-enemies" hidden></div>
+      <div id="codex-ach" hidden></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ==========================================================
+     設定・あそびかた・記録
+     どの画面からでも開ける。走行中に開いても状態は壊さない
+     ========================================================== -->
+<div class="ss-modal" id="modal" hidden>
+  <div class="ss-modal-box" role="dialog" aria-modal="true" aria-label="設定">
+    <div class="ss-modal-head">
+      <div class="ss-tabs ss-tabs-modal">
+        <button class="ss-tab is-on" data-mtab="opt">設定</button>
+        <button class="ss-tab" data-mtab="help">あそびかた</button>
+        <button class="ss-tab" data-mtab="rec">記録</button>
+      </div>
+      <button class="ss-btn ss-btn-main" id="modal-close">閉じる</button>
+    </div>
+
+    <!-- ---------- 設定 ---------- -->
+    <div class="ss-modal-body" id="mtab-opt">
+      <div class="ss-opt">
+        <label class="ss-opt-row" for="opt-sfx">
+          <span class="ss-opt-k">効果音</span>
+          <input type="range" id="opt-sfx" min="0" max="100" step="5">
+          <b id="opt-sfx-v">70</b>
+        </label>
+        <label class="ss-opt-row" for="opt-bgm">
+          <span class="ss-opt-k">BGM</span>
+          <input type="range" id="opt-bgm" min="0" max="100" step="5">
+          <b id="opt-bgm-v">30</b>
+        </label>
+        <p class="ss-opt-note" id="opt-audio-note" hidden>この環境では音を鳴らせません。</p>
+
+        <div class="ss-opt-row">
+          <span class="ss-opt-k">戦闘速度</span>
+          <span class="ss-seg" id="opt-speed">
+            <button data-sp="1">x1</button>
+            <button data-sp="2">x2</button>
+            <button data-sp="4">x4</button>
+          </span>
+        </div>
+        <p class="ss-opt-note">戦闘を始めたときの速度。戦闘中にも変えられます。</p>
+
+        <label class="ss-opt-row ss-opt-check" for="opt-motion">
+          <input type="checkbox" id="opt-motion">
+          <span>演出を減らす（点滅や光る動きを止める）</span>
+        </label>
+      </div>
+
+      <h3 class="ss-sub">データ</h3>
+      <div class="ss-opt">
+        <div class="ss-opt-row ss-opt-danger">
+          <div>
+            <b>いまの走行をやめる</b>
+            <span class="ss-opt-note">タイトルに戻ります。図鑑と実績は残ります。</span>
+          </div>
+          <button class="ss-btn" id="opt-abandon">やめる</button>
+        </div>
+        <div class="ss-opt-row ss-opt-danger">
+          <div>
+            <b>全ての記録を消す</b>
+            <span class="ss-opt-note">図鑑・実績・設定を含めて最初の状態に戻します。</span>
+          </div>
+          <button class="ss-btn" id="opt-wipe">消す</button>
+        </div>
+        <p class="ss-opt-confirm" id="opt-confirm" hidden>
+          <em id="opt-confirm-text">本当に消しますか？</em>
+          <button class="ss-btn ss-btn-danger" id="opt-confirm-yes">はい</button>
+          <button class="ss-btn" id="opt-confirm-no">やめる</button>
+        </p>
+      </div>
+      <p class="ss-opt-ver" id="opt-ver">荒野の車載工房 β0.1</p>
+    </div>
+
+    <!-- ---------- あそびかた ---------- -->
+    <div class="ss-modal-body" id="mtab-help" hidden>
+      <ol class="ss-flow">
+        <li><span class="ss-flow-n">1</span><div><b>車体を選ぶ</b>車体そのものが部品を積むグリッドになる</div></li>
+        <li><span class="ss-flow-n">2</span><div><b>部品を積む</b>倉庫の部品をグリッドへ。置き方が強さを決める</div></li>
+        <li><span class="ss-flow-n">3</span><div><b>出撃する</b>マップでノードを選ぶ。戦闘は自動で進む</div></li>
+        <li><span class="ss-flow-n">4</span><div><b>登り続ける</b>勝てば戦利品。ボスを倒せばクリア</div></li>
+      </ol>
+
+      <h3 class="ss-sub">操作</h3>
+      <dl class="ss-terms">
+        <dt>部品を動かす</dt><dd>ドラッグ。またはタップでつかんで、置きたいマスでもう一度タップ</dd>
+        <dt>回転</dt><dd>R キー／右クリック／つかんでいる間に出る「回転」ボタン</dd>
+        <dt>手放す</dt><dd>Esc キー。倉庫に戻ります</dd>
+        <dt>キーボードだけで遊ぶ</dt><dd>Tab で部品を選び、Enter で決定。右下に出る「回転」「倉庫へ」「車体へ」で動かせます。置き場所は自動で決まります</dd>
+        <dt>ダイアログを閉じる</dt><dd>Esc キー</dd>
+      </dl>
+
+      <h3 class="ss-sub">言葉の意味</h3>
+      <dl class="ss-terms">
+        <dt>装甲（体力）</dt><dd>車の耐久。0になるとその走行は終わり。主にエンジンと車体から出る</dd>
+        <dt>積載 / 重さ</dt><dd>積んだ部品の重さ合計。積載量を超えると<b>1超過ごとに全体の速度が5%落ちる</b></dd>
+        <dt>速度</dt><dd>すべての武器のリロードにかかる倍率。Cユニットで上がる</dd>
+        <dt>被弾軽減</dt><dd>敵の攻撃1発ごとに引く固定値。車体で決まる</dd>
+        <dt>装甲（敵の）</dt><dd>こちらの攻撃1発ごとに引かれる固定値。<b>威力の低い副砲ほど損をする</b></dd>
+        <dt>貫通</dt><dd>敵の装甲をこの数だけ無視する。硬い敵への答え</dd>
+        <dt>隣接（★）</dt><dd>弾薬箱・冷却器・照準装置は<b>辺で接した武器だけ</b>を強化する。★の数は効いている補助の数</dd>
+        <dt>弾</dt><dd>主砲とスペシャルは弾数有限。副砲は無限。戦闘ごとに補給される</dd>
+      </dl>
+    </div>
+
+    <!-- ---------- 記録 ---------- -->
+    <div class="ss-modal-body" id="mtab-rec" hidden>
+      <div class="ss-rec" id="rec-stats"></div>
+      <div class="ss-btns">
+        <button class="ss-btn" id="rec-codex">図鑑を開く</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- つかんでいる部品。ポインタに追従する -->
+<div class="ss-drag" id="drag" hidden>
+  <canvas id="drag-canvas"></canvas>
+  <button class="ss-rotate" id="drag-rotate">回転</button>
+</div>
+
+<div class="ss-toast" id="toast" hidden></div>
+
+<script src="data.js?v=1.4"></script>
+<script src="sfx.js?v=1.4"></script>
+<script src="art.js?v=1.4"></script>
+<script src="game.js?v=1.4"></script>
+</body>
+</html>
