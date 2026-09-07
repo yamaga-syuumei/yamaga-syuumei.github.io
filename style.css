@@ -332,15 +332,6 @@ a.card:hover .arrow { color: var(--theme); }
 
 .card.soon { background: var(--bg-2); box-shadow: none; border: 2px dashed #c9d2de; }
 .card.soon .card-title { color: var(--ink-2); }
-
-/* サムネイル付きカード。画像を上いっぱいに、本文はその下に padding を付けて置く */
-.card.has-thumb { padding: 0; overflow: hidden; }
-.card-thumb {
-  display: block; width: 100%; aspect-ratio: 16 / 10;
-  object-fit: cover; background: var(--bg-2);
-  border-bottom: 1px solid var(--rule);
-}
-.card.has-thumb .card-body { padding: 16px 20px 18px; }
 .badge {
   font-size: 10.5px; font-weight: 800; letter-spacing: .08em;
   border: 1px solid var(--rule); color: var(--ink-3);
