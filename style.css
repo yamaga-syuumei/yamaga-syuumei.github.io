@@ -663,7 +663,12 @@ body.verified #gate { display: none; }
 #pp-board.is-cleared .pp-cell.is-on { border-color: var(--red); }
 
 /* 埋め込みパズルの下に置く、別ページのゲームへのリンク */
-.wg-more { margin-top: 16px; }
+/* ブラウザゲームの一覧カード。tank/ garage/ のように増えたら横に並べる */
+.wg-more-grid {
+  display: grid; gap: 12px; margin-top: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.wg-more-grid .wg-more { margin-top: 0; }
 
 /* このサイトについて欄の但し書き */
 .about-note {

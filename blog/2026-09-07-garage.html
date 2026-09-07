@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>置き方で勝敗が決まるブラウザゲームを作った | ヒノガタリ開発ブログ</title>
+<meta name="description" content="車体のグリッドに部品を敷き詰めて戦車を組む、backpack battles風のローグライク「荒野の車載工房」を公開した話。">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="置き方で勝敗が決まるブラウザゲームを作った">
+<meta property="og:description" content="車体のグリッドに部品を敷き詰めて戦車を組む、backpack battles風のローグライク「荒野の車載工房」を公開した話。">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/blog/2026-09-07-garage.html">
+<meta property="og:image" content="https://yamaga-syuumei.github.io/ogp.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:image" content="https://yamaga-syuumei.github.io/ogp.jpg">
+<link rel="canonical" href="https://yamaga-syuumei.github.io/blog/2026-09-07-garage.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="../" class="logo">
+      <span class="logo-name">ヒノガタリ</span>
+      <span class="logo-circle">山賀秀明</span>
+    </a>
+    <div class="head-right">
+    <nav>
+      <a href="../#news">お知らせ</a>
+      <a href="../blog.html">ブログ</a>
+      <a href="../#web">ブラウザゲーム</a>
+      <a href="../#games">ゲーム</a>
+      <a href="../#novels">小説</a>
+    </nav>
+      <a class="head-x" href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener" aria-label="X（@SyuumeiYamaga）" title="X ／ @SyuumeiYamaga">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <article class="post">
+
+    <div class="post-head">
+      <div class="post-date">2026.09.07</div>
+      <h1>置き方で勝敗が決まるブラウザゲームを作った</h1>
+    </div>
+
+    <div class="post-body">
+
+      <p>2本目のブラウザゲーム「荒野の車載工房」を公開しました。「荒野の戦車乗り」と同じ荒野が舞台ですが、遊び方はまったく違います。フィールドを走り回るのではなく、車体のグリッドに部品を敷き詰めて戦車を組む、ローグライクです。</p>
+
+      <h2>backpack battlesが面白かったので</h2>
+
+      <p>最近ハマっていたのが、リュックの中にアイテムを詰めて戦う<em>backpack battles</em>というゲームでした。何を持つかではなく、<strong>どこに置くか</strong>で強さが変わる。隣り合わせると効果が乗る道具があって、パズルを解くのと編成を組むのが同じ作業になっている。この感触を、自分の荒野の世界観でやってみたくなりました。</p>
+
+      <p>そこにSlay the Spireのマップ構造（ノードを選んで進む、休憩ができる、店がある）を重ねて、メタルマックス風の「戦車を改造する」テーマで包んだのが今回の作品です。企画書は事業計画のフォルダに置いてあって、今回はその実装にあたります。</p>
+
+      <h2>グリッドが車体そのもの</h2>
+
+      <p>車体を選ぶと、そのままグリッドの形になります。大きい車体ほどマスが多い代わりに、最初から塞がっているマスもある。ここに主砲・副砲・装甲・エンジンなどの部品を、ドラッグして置いていきます。</p>
+
+      <p>ミソは隣接効果です。弾薬庫を武器の隣に置けば弾数が増え、リロード補助を隣に置けば装填が速くなる。同じ部品を持っていても、隣に何を置くかで性能がまったく変わります。マスが埋まるほど選択肢は狭まっていくので、終盤ほど「どれを諦めるか」の判断になっていきます。</p>
+
+      <p>重さの合計が車体の耐荷重を超えると、全体の速度が落ちるようにもしました。強い部品を全部積めばいいわけではなく、重さと引き換えにする場面が出てきます。</p>
+
+      <h2>戦闘は自動。見るのは結果</h2>
+
+      <p>「荒野の戦車乗り」の雑魚戦と同じ考え方で、戦闘そのものはボタンひとつで自動的に進みます。プレイヤーが操作するのは出撃前の編成だけ。<strong>勝敗はマップに入る前にほぼ決まっている</strong>という作りです。これはbackpack battlesの構造をそのまま踏襲しています。</p>
+
+      <p>12階層を登りきるのが目標で、道中には雑魚・中ボス・休憩・行商のノードが並びます。休憩では回復、行商では部品や消耗品を買えます。消耗品は2系統に分けました。徹甲弾や追加弾倉のように<strong>次の戦闘だけ効く</strong>ものと、タイルパックや応急パッチのように<strong>その場で永続する</strong>もの（マスを開放する、体力を回復するなど）です。持てる数には上限があるので、ここでも取捨選択が発生します。</p>
+
+      <h2>今回も画像・音声ファイルはゼロ</h2>
+
+      <p>「荒野の戦車乗り」のときと同じ方針です。ドット絵は実行時にコードで描いていて（1マス16px）、効果音とBGMもWeb Audioでその場で合成しています。外部ライブラリも読み込んでいません。<code>index.html</code>を開くだけで、通信もサーバーも要らずに動きます。</p>
+
+      <p>進行状況は<code>localStorage</code>に保存されるので、ブラウザを閉じても続きから再開できます。</p>
+
+      <h2>数値の調整がしやすい形にした</h2>
+
+      <p>部品の攻撃力や重さ、敵のHPや階層ごとの補正は、全部ひとつのファイルに数値としてまとめてあります。ロジックのコードを触らずに、その表の数字を変えるだけでバランス調整ができる形です。「荒野の戦車乗り」を作ったときに、数値とロジックが混ざっていると調整のたびに事故りやすいと感じたので、今回は最初から分けました。</p>
+
+      <h2>これから</h2>
+
+      <p>現在ベータ0.1です。核の仕組みは動いていますが、部品の種類や敵のバリエーションはまだ少ないので、遊びながら増やしていく予定です。「荒野の戦車乗り」ともどもXで感想をもらえると助かります。</p>
+
+    </div>
+
+    <div class="post-nav">
+      <a href="../blog.html">← 記事一覧へ戻る</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="foot-name">ヒノガタリ</span>
+    <span>
+      <a href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener">X</a>
+      <a href="../">トップへ</a>
+    </span>
+  </div>
+</footer>
+
+<script src="../main.js"></script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

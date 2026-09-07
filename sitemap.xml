@@ -5,7 +5,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://yamaga-syuumei.github.io/</loc>
-    <lastmod>2026-09-06</lastmod>
+    <lastmod>2026-09-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
@@ -26,6 +26,17 @@
     <lastmod>2026-09-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://yamaga-syuumei.github.io/garage/</loc>
+    <lastmod>2026-09-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://yamaga-syuumei.github.io/blog/2026-09-07-garage.html</loc>
+    <lastmod>2026-09-07</lastmod>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://yamaga-syuumei.github.io/blog/2026-09-05-tank-pixel-art.html</loc>
