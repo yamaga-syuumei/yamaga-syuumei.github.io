@@ -58,6 +58,8 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
   border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 30;
 }
+.ss-logo { color: var(--ink-2); text-decoration: none; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.ss-logo:hover { color: #fff; }
 .ss-title { font-family: var(--serif); font-size: 16px; letter-spacing: .06em; white-space: nowrap; }
 .ss-title b {
   font-family: var(--sans); font-size: 9.5px; font-weight: 800; letter-spacing: .1em;
