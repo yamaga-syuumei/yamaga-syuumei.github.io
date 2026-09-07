@@ -64,14 +64,13 @@
   var OPT_KEY = 'garage-opt-v1';
 
   function loadOpt() {
-    var o = { sfx: 70, bgm: 30, speed: 1, motion: true };
+    var o = { sfx: 70, speed: 1, motion: true };
     try {
       var raw = localStorage.getItem(OPT_KEY);
       if (raw) {
         var saved = JSON.parse(raw);
         if (saved && typeof saved === 'object') {
           if (typeof saved.sfx === 'number') o.sfx = saved.sfx;
-          if (typeof saved.bgm === 'number') o.bgm = saved.bgm;
           if (saved.speed === 1 || saved.speed === 2 || saved.speed === 4) o.speed = saved.speed;
           if (typeof saved.motion === 'boolean') o.motion = saved.motion;
         }
@@ -92,7 +91,6 @@
   /* 音量の反映はここ一箇所に通す。消音中でも設定値は保ったままにする */
   function applyVolume() {
     window.SFX.setVolume('sfx', MUTED ? 0 : OPT.sfx / 100);
-    window.SFX.setVolume('bgm', MUTED ? 0 : OPT.bgm / 100);
   }
   function applyOpt() {
     applyVolume();
@@ -544,8 +542,6 @@
   function show(name) {
     SCREENS.forEach(function (s) { $('sc-' + s).hidden = (s !== name); });
     $('status').hidden = (name === 'title' || name === 'pick' || name === 'codex');
-    /* 戦闘に入るときは startBattle 側で fight / boss に上書きする */
-    if (name !== 'battle') window.SFX.bgmMood('calm');
     window.scrollTo(0, 0);
   }
   function currentScreen() {
@@ -1330,7 +1326,6 @@
     };
 
     show('battle');
-    window.SFX.bgmMood(type === 'boss' ? 'boss' : 'fight');
     $('battle-title').textContent = type === 'boss' ? 'ボス戦' : (type === 'elite' ? '賞金首' : '遭遇');
     $('battle-end').hidden = true;
     $('battle-speed').textContent = '速度 x' + B.speed;
@@ -2328,8 +2323,6 @@
   function syncOptUI() {
     $('opt-sfx').value = OPT.sfx;
     $('opt-sfx-v').textContent = OPT.sfx;
-    $('opt-bgm').value = OPT.bgm;
-    $('opt-bgm-v').textContent = OPT.bgm;
     $('opt-motion').checked = !OPT.motion;
     var note = $('opt-audio-note');
     if (MUTED) {
@@ -2403,13 +2396,6 @@
     /* 動かした手応えが要る。離したときに一度鳴らす */
     $('opt-sfx').onchange = function () { window.SFX.select(); };
 
-    $('opt-bgm').oninput = function () {
-      OPT.bgm = Number(this.value);
-      $('opt-bgm-v').textContent = OPT.bgm;
-      applyVolume();
-      saveOpt();
-    };
-
     document.querySelectorAll('#opt-speed button').forEach(function (b) {
       b.onclick = function () {
         OPT.speed = Number(b.dataset.sp);
@@ -2460,25 +2446,6 @@
      「何のために登るか」を一枚で見せる。最終ボスの絵と賞金だけ使う軽い枠組みで、
      シナリオは要らない（企画書どおり）
      ========================================================== */
-  /* タブに出すアイコン。これも画像ファイルを持たず、その場で描く */
-  function setFavicon() {
-    var src = window.ART.node('boss');
-    var c = document.createElement('canvas');
-    c.width = 64; c.height = 64;
-    var g = c.getContext('2d');
-    g.imageSmoothingEnabled = false;
-    g.fillStyle = '#171c21';
-    g.fillRect(0, 0, 64, 64);
-    g.drawImage(src, 0, 0, 64, 64);
-    try {
-      var link = document.querySelector("link[rel='icon']") || document.createElement('link');
-      link.rel = 'icon';
-      link.type = 'image/png';
-      link.href = c.toDataURL('image/png');
-      document.head.appendChild(link);
-    } catch (e) { /* 出せなくても遊べる */ }
-  }
-
   function renderTitleBounty() {
     var boss = D.enemies.filter(function (e) { return e.tier === 'boss'; })[0];
     if (!boss) return;
@@ -2496,7 +2463,6 @@
      ========================================================== */
   wire();
   applyOpt();
-  setFavicon();
   renderTitleBounty();
   var saved = load();
   if (saved) {

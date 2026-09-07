@@ -1,11 +1,12 @@
 /* ==========================================================
-   音（効果音とBGM）
+   効果音
 
    音声ファイルは持たない。Web Audio でその場で合成する。
-   tank/sfx.js と同じ方針だが、こちらは
+   tank/sfx.js と同じ方針・同じ作り。
 
-   - 効果音とBGMで音量を別々に持つ（設定画面から変えられる）
-   - BGMも合成する。荒野なので、埋まるより空いている方を選ぶ
+   BGMは持たない。合成で作ってみたが、鳴らした本人（Claude）は
+   音を聴いて確認できず、「エラーが出ない」を「良い音」と
+   取り違えていた。tank/ にもBGMは無い（効果音のみ）ので、それに揃える。
 
    ブラウザは利用者の操作より前に音を鳴らすことを禁じているので、
    最初のクリックかキー入力まで AudioContext を作らない。
@@ -13,9 +14,9 @@
 window.SFX = (function () {
   'use strict';
 
-  var ctx = null, sfxGain = null, bgmGain = null, noiseBuf = null;
+  var ctx = null, sfxGain = null, noiseBuf = null;
   var usable = true;                       // この環境で鳴らせるか
-  var vol = { sfx: 0.7, bgm: 0.3 };
+  var vol = { sfx: 0.7 };
 
   function ensure() {
     if (!usable) return null;
@@ -27,10 +28,6 @@ window.SFX = (function () {
         sfxGain = ctx.createGain();
         sfxGain.gain.value = vol.sfx * 0.42;
         sfxGain.connect(ctx.destination);
-
-        bgmGain = ctx.createGain();
-        bgmGain.gain.value = vol.bgm * 0.30;
-        bgmGain.connect(ctx.destination);
 
         var len = Math.floor(ctx.sampleRate * 0.7);
         noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -91,78 +88,6 @@ window.SFX = (function () {
     if (last[key] && now - last[key] < ms) return false;
     last[key] = now;
     return true;
-  }
-
-  /* ==========================================================
-     BGM
-
-     ルックアヘッド方式。少し先の音を予約し続ける。
-     setInterval だけで鳴らすとタイミングが揺れて聞けたものにならない。
-
-     音階はAマイナーペンタトニック。空きの多い譜面にして、
-     ずっと流していても邪魔にならないようにする。
-     ========================================================== */
-  var SCALE = [55.00, 65.41, 73.42, 82.41, 98.00];      // A1 C2 D2 E2 G2
-  var BGM = {
-    on: false, timer: null, step: 0, nextAt: 0, mood: 'calm'
-  };
-  var MOOD = {
-    calm:  { spb: 0.72, bass: 0.30, hat: 0.05, lead: 0.10, drive: 0 },
-    fight: { spb: 0.48, bass: 0.34, hat: 0.09, lead: 0.13, drive: 1 },
-    boss:  { spb: 0.42, bass: 0.40, hat: 0.11, lead: 0.16, drive: 2 }
-  };
-
-  function schedule() {
-    var c = ensure(); if (!c || !BGM.on) return;
-    var m = MOOD[BGM.mood] || MOOD.calm;
-
-    while (BGM.nextAt < c.currentTime + 0.35) {
-      var s = BGM.step;
-      var t = BGM.nextAt;
-      var bar = Math.floor(s / 8) % 4;
-
-      /* 低音。1拍目と、小節によって5拍目 */
-      if (s % 8 === 0 || (s % 8 === 4 && bar % 2 === 1)) {
-        var root = SCALE[[0, 0, 2, 1][bar]];
-        tone({ at: t, f0: root, f1: root * 0.98, dur: m.spb * 1.8, gain: m.bass, type: 'triangle', bus: bgmGain });
-        tone({ at: t, f0: root * 2, dur: m.spb * 0.9, gain: m.bass * 0.35, type: 'sine', bus: bgmGain });
-      }
-
-      /* 砂を踏むような刻み */
-      if (s % 2 === (m.drive ? 0 : 1)) {
-        noise({ f0: 5200, f1: 3000, dur: 0.05, gain: m.hat, q: 1.2, filter: 'highpass', bus: bgmGain, delay: t - c.currentTime });
-      }
-      /* 打点。戦闘中だけ増やす */
-      if (m.drive && s % 8 === 4) {
-        noise({ f0: 240, f1: 90, dur: 0.16, gain: m.hat * 2.2, q: 0.7, bus: bgmGain, delay: t - c.currentTime });
-      }
-
-      /* まばらに乗る旋律。同じ並びを繰り返さないよう小節で拾う音を変える */
-      var leadAt = [3, 6, 11, 14, 19, 22, 27, 30];
-      if (leadAt.indexOf(s % 32) >= 0 && Math.random() < 0.55) {
-        var n = SCALE[(s + bar) % SCALE.length] * 4;
-        tone({ at: t, f0: n, dur: m.spb * 1.1, gain: m.lead, type: 'square', bus: bgmGain });
-      }
-
-      BGM.step = (s + 1) % 64;
-      BGM.nextAt += m.spb / 2;
-    }
-  }
-
-  function bgmStart() {
-    var c = ensure(); if (!c) return;
-    if (BGM.on) return;
-    BGM.on = true;
-    BGM.step = 0;
-    BGM.nextAt = c.currentTime + 0.1;
-    if (BGM.timer) clearInterval(BGM.timer);
-    BGM.timer = setInterval(schedule, 120);
-    schedule();
-  }
-
-  function bgmStop() {
-    BGM.on = false;
-    if (BGM.timer) { clearInterval(BGM.timer); BGM.timer = null; }
   }
 
   /* ==========================================================
@@ -231,33 +156,16 @@ window.SFX = (function () {
       tone({ f0: 880, dur: 0.14, gain: 0.28, type: 'square', delay: 0.1 });
     },
 
-    /* ---- BGM ---- */
-    bgmStart: bgmStart,
-    bgmStop: bgmStop,
-    /* 場面で曲調を切り替える。calm / fight / boss */
-    bgmMood: function (m) {
-      if (MOOD[m]) BGM.mood = m;
-    },
-
     /* ---- 音量。0〜1 ---- */
     setVolume: function (which, v) {
       v = Math.max(0, Math.min(1, v));
       vol[which] = v;
       if (which === 'sfx' && sfxGain) sfxGain.gain.value = v * 0.42;
-      if (which === 'bgm' && bgmGain) bgmGain.gain.value = v * 0.30;
-      /* 0 にしたらBGMは止める。無音のまま回し続ける意味がない */
-      if (which === 'bgm') {
-        if (v <= 0) bgmStop();
-        else if (!BGM.on && ctx) bgmStart();
-      }
     },
     getVolume: function (which) { return vol[which]; },
     isUsable: function () { return usable; },
 
     /* 最初の操作で鳴らせる状態にしておく */
-    unlock: function () {
-      ensure();
-      if (vol.bgm > 0) bgmStart();
-    }
+    unlock: function () { ensure(); }
   };
 })();
