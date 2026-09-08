@@ -548,6 +548,8 @@ html.no-motion .ss-screen { animation: none; }
 .ss-terms dt { font-weight: 800; color: var(--amber); margin-top: 10px; }
 .ss-terms dd { margin: 2px 0 0; color: var(--ink-2); line-height: 1.7; }
 .ss-terms dd b { color: var(--ink); }
+.ss-terms dd a { color: var(--amber); }
+.ss-terms dd a:hover { color: #ffcf7a; }
 
 /* ---------- 記録 ---------- */
 .ss-rec { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }

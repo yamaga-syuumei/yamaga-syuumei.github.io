@@ -1,84 +1,55 @@
 /* ==========================================================
-   効果音
+   音（効果音とBGM）
 
-   音声ファイルは持たない。Web Audio でその場で合成する。
-   tank/sfx.js と同じ方針・同じ作り。
+   ここから先は合成ではなく、素材を同梱している。
+   クリア／全滅の短いチャイムだけは合成のまま残した
+   （ファンファーレ用の素材が無く、上昇アルペジオ程度の単純な
+   ものは大きく外しにくいため）。
 
-   BGMは持たない。合成で作ってみたが、鳴らした本人（Claude）は
-   音を聴いて確認できず、「エラーが出ない」を「良い音」と
-   取り違えていた。tank/ にもBGMは無い（効果音のみ）ので、それに揃える。
+   出どころと利用規約：README.md の「音について」を参照。
+
+   効果音は Audio() を複数プールして使い回す（連射で音が重なっても
+   途切れないように）。BGMは場面ごとに専用の Audio() を持ち、
+   切り替え時はクロスフェードする。
+
+   file:// でも動くように、fetch は使わない
+   （Audio 要素に直接ファイルを渡して鳴らすだけなので、
+   ローカルファイルでも問題なく再生できる）。
 
    ブラウザは利用者の操作より前に音を鳴らすことを禁じているので、
-   最初のクリックかキー入力まで AudioContext を作らない。
+   最初のクリックかキー入力まで再生を試みない。
    ========================================================== */
 window.SFX = (function () {
   'use strict';
 
-  var ctx = null, sfxGain = null, noiseBuf = null;
-  var usable = true;                       // この環境で鳴らせるか
-  var vol = { sfx: 0.7 };
-
-  function ensure() {
-    if (!usable) return null;
-    if (!ctx) {
-      var AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) { usable = false; return null; }
-      try {
-        ctx = new AC();
-        sfxGain = ctx.createGain();
-        sfxGain.gain.value = vol.sfx * 0.42;
-        sfxGain.connect(ctx.destination);
-
-        var len = Math.floor(ctx.sampleRate * 0.7);
-        noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
-        var d = noiseBuf.getChannelData(0);
-        for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-      } catch (e) { usable = false; return null; }
-    }
-    if (ctx.state === 'suspended') ctx.resume();
-    return ctx;
-  }
+  var usable = true;
+  var vol = { sfx: 0.7, bgm: 0.3 };
+  var unlocked = false;
 
   /* ==========================================================
-     素材
+     効果音プール
      ========================================================== */
-  function noise(o) {
-    var c = ensure(); if (!c) return;
-    var t = c.currentTime + (o.delay || 0);
-    var src = c.createBufferSource();
-    src.buffer = noiseBuf;
-    src.playbackRate.value = o.rate || 1;
-
-    var f = c.createBiquadFilter();
-    f.type = o.filter || 'bandpass';
-    f.frequency.setValueAtTime(o.f0, t);
-    if (o.f1) f.frequency.exponentialRampToValueAtTime(Math.max(20, o.f1), t + o.dur);
-    f.Q.value = o.q == null ? 1 : o.q;
-
-    var g = c.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(o.gain, t + (o.attack || 0.005));
-    g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
-
-    src.connect(f); f.connect(g); g.connect(o.bus || sfxGain);
-    src.start(t); src.stop(t + o.dur + 0.02);
-  }
-
-  function tone(o) {
-    var c = ensure(); if (!c) return;
-    var t = (o.at != null ? o.at : c.currentTime) + (o.delay || 0);
-    var osc = c.createOscillator();
-    osc.type = o.type || 'sine';
-    osc.frequency.setValueAtTime(o.f0, t);
-    if (o.f1) osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.f1), t + o.dur);
-
-    var g = c.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(o.gain, t + (o.attack || 0.005));
-    g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
-
-    osc.connect(g); g.connect(o.bus || sfxGain);
-    osc.start(t); osc.stop(t + o.dur + 0.02);
+  function pool(url, size) {
+    var items = [];
+    for (var i = 0; i < size; i++) {
+      var a = new Audio(url);
+      a.preload = 'auto';
+      items.push(a);
+    }
+    var i2 = 0;
+    return function (opts) {
+      if (!usable) return;
+      opts = opts || {};
+      var el = items[i2]; i2 = (i2 + 1) % items.length;
+      try {
+        el.pause();
+        el.currentTime = 0;
+        el.volume = Math.max(0, Math.min(1, vol.sfx * (opts.gain != null ? opts.gain : 1)));
+        el.playbackRate = opts.rate || 1;
+        var p = el.play();
+        if (p && p.catch) p.catch(function () { });
+      } catch (e) { /* 鳴らせなくても遊べる */ }
+    };
   }
 
   /* 連射のときに音が団子になるので、同じ音は間隔を空ける */
@@ -90,82 +61,150 @@ window.SFX = (function () {
     return true;
   }
 
+  var se = {
+    click: pool('sfx/se_click_1.mp3', 4),
+    pyuun: pool('sfx/se_pyuun.mp3', 4),
+    zugan: pool('sfx/se_zugan.mp3', 3),
+    zugyan: pool('sfx/se_zugyan.mp3', 3),
+    crash: pool('sfx/se_crash_1.mp3', 2),
+    discovery: pool('sfx/se_discovery_1.mp3', 2),
+    recovery: pool('sfx/se_recovery.mp3', 2)
+  };
+
+  /* ==========================================================
+     クリア／全滅だけは合成のチャイム
+     単純な上昇・下降アルペジオなので、これは大きくは外れない
+     ========================================================== */
+  var actx = null, achainGain = null;
+  function actxEnsure() {
+    if (!actx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try {
+        actx = new AC();
+        achainGain = actx.createGain();
+        achainGain.gain.value = vol.sfx * 0.42;
+        achainGain.connect(actx.destination);
+      } catch (e) { return null; }
+    }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  function chime(f0, dur, gain, type, delay) {
+    var c = actxEnsure(); if (!c) return;
+    var t = c.currentTime + (delay || 0);
+    var osc = c.createOscillator();
+    osc.type = type || 'square';
+    osc.frequency.setValueAtTime(f0, t);
+    var g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(achainGain);
+    osc.start(t); osc.stop(t + dur + 0.02);
+  }
+
+  /* ==========================================================
+     BGM
+     場面ごとに専用の Audio() を持ち、一時停止した位置から
+     再開する（毎回頭出しし直さない）。切り替えはクロスフェード
+     ========================================================== */
+  var BGM_FILES = {
+    calm: 'bgm/Lost_world.ogg', fight: 'bgm/Lets_go_everyone.ogg',
+    elite: 'bgm/Bad_robot_machine.ogg', boss: 'bgm/High_mobility_machine.ogg'
+  };
+  var bgmEls = {}, curMood = null, fadeTimer = null;
+
+  function bgmEl(mood) {
+    if (!bgmEls[mood]) {
+      var a = new Audio(BGM_FILES[mood]);
+      a.loop = true;
+      a.volume = 0;
+      bgmEls[mood] = a;
+    }
+    return bgmEls[mood];
+  }
+
+  function fade(el, to, ms, thenPause) {
+    var from = el.volume, t0 = Date.now();
+    if (fadeTimer && fadeTimer.el === el) clearInterval(fadeTimer.id);
+    var id = setInterval(function () {
+      var t = Math.min(1, (Date.now() - t0) / ms);
+      el.volume = from + (to - from) * t;
+      if (t >= 1) {
+        clearInterval(id);
+        if (thenPause) el.pause();
+      }
+    }, 40);
+    fadeTimer = { el: el, id: id };
+  }
+
+  function bgmMood(mood) {
+    if (!usable || !BGM_FILES[mood] || curMood === mood) return;
+    var prevMood = curMood;
+    curMood = mood;
+    if (!unlocked) return;   // 最初の操作が来るまでは何もしない。unlock() 時に反映する
+    var next = bgmEl(mood);
+    next.volume = 0;
+    var p = next.play();
+    if (p && p.catch) p.catch(function () { });
+    fade(next, vol.bgm, 500, false);
+    if (prevMood && bgmEls[prevMood]) fade(bgmEls[prevMood], 0, 500, true);
+  }
+
+  function bgmApplyVolume() {
+    if (curMood && bgmEls[curMood]) bgmEls[curMood].volume = vol.bgm;
+  }
+
   /* ==========================================================
      外に出すもの
      ========================================================== */
   return {
     /* ---- 効果音 ---- */
-    fire: function () {
-      if (!throttle('fire', 60)) return;
-      tone({ f0: 190, f1: 42, dur: 0.28, gain: 0.5, type: 'triangle' });
-      noise({ f0: 1600, f1: 220, dur: 0.22, gain: 0.38, q: 0.8 });
-    },
-    subFire: function () {
-      if (!throttle('sub', 45)) return;
-      noise({ f0: 2600, f1: 900, dur: 0.08, gain: 0.18, q: 1.4 });
-      tone({ f0: 520, f1: 260, dur: 0.06, gain: 0.12, type: 'square' });
-    },
-    special: function () {
-      noise({ f0: 400, f1: 3000, dur: 0.28, gain: 0.3, q: 0.6 });
-      tone({ f0: 120, f1: 700, dur: 0.3, gain: 0.3, type: 'sawtooth' });
-      noise({ f0: 900, f1: 120, dur: 0.3, gain: 0.36, q: 0.5, delay: 0.26 });
-    },
-    damage: function () {
-      if (!throttle('dmg', 60)) return;
-      tone({ f0: 90, f1: 38, dur: 0.2, gain: 0.44, type: 'square' });
-      noise({ f0: 500, f1: 120, dur: 0.18, gain: 0.26, q: 0.6 });
-    },
-    defeat: function () {
-      noise({ f0: 600, f1: 60, dur: 0.9, gain: 0.5, q: 0.4 });
-      tone({ f0: 120, f1: 26, dur: 0.95, gain: 0.4, type: 'triangle' });
-      noise({ f0: 2200, f1: 300, dur: 0.3, gain: 0.22, q: 1.5, delay: 0.05 });
-    },
+    fire: function () { if (!throttle('fire', 60)) return; se.zugan(); },
+    subFire: function () { if (!throttle('sub', 45)) return; se.pyuun({ rate: 1.15 }); },
+    special: function () { se.zugan({ rate: 0.82, gain: 1.1 }); },
+    damage: function () { if (!throttle('dmg', 60)) return; se.zugyan(); },
+    defeat: function () { se.crash(); },
     lose: function () {
-      [330, 262, 208, 156].forEach(function (f, i) {
-        tone({ f0: f, dur: 0.42, gain: 0.26, type: 'triangle', delay: i * 0.2 });
-      });
+      [330, 262, 208, 156].forEach(function (f, i) { chime(f, 0.42, 0.26, 'triangle', i * 0.2); });
     },
     clear: function () {
-      [523, 659, 784, 1047].forEach(function (f, i) {
-        tone({ f0: f, dur: 0.3, gain: 0.26, type: 'square', delay: i * 0.13 });
-      });
+      [523, 659, 784, 1047].forEach(function (f, i) { chime(f, 0.3, 0.26, 'square', i * 0.13); });
     },
-    pick: function () { tone({ f0: 660, dur: 0.05, gain: 0.16, type: 'square' }); },
-    place: function () {
-      tone({ f0: 300, f1: 520, dur: 0.07, gain: 0.22, type: 'square' });
-      noise({ f0: 1800, dur: 0.04, gain: 0.14, q: 2 });
-    },
-    deny: function () { tone({ f0: 150, f1: 90, dur: 0.12, gain: 0.24, type: 'square' }); },
-    rotate: function () { tone({ f0: 880, f1: 1180, dur: 0.05, gain: 0.13, type: 'square' }); },
-    coin: function () {
-      tone({ f0: 880, dur: 0.07, gain: 0.24, type: 'square' });
-      tone({ f0: 1320, dur: 0.12, gain: 0.22, type: 'square', delay: 0.07 });
-    },
-    repair: function () { tone({ f0: 330, f1: 660, dur: 0.22, gain: 0.24, type: 'sine' }); },
-    upgrade: function () {
-      [523, 784, 1047].forEach(function (f, i) {
-        tone({ f0: f, dur: 0.16, gain: 0.2, type: 'square', delay: i * 0.07 });
-      });
-    },
-    select: function () {
-      tone({ f0: 520, dur: 0.06, gain: 0.16, type: 'square' });
-      tone({ f0: 780, dur: 0.09, gain: 0.14, type: 'square', delay: 0.05 });
-    },
-    encounter: function () {
-      tone({ f0: 660, dur: 0.09, gain: 0.28, type: 'square' });
-      tone({ f0: 880, dur: 0.14, gain: 0.28, type: 'square', delay: 0.1 });
+    pick: function () { se.click({ rate: 1.15, gain: 0.7 }); },
+    place: function () { se.click({ rate: 1.0, gain: 0.85 }); },
+    deny: function () { se.crash({ rate: 0.7, gain: 0.5 }); },
+    rotate: function () { se.click({ rate: 1.4, gain: 0.55 }); },
+    coin: function () { se.discovery({ gain: 0.8 }); },
+    repair: function () { se.recovery({ gain: 0.8 }); },
+    upgrade: function () { se.recovery({ rate: 1.3, gain: 0.9 }); },
+    select: function () { se.click({ rate: 0.9, gain: 0.8 }); },
+    encounter: function () { se.discovery(); },
+
+    /* ---- BGM ---- */
+    bgmMood: bgmMood,
+    bgmStop: function () {
+      if (curMood && bgmEls[curMood]) fade(bgmEls[curMood], 0, 400, true);
+      curMood = null;
     },
 
     /* ---- 音量。0〜1 ---- */
     setVolume: function (which, v) {
       v = Math.max(0, Math.min(1, v));
       vol[which] = v;
-      if (which === 'sfx' && sfxGain) sfxGain.gain.value = v * 0.42;
+      if (which === 'sfx' && achainGain) achainGain.gain.value = v * 0.42;
+      if (which === 'bgm') bgmApplyVolume();
     },
     getVolume: function (which) { return vol[which]; },
     isUsable: function () { return usable; },
 
     /* 最初の操作で鳴らせる状態にしておく */
-    unlock: function () { ensure(); }
+    unlock: function () {
+      if (unlocked) return;
+      unlocked = true;
+      actxEnsure();
+      if (curMood) { var m = curMood; curMood = null; bgmMood(m); }
+    }
   };
 })();

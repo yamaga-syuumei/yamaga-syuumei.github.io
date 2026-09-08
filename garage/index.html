@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=1.6">
+<link rel="stylesheet" href="style.css?v=2.0">
 </head>
 <body>
 
@@ -339,6 +339,11 @@
           <input type="range" id="opt-sfx" min="0" max="100" step="5">
           <b id="opt-sfx-v">70</b>
         </label>
+        <label class="ss-opt-row" for="opt-bgm">
+          <span class="ss-opt-k">BGM</span>
+          <input type="range" id="opt-bgm" min="0" max="100" step="5">
+          <b id="opt-bgm-v">30</b>
+        </label>
         <p class="ss-opt-note" id="opt-audio-note" hidden>この環境では音を鳴らせません。</p>
 
         <div class="ss-opt-row">
@@ -411,6 +416,14 @@
         <dt>隣接（★）</dt><dd>弾薬箱・冷却器・照準装置は<b>辺で接した武器だけ</b>を強化する。★の数は効いている補助の数</dd>
         <dt>弾</dt><dd>主砲とスペシャルは弾数有限。副砲は無限。戦闘ごとに補給される</dd>
       </dl>
+
+      <h3 class="ss-sub">音について</h3>
+      <dl class="ss-terms">
+        <dt>効果音</dt><dd>ユウラボ8bitサウンド工房（SKIPMORE）様の素材を使用しています。
+          <a href="http://www.skipmore.com/" target="_blank" rel="noopener">skipmore.com</a></dd>
+        <dt>BGM</dt><dd>しーでんでん様の素材を使用しています。
+          <a href="https://seadenden-8bit.com" target="_blank" rel="noopener">seadenden-8bit.com</a></dd>
+      </dl>
     </div>
 
     <!-- ---------- 記録 ---------- -->
@@ -431,10 +444,10 @@
 
 <div class="ss-toast" id="toast" hidden></div>
 
-<script src="data.js?v=1.6"></script>
-<script src="sfx.js?v=1.6"></script>
-<script src="art.js?v=1.6"></script>
-<script src="game.js?v=1.6"></script>
+<script src="data.js?v=2.0"></script>
+<script src="sfx.js?v=2.0"></script>
+<script src="art.js?v=2.0"></script>
+<script src="game.js?v=2.0"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
