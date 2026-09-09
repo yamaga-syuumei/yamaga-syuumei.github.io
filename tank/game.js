@@ -1,5 +1,5 @@
 /* ==========================================================
-   荒野の戦車乗り（ベータ 0.3）
+   荒野の戦車乗り（ベータ 0.4）
 
    企画書の方針
    - 区画選択制ではなく、2Dトップダウンの地続きのフィールド
@@ -774,6 +774,7 @@
     scene = 'mob';
     var e = D.enemies[mobs[i].lv];
     Battle.open('mob', { lv: mobs[i].lv });
+    SFX.bgmMood('mob');
     document.getElementById('mob-title').textContent = e.name + 'と遭遇';
     document.getElementById('mob-log').innerHTML = '<p>' + e.name + 'が向かってくる。</p>';
     document.getElementById('mob-fight').hidden = false;
@@ -872,6 +873,7 @@
     panel('mob', false);
     scene = 'field';
     cool = 60;
+    SFX.bgmMood('field');
     if (msg) { SFX.escape(); toast(msg); }
   }
 
@@ -889,6 +891,7 @@
     };
     scene = 'boss';
     Battle.open('boss', def);
+    SFX.bgmMood(def.tier === 'final' ? 'finalboss' : 'midboss');
     document.getElementById('boss-title').textContent = def.name;
     document.getElementById('boss-log').innerHTML = '<p>' + def.desc + '</p>';
     document.getElementById('boss-actions').hidden = false;
@@ -971,6 +974,7 @@
   document.getElementById('boss-run').addEventListener('click', function () {
     Battle.close();
     panel('boss', false); scene = 'field'; cool = 90; B = null;
+    SFX.bgmMood('field');
     SFX.escape();
     toast('撤退した。');
   });
@@ -978,6 +982,7 @@
   document.getElementById('boss-close').addEventListener('click', function () {
     Battle.close();
     panel('boss', false); scene = 'field'; cool = 90; B = null;
+    SFX.bgmMood('field');
     if (bossesLeft() === 0 && !S.cleared) {
       S.cleared = true;
       save();
@@ -1074,6 +1079,7 @@
     document.getElementById('town-intro').textContent = t.intro;
     showTab('talk');
     panel('town', true);
+    SFX.bgmMood('town');
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('.tk-tab'), function (b) {
@@ -1178,6 +1184,7 @@
   document.getElementById('town-close').addEventListener('click', function () {
     panel('town', false);
     scene = 'field';
+    SFX.bgmMood('field');
     // 押し出しはしない。街の上に立っている間は townLock が効いているので開き直さない
     save();
   });
@@ -1228,13 +1235,39 @@
     }
     panel('town', false); panel('mob', false); panel('boss', false); panel('clear', false);
     scene = 'field'; townLock = null;
+    SFX.bgmMood('field');
     hud(); save();
     toast('最初から始めます。');
   }
 
   /* ==========================================================
      音
+     効果音・BGMそれぞれの音量を 0〜100 で持つ。消音は「両方 0」で表す
+     （専用のON/OFFは持たない。ここは sfx.js の実装と対にしてある）
      ========================================================== */
+  var OPT_KEY = 'tank-opt-v1';
+  function loadOpt() {
+    var o = { sfx: 70, bgm: 30 };
+    try {
+      var raw = localStorage.getItem(OPT_KEY);
+      if (raw) {
+        var saved = JSON.parse(raw);
+        if (saved && typeof saved === 'object') {
+          if (typeof saved.sfx === 'number') o.sfx = saved.sfx;
+          if (typeof saved.bgm === 'number') o.bgm = saved.bgm;
+        }
+      }
+    } catch (e) { /* 保存できない環境でも遊べるようにする */ }
+    return o;
+  }
+  var OPT = loadOpt();
+  function saveOpt() { try { localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); } catch (e) {} }
+  function applyVolume() {
+    SFX.setVolume('sfx', OPT.sfx / 100);
+    SFX.setVolume('bgm', OPT.bgm / 100);
+  }
+  applyVolume();
+
   /* ブラウザは操作より前に音を鳴らさせないので、最初の操作で解錠する */
   ['pointerdown', 'keydown'].forEach(function (ev) {
     window.addEventListener(ev, function once() {
@@ -1243,23 +1276,40 @@
     });
   });
 
-  var muteBtn = document.getElementById('mute');
-  if (muteBtn) {
-    var MUTE_KEY = 'tank-mute';
-    var muted = false;
-    try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch (e) {}
-    function applyMute() {
-      SFX.setEnabled(!muted);
-      muteBtn.textContent = muted ? '音 なし' : '音 あり';
-      muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+  /* 音量パネル。ヘッダのボタンで開閉する小さなポップオーバー */
+  var volBtn = document.getElementById('volbtn');
+  var volPanel = document.getElementById('vol-panel');
+  if (volBtn && volPanel) {
+    var sfxSlider = document.getElementById('opt-sfx'), sfxVal = document.getElementById('opt-sfx-v');
+    var bgmSlider = document.getElementById('opt-bgm'), bgmVal = document.getElementById('opt-bgm-v');
+    var audioNote = document.getElementById('opt-audio-note');
+
+    function syncVolUI() {
+      sfxSlider.value = OPT.sfx; sfxVal.textContent = OPT.sfx;
+      bgmSlider.value = OPT.bgm; bgmVal.textContent = OPT.bgm;
+      audioNote.hidden = SFX.isUsable();
     }
-    muteBtn.addEventListener('click', function () {
-      muted = !muted;
-      try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch (e) {}
-      applyMute();
-      if (!muted) SFX.coin();
+
+    function openVol(show) {
+      volPanel.hidden = !show;
+      volBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
+      if (show) syncVolUI();
+    }
+    volBtn.addEventListener('click', function () { openVol(volPanel.hidden); });
+    // 外側を触ったら閉じる
+    document.addEventListener('pointerdown', function (e) {
+      if (!volPanel.hidden && e.target !== volBtn && !volPanel.contains(e.target)) openVol(false);
     });
-    applyMute();
+
+    sfxSlider.addEventListener('input', function () {
+      OPT.sfx = Number(this.value); sfxVal.textContent = OPT.sfx;
+      applyVolume(); saveOpt();
+    });
+    sfxSlider.addEventListener('change', function () { SFX.coin(); });   // 動かした手応え
+    bgmSlider.addEventListener('input', function () {
+      OPT.bgm = Number(this.value); bgmVal.textContent = OPT.bgm;
+      applyVolume(); saveOpt();
+    });
   }
 
   /* ==========================================================
@@ -1269,6 +1319,7 @@
   load();
   spawnMobs();
   setupBosses();
+  SFX.bgmMood('field');   // unlock() されるまでは記憶されるだけで鳴らない
 
   var game = new Phaser.Game({
     type: Phaser.AUTO,

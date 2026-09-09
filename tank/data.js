@@ -103,7 +103,7 @@ window.GAME_DATA = {
     { id: 'junk',   kind: 'mob', name: '廃棄ロボ',     hp: 120, atk: 24, def: 10, gold: 620 },
 
     {
-      id: 'mantis', kind: 'boss', name: '鋼鉄のカマキリ', town: 'town_01',
+      id: 'mantis', kind: 'boss', tier: 'mid', name: '鋼鉄のカマキリ', town: 'town_01',
       x: 16, y: 20, gold: 1800,
       desc: '基地の北をうろつく大型機。鎌で装甲を裂く。',
       parts: [
@@ -113,7 +113,7 @@ window.GAME_DATA = {
       ]
     },
     {
-      id: 'scorpion', kind: 'boss', name: '双胴のサソリ', town: 'town_02',
+      id: 'scorpion', kind: 'boss', tier: 'mid', name: '双胴のサソリ', town: 'town_02',
       x: 52, y: 20, gold: 3600,
       desc: '東の岩場に棲みついた二連装の機体。尾の砲が厄介。',
       parts: [
@@ -123,7 +123,7 @@ window.GAME_DATA = {
       ]
     },
     {
-      id: 'ghost', kind: 'boss', name: '灰色の亡霊', town: 'town_03',
+      id: 'ghost', kind: 'boss', tier: 'final', name: '灰色の亡霊', town: 'town_03',
       x: 38, y: 6, gold: 7000,
       desc: '崖の上に据わったまま動かない、正体不明の重機。',
       parts: [

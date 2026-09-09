@@ -72,6 +72,23 @@ button { font-family: inherit; }
 .tk-reset.is-danger { color: var(--red); font-weight: 800; }
 .tk-reset.is-danger:hover { color: #ff6a45; }
 
+/* 音量。ヘッダのボタンから開く小さなポップオーバー */
+.tk-volwrap { position: relative; }
+.tk-volpanel {
+  position: absolute; top: 100%; right: 0; margin-top: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; width: 176px; z-index: 30;
+  display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.35);
+}
+.tk-vol-row {
+  display: grid; grid-template-columns: 44px 1fr 26px; gap: 8px;
+  align-items: center; font-size: 11.5px; color: var(--ink-2);
+}
+.tk-vol-row input[type="range"] { width: 100%; accent-color: var(--amber); }
+.tk-vol-row b { color: var(--ink); font-weight: 700; text-align: right; }
+.tk-vol-note { display: block; font-style: normal; color: var(--red); font-size: 11px; }
+
 /* ---------- 地図に重ねる状態表示 ---------- */
 .tk-hud {
   position: absolute; top: 10px; right: 10px; width: 214px;
@@ -123,6 +140,9 @@ button { font-family: inherit; }
 .tk-help { color: var(--ink-2); font-size: 12px; margin: 10px 2px 0; }
 .tk-help b { color: var(--ink); font-weight: 800; margin-right: 6px; }
 .tk-help b + b { margin-left: 18px; }
+/* 利用規約に沿った素材クレジット。目立たせる必要はないが、隠しはしない */
+.tk-credit { color: #5c6873; font-size: 10.5px; margin: 6px 2px 0; line-height: 1.7; }
+.tk-credit a { color: inherit; }
 
 /* 右の表示エリア。中身は一度にひとつしか出ないので、ヘッダの下に貼り付けておく */
 .tk-side { position: sticky; top: 62px; }
