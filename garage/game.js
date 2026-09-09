@@ -14,7 +14,18 @@
   'use strict';
 
   var D = window.GAME_DATA;
-  var SAVE_KEY = 'garage-run-v1';
+
+  /* 自動テスト（test.js, ?test=1）は本物の保存データを壊さないよう、
+     別のキーを使い、そのキーだけを開始時に必ず空にする */
+  var TEST_MODE = /[?&]test=1/.test(location.search);
+  if (TEST_MODE) {
+    try {
+      localStorage.removeItem('garage-run-v1-test');
+      localStorage.removeItem('garage-meta-v1-test');
+      localStorage.removeItem('garage-opt-v1-test');
+    } catch (e) { /* 保存できない設定でも遊べるようにする */ }
+  }
+  var SAVE_KEY = 'garage-run-v1' + (TEST_MODE ? '-test' : '');
 
   var PART_BY_ID = {};
   D.parts.forEach(function (p) { PART_BY_ID[p.id] = p; });
@@ -41,7 +52,7 @@
      永続データ（図鑑・実績）
      ラン単体のセーブ（SAVE_KEY）とは別に持つ。リセットしても消えない。
      ========================================================== */
-  var META_KEY = 'garage-meta-v1';
+  var META_KEY = 'garage-meta-v1' + (TEST_MODE ? '-test' : '');
 
   function loadMeta() {
     try {
@@ -61,7 +72,7 @@
      設定
      音量・戦闘速度の初期値・演出の量。走行とは無関係なので別に持つ
      ========================================================== */
-  var OPT_KEY = 'garage-opt-v1';
+  var OPT_KEY = 'garage-opt-v1' + (TEST_MODE ? '-test' : '');
 
   function loadOpt() {
     var o = { sfx: 70, bgm: 30, speed: 1, motion: true };
@@ -2502,6 +2513,10 @@
       openCodex: openCodex,
       startEvent: startEvent,
       applyEvent: applyEvent,
+      addItem: addItem,
+      useItem: useItem,
+      checkAchievements: checkAchievements,
+      save: save,
       build: build,
       battle: function () { return B; },
       /* 画面を見ずに戦闘を進める。バランス確認用 */
