@@ -1,7 +1,7 @@
 # 荒野の車載工房（ベータ 0.1）
 
 メタルマックス風 × Slay the Spire × backpack battles。
-`事業計画/WebGame/WEBゲーム企画_メタルマックス風StS.md` の実装。
+`ActivityPlan/WebGame/WEBゲーム企画_メタルマックス風StS.md` の実装。
 
 ## 遊び方
 
@@ -21,9 +21,13 @@
 | `style.css` / `index.html` | 画面 |
 | `test.js` | 自動テスト。`?test=1` のときだけ動く。普段の起動には無関係 |
 
-- 外部ライブラリなし・ビルドなし・素のJS
-- `fetch` も ES modules も使っていないので `file://` でそのまま動く
+- ビルドなし・素のJS。`fetch` も ES modules も使っていないので `file://` でそのまま動く
   （音声再生も `Audio()` に直接ファイルを渡す方式で、`fetch`/`decodeAudioData` は使っていない）
+- 今のところ外部ライブラリは使っていないが、**これは「使わない」というルールではない**。
+  `website/tank/` は Phaser 3 を CDN 経由で読んでおり、CDNのライブラリはPCに何も
+  インストールしないので `file://`・ビルド無しの方針とは衝突しない。単に garage は
+  DOM＋Canvasの範囲で足りたので使わなかっただけ。ここに書いてあるのは
+  「今の実装」であって「今後もこうしろ」という制約ではない
 - 保存は `localStorage`（キー `garage-run-v1`）
 
 ## 自動テスト
