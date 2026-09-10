@@ -654,20 +654,6 @@ window.ART = (function () {
     return itemCache[item.id];
   }
 
-  /* ==========================================================
-     砂地のタイル（グリッドの下敷き）
-     ========================================================== */
-  var floorTile = null;
-  function gridFloor() {
-    if (floorTile) return floorTile;
-    floorTile = make(16, 16, function (a) {
-      a.r(0, 0, 16, 16, '#232a31');
-      a.dots([[3, 4], [11, 2], [7, 9], [14, 12], [1, 13]], '#2b333b');
-      a.dots([[5, 6], [12, 8]], '#1d242a');
-    });
-    return floorTile;
-  }
-
   return {
     CELL: CELL,
     part: partSprite,
@@ -676,7 +662,6 @@ window.ART = (function () {
     node: nodeSprite,
     chassis: chassisSprite,
     blocked: blockedCell,
-    gridFloor: gridFloor,
     maskOf: maskOf,
     _make: make, _ramp: ramp, _tone: tone
   };

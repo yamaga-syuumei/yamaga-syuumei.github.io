@@ -7,7 +7,7 @@
    - 戦闘はオート。プレイヤーは戦闘中に何もしない
    - 車体＝キャラ。重量制限が装備選択の制約になる
 
-   外部ライブラリなし・ビルドなし。file:// でもそのまま動く。
+   ビルドなし。file:// でもそのまま動く。
    絵は art.js、音は sfx.js が実行時に作る。画像・音声ファイルは持たない。
    ========================================================== */
 (function () {
@@ -1459,13 +1459,18 @@
   /* 当たった数字をその場に飛ばす。ログだけだと手応えがない。
      速度x4だと数が増えるので、溜まりすぎたら古いものから捨てる */
   function popDamage(which, amount, big) {
-    var host = $(which === 'me' ? 'battle-me' : 'battle-foe').parentNode;
+    var canvas = $(which === 'me' ? 'battle-me' : 'battle-foe');
+    var host = canvas.parentNode;
     var live = host.querySelectorAll('.ss-pop');
     for (var i = 0; i + 3 < live.length; i++) {
       if (live[i].parentNode) live[i].parentNode.removeChild(live[i]);
     }
     var e = el('span', 'ss-pop ' + (which === 'me' ? 'is-me' : 'is-foe') + (big ? ' is-big' : ''),
       (which === 'me' ? '-' : '') + amount);
+    /* CSSの `top:34%` は箱（.ss-fighter）の高さに対する割合。敵側は次の攻撃ゲージ分
+       箱が縦に長く、同じ割合だと名前や体力の上に数字が重なってしまう。
+       車の絵（canvas）そのものの位置を基準にして、両側で同じ見え方にする */
+    e.style.top = (canvas.offsetTop + canvas.offsetHeight * 0.34) + 'px';
     /* 同時に出たとき重ならないよう、少しだけ横にずらす */
     e.style.marginLeft = (rint(41) - 20) + 'px';
     host.appendChild(e);
@@ -2040,12 +2045,17 @@
   function renderRest() {
     var box = $('rest-menu');
     clear(box);
-    var heal = Math.ceil(S.maxHp * 0.55);
-    box.appendChild(serviceButton0('修理する', '装甲を ' + heal + ' 回復（最大 ' + S.maxHp + '）', function () {
-      S.hp = Math.min(S.maxHp, S.hp + heal);
-      window.SFX.repair(); toast('装甲を張り直した');
-      save(); refreshStatus(); afterNode();
-    }));
+    /* 焚き火でできることは一つだけ。満タンで「修理する」を選ぶと、
+       その1回を何も起きずに捨てることになるので選べなくする（店と同じ扱い） */
+    var missing = S.maxHp - S.hp;
+    var heal = Math.min(missing, Math.ceil(S.maxHp * 0.55));
+    box.appendChild(serviceButton0('修理する',
+      missing > 0 ? '装甲を ' + heal + ' 回復（最大 ' + S.maxHp + '）' : '装甲は満タン。回復するものがない',
+      function () {
+        S.hp = Math.min(S.maxHp, S.hp + heal);
+        window.SFX.repair(); toast('装甲を張り直した');
+        save(); refreshStatus(); afterNode();
+      }, missing > 0));
     box.appendChild(serviceButton0('部品を強化する', '選んだ部品を1段上げる', function () {
       startPending('upgrade', 0, 'rest');
     }));
@@ -2056,12 +2066,13 @@
       pending = null; show('garage'); renderGarage();
     }));
   }
-  function serviceButton0(title, note, onClick) {
+  function serviceButton0(title, note, onClick, enabled) {
     var b = el('button', 'ss-goods');
     var top = el('div', 'ss-goodstop');
     top.appendChild(el('b', null, title));
     b.appendChild(top);
     b.appendChild(el('div', 'ss-note', note));
+    if (enabled === false) b.disabled = true;
     b.onclick = onClick;
     return b;
   }

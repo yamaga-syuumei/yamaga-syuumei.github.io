@@ -11,7 +11,7 @@
    この一式を `?debug=1&test=1` で開いて緑になることを、変更のたびに
    確認する運用にする。
 
-   file:// でも動くように、ここでも fetch や外部ライブラリは使わない。
+   file:// でも動くように、ここでも fetch は使わない。
    window.__garage（?debug=1 で生える開発用API）だけを使って動かす。
    ========================================================== */
 (function () {
@@ -110,6 +110,36 @@
     var fracStrong = damageFracAgainstDummy('ch_jeep', ['m_105', 's_hmg', 'u_sight', 'u_cool'], 12);
     ok('戦闘：装備を足すと同じ12秒でより多く削れる',
       fracStrong > fracWeak, 'weak=' + r2(fracWeak) + ' strong=' + r2(fracStrong));
+
+    /* ---------- ダメージの数字が出る位置 ----------
+       .ss-pop の位置は「箱の高さの34%」だが、敵側の箱には次の攻撃ゲージが
+       入っていて縦に長い。割合のままだと数字が敵の名前や体力に重なる。
+       絵（canvas）の高さの中に収まっていることを見る */
+    G.startRun('ch_jeep');
+    G.warpTo('boss');
+    G.step(3);
+    var foeCanvas = document.getElementById('battle-foe');
+    var pops = foeCanvas.parentNode.querySelectorAll('.ss-pop');
+    var popTop = pops.length ? parseFloat(pops[pops.length - 1].style.top) : null;
+    ok('ダメージ数字：敵側でも絵の中に出る（名前に重ならない）',
+      pops.length > 0 && popTop != null && popTop < foeCanvas.offsetHeight,
+      'top=' + popTop + ' canvasH=' + foeCanvas.offsetHeight + ' pops=' + pops.length);
+
+    /* ---------- 焚き火 ----------
+       できることは一つだけなので、満タンで「修理する」を選べてしまうと
+       その1回を無駄に捨てることになる */
+    G.startRun('ch_jeep');
+    G.warpTo('rest');
+    var restBtn = document.getElementById('rest-menu').children[0];
+    ok('焚き火：満タンなら「修理する」は押せない', restBtn.disabled === true);
+
+    s = G.state();
+    s.hp = s.maxHp - 5;
+    G.warpTo('rest');
+    restBtn = document.getElementById('rest-menu').children[0];
+    ok('焚き火：傷ついていれば押せる', restBtn.disabled === false);
+    ok('焚き火：回復量は不足分までしか出さない',
+      /装甲を 5 回復/.test(restBtn.textContent), 'text=' + restBtn.textContent);
 
     /* ---------- 消耗品 ---------- */
     G.startRun('ch_jeep');
