@@ -111,6 +111,71 @@
     ok('戦闘：装備を足すと同じ12秒でより多く削れる',
       fracStrong > fracWeak, 'weak=' + r2(fracWeak) + ' strong=' + r2(fracStrong));
 
+    /* ---------- 熱 ----------
+       盤に斥力を作るための仕組み。ここが壊れると配置の意味が消えるので、
+       ルールごとに1件ずつ押さえる */
+
+    /* 指定した配置だけを載せた状態を作る */
+    function layout(chassisId, list) {
+      G.startRun(chassisId);
+      G.state().parts.forEach(function (p) { p.x = null; p.y = null; });
+      list.forEach(function (L) { giveAt(G, L[0], L[1], L[2], L[3] || 0); });
+      return G.build();
+    }
+    function netOf(b, pid) {
+      var w = weaponIn(b, partName(D, pid));
+      return w ? w.heatNet : null;
+    }
+
+    /* 外周は外気で冷える。内側はこもる */
+    var bEdge = layout('ch_ogre', [['s_hmg', 1, 3]]);
+    var bMid = layout('ch_ogre', [['s_hmg', 1, 1]]);
+    ok('熱：内側に置くほうが外周より熱い',
+      netOf(bMid, 's_hmg') > netOf(bEdge, 's_hmg'),
+      '内側=' + r2(netOf(bMid, 's_hmg')) + ' 外周=' + r2(netOf(bEdge, 's_hmg')));
+
+    /* 武器どうしを隣接させると熱を回し合う＝斥力 */
+    var bApart = layout('ch_ogre', [['m_105', 1, 1], ['m_105', 1, 3]]);
+    var bNext = layout('ch_ogre', [['m_105', 1, 1], ['m_105', 1, 2]]);
+    ok('熱：武器を隣接させると互いに熱くなる',
+      netOf(bNext, 'm_105') > netOf(bApart, 'm_105'),
+      '隣接=' + r2(netOf(bNext, 'm_105')) + ' 離す=' + r2(netOf(bApart, 'm_105')));
+    ok('熱：離して置けば同じ武器でも過熱しない',
+      netOf(bApart, 'm_105') <= 0 && netOf(bNext, 'm_105') > 0,
+      '隣接=' + r2(netOf(bNext, 'm_105')) + ' 離す=' + r2(netOf(bApart, 'm_105')));
+
+    /* 冷却器は隣接マスの排熱を上げる */
+    var bNoCool = layout('ch_ogre', [['m_105', 1, 1]]);
+    var bCool = layout('ch_ogre', [['m_105', 1, 1], ['u_cool', 1, 2]]);
+    ok('熱：冷却器を隣に置くとそのマスの排熱が上がる',
+      bCool.heat.cool['1,1'] > bNoCool.heat.cool['1,1'],
+      '冷却あり=' + r2(bCool.heat.cool['1,1']) + ' なし=' + r2(bNoCool.heat.cool['1,1']));
+
+    /* 塞がったマスは通気口として働く（開けると置ける代わりに排熱が減る） */
+    var bVent = layout('ch_ogre', []);
+    ok('熱：塞がったマスに面したマスはよく冷える',
+      bVent.heat.cool['3,0'] > bVent.heat.cool['2,0'],
+      '穴の隣=' + r2(bVent.heat.cool['3,0']) + ' 内寄り=' + r2(bVent.heat.cool['2,0']));
+
+    /* 捨てきれない熱はリロードに出る。整備画面の予測と戦闘は同じ数字を使う */
+    var hotW = weaponIn(bNext, partName(D, 'm_105'));
+    var coolW = weaponIn(bApart, partName(D, 'm_105'));
+    ok('熱：過熱した武器はリロードが伸びる',
+      hotW.heatMult > 1 && hotW.reload > coolW.reload,
+      'mult=' + r2(hotW.heatMult) + ' 熱=' + r2(hotW.reload) + ' 冷=' + r2(coolW.reload));
+    ok('熱：余裕があるときは伸びない', coolW.heatMult === 1 && coolW.heatTier === '',
+      'mult=' + coolW.heatMult + ' tier=' + coolW.heatTier);
+
+    /* 初期装備は熱で不利にならないこと（遊び始めていきなり罰を受けない）。
+       自動配置が熱を見て置くようになったので、3車体すべてで成り立つはず */
+    ['ch_jeep', 'ch_apc', 'ch_ogre'].forEach(function (cid) {
+      G.startRun(cid);
+      var b1 = G.build();
+      ok('熱：初期装備は過熱しない（' + cid + '）',
+        b1.weapons.every(function (w) { return !w.heatTier; }),
+        b1.weapons.map(function (w) { return w.name + '=' + r2(w.heatNet); }).join(' '));
+    });
+
     /* ---------- ダメージの数字が出る位置 ----------
        .ss-pop の位置は「箱の高さの34%」だが、敵側の箱には次の攻撃ゲージが
        入っていて縦に長い。割合のままだと数字が敵の名前や体力に重なる。

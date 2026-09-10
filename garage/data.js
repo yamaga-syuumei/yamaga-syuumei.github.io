@@ -15,25 +15,26 @@ window.GAME_DATA = (function () {
      cap  … 積載量の土台。部品の重さ合計がこれを超えると速度が落ちる
      def  … 被弾1回ごとに引く固定値
      spd  … 全体速度の補正
+     cool … 全マスの排熱の増減。幌付きは風が通り、密閉された重戦車はこもる
      ========================================================== */
   var chassis = [
     {
       id: 'ch_jeep', name: '幌付きジープ「サソリ」', cols: 4, rows: 3,
-      cap: 28, hp: 88, def: 3, spd: 0.22, color: '#b8823a',
+      cap: 28, hp: 88, def: 3, spd: 0.22, cool: 0.8, color: '#b8823a',
       blocked: ['3,0'],
-      note: '装甲は薄いが、全武器の手数がとにかく多い。'
+      note: '装甲は薄いが手数が多い。幌付きで風が通り、熱がこもりにくい。'
     },
     {
       id: 'ch_apc', name: '装甲車「ハンマー」', cols: 4, rows: 4,
-      cap: 30, hp: 85, def: 4, spd: 0, color: '#5f7a52',
+      cap: 30, hp: 85, def: 4, spd: 0, cool: 0, color: '#5f7a52',
       blocked: ['0,0', '3,3'],
       note: '全部そこそこ。迷ったらこれ。'
     },
     {
       id: 'ch_ogre', name: '重戦車「オーガ」', cols: 5, rows: 4,
-      cap: 42, hp: 118, def: 7, spd: -0.14, color: '#6d6f7a',
+      cap: 42, hp: 118, def: 7, spd: -0.14, cool: -0.4, color: '#6d6f7a',
       blocked: ['0,0', '4,0', '0,3'],
-      note: '重い砲を積める。そのぶん動きは鈍い。'
+      note: '重い砲を積める。動きは鈍く、密閉されていて熱がこもりやすい。'
     }
   ];
 
@@ -50,7 +51,15 @@ window.GAME_DATA = (function () {
        ammo   弾数（null で無限）
        reload 発射間隔（秒）
        pierce 装甲貫通（相手の装甲値をこのぶん無視）
-     aura  … 隣接する武器へ効く。dmg / ammo / reload（割合）
+       heat   1発ごとの発熱。強い武器ほど熱い
+     aura  … 隣接する武器へ効く。dmgPct / ammo / reload（割合）
+     cool  … 隣接するマスの排熱を上げる（冷却器）
+
+     熱について
+       武器は占めるマス全部に heat/reload（毎秒）の熱を出す。
+       マスの排熱は「基本 + 外気に触れている辺 + 隣接する冷却器」。
+       足りないぶん（net）がそのマスの武器のリロードを伸ばす。
+       → 強い武器を固めると共倒れする。詳しくは README の「熱」
      ========================================================== */
   var parts = [
     /* ---------- エンジン：積載と装甲を生む ---------- */
@@ -83,44 +92,44 @@ window.GAME_DATA = (function () {
     /* ---------- 主砲：弾有限・威力中・リロード中 ---------- */
     { id: 'm_76', name: '76mm速射砲', kind: 'main', shape: ['##'],
       weight: 5, price: 80, tier: 1, color: '#9aa3ad',
-      stats: { dmg: 13, ammo: 20, reload: 2.0, pierce: 1 },
+      stats: { dmg: 13, ammo: 20, reload: 2.0, pierce: 1, heat: 5 },
       note: '威力13 / 弾20 / 2.0秒 / 貫通1' },
 
     { id: 'm_105', name: '105mmライフル砲', kind: 'main', shape: ['###'],
       weight: 8, price: 155, tier: 2, color: '#8e9aa6',
-      stats: { dmg: 27, ammo: 14, reload: 3.2, pierce: 2 },
+      stats: { dmg: 27, ammo: 14, reload: 3.2, pierce: 2, heat: 9 },
       note: '威力27 / 弾14 / 3.2秒 / 貫通2' },
 
     { id: 'm_how', name: '155mm榴弾砲', kind: 'main', shape: ['##', '##'],
       weight: 12, price: 215, tier: 3, color: '#7f8a96',
-      stats: { dmg: 42, ammo: 9, reload: 4.6, pierce: 2 },
+      stats: { dmg: 42, ammo: 9, reload: 4.6, pierce: 2, heat: 15 },
       note: '威力42 / 弾9 / 4.6秒 / 貫通2' },
 
     /* ---------- 副砲：弾無限・威力低・リロード速い ---------- */
     { id: 's_mg', name: '7.62mm機関銃', kind: 'sub', shape: ['##'],
       weight: 3, price: 50, tier: 1, color: '#6b7480',
-      stats: { dmg: 5, ammo: null, reload: 0.8 },
+      stats: { dmg: 5, ammo: null, reload: 0.8, heat: 1.2 },
       note: '威力5 / 弾∞ / 0.8秒' },
 
     { id: 's_hmg', name: '12.7mm重機関銃', kind: 'sub', shape: ['##'],
       weight: 5, price: 105, tier: 2, color: '#5d6b7c',
-      stats: { dmg: 9, ammo: null, reload: 1.4 },
+      stats: { dmg: 9, ammo: null, reload: 1.4, heat: 2.5 },
       note: '威力9 / 弾∞ / 1.4秒' },
 
     { id: 's_flame', name: '火炎放射器', kind: 'sub', shape: ['#', '#'],
       weight: 4, price: 95, tier: 2, color: '#c2612c',
-      stats: { dmg: 4, ammo: null, reload: 0.55, pierce: 2 },
+      stats: { dmg: 4, ammo: null, reload: 0.55, pierce: 2, heat: 1.3 },
       note: '威力4 / 弾∞ / 0.55秒 / 貫通2' },
 
     /* ---------- スペシャル：弾少・威力高・リロード遅い ---------- */
     { id: 'sp_missile', name: 'ミサイルポッド', kind: 'special', shape: ['##'],
       weight: 7, price: 195, tier: 2, color: '#a44a4a',
-      stats: { dmg: 48, ammo: 5, reload: 6.0, pierce: 3 },
+      stats: { dmg: 48, ammo: 5, reload: 6.0, pierce: 3, heat: 20 },
       note: '威力48 / 弾5 / 6.0秒 / 貫通3' },
 
     { id: 'sp_rail', name: 'レールキャノン', kind: 'special', shape: ['###'],
       weight: 11, price: 275, tier: 3, color: '#7a5ec2',
-      stats: { dmg: 88, ammo: 3, reload: 9.0, pierce: 99 },
+      stats: { dmg: 88, ammo: 3, reload: 9.0, pierce: 99, heat: 40 },
       note: '威力88 / 弾3 / 9.0秒 / 装甲を完全に無視' },
 
     /* ---------- 補助：隣に置いた武器へ効く ---------- */
@@ -131,8 +140,8 @@ window.GAME_DATA = (function () {
 
     { id: 'u_cool', name: '冷却器', kind: 'support', shape: ['#'],
       weight: 2, price: 95, tier: 2, color: '#4a86b8',
-      aura: { reload: -0.18 },
-      note: '隣接する武器のリロード-18%' },
+      cool: 2.5,
+      note: '隣接するマスの排熱+2.5。熱のこもる置き方を救う' },
 
     { id: 'u_sight', name: '照準装置', kind: 'support', shape: ['#'],
       weight: 2, price: 110, tier: 2, color: '#c0392b',
@@ -291,5 +300,21 @@ window.GAME_DATA = (function () {
     eliteScaleAtk: 0.04
   };
 
-  return { chassis: chassis, parts: parts, items: items, events: events, enemies: enemies, run: run };
+  /* ==========================================================
+     熱の調整つまみ
+
+     ここを全部0にすれば、熱の無い元の挙動に戻る。
+     ========================================================== */
+  var heat = {
+    cellBase: 2.8,    // どのマスも持っている排熱
+    openSide: 1.0,    // 外気に触れている辺1つあたりの排熱（車体の外周・塞がったマスに面した辺）
+    spill: 0.5,       // 隣のマス（別の武器）の発熱がこちらへ回り込む割合
+    perLevel: 0.5,    // 冷却器を1段強化するごとの排熱+
+    softAt: 0,        // これを超えると「加熱」。リロードが伸び始める
+    hardAt: 2,        // これを超えると「過熱」
+    slowPer: 0.2,     // 超過1あたりリロード +20%
+    slowMax: 1.5      // リロードの伸びの上限（最大2.5倍）
+  };
+
+  return { chassis: chassis, parts: parts, items: items, events: events, enemies: enemies, run: run, heat: heat };
 })();

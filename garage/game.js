@@ -256,6 +256,9 @@
       ammo: s.ammo == null ? null : s.ammo + k,
       reload: s.reload ? s.reload * Math.pow(0.94, k) : 0,
       pierce: s.pierce || 0,
+      heat: s.heat || 0,
+      /* 冷却器は強化すると排熱が伸びる */
+      cool: p.cool ? p.cool + D.heat.perLevel * k : 0,
       aura: null
     };
     if (p.aura) {
@@ -338,20 +341,38 @@
     return true;
   }
 
+  /* 置ける場所のうち、車全体がいちばん熱くならない場所を選ぶ。
+     同点なら左上から先に埋める（熱が関係ない部品は今までどおりの並びになる） */
   function autoPlace(inst) {
     var ch = chassis(), occ = occupancy(inst.uid);
+    var rot0 = inst.rot, best = null;
     for (var rot = 0; rot < 4; rot++) {
-      var save = inst.rot;
       inst.rot = rot;
       for (var y = 0; y < ch.rows; y++) {
         for (var x = 0; x < ch.cols; x++) {
-          if (canPlace(inst, x, y, occ)) { inst.x = x; inst.y = y; return true; }
+          if (!canPlace(inst, x, y, occ)) continue;
+          inst.x = x; inst.y = y;
+          var score = heatPenalty();
+          if (best == null || score < best.score - 0.0001) {
+            best = { rot: rot, x: x, y: y, score: score };
+          }
         }
       }
-      inst.rot = save;
     }
     inst.x = null; inst.y = null;
-    return false;
+    inst.rot = rot0;
+    if (!best) return false;
+    inst.rot = best.rot; inst.x = best.x; inst.y = best.y;
+    return true;
+  }
+
+  /* 車全体で捨てきれていない熱の合計。小さいほど良い置き方。
+     build() を通すのは、プレイヤーが画面で見る数字と同じもので採点するため
+     （車体速度を見落として内側のマスを安全と誤判定した） */
+  function heatPenalty() {
+    var sum = 0;
+    build().weapons.forEach(function (w) { sum += Math.max(0, w.heatNet); });
+    return sum;
   }
 
   /* ==========================================================
@@ -404,6 +425,107 @@
   }
 
   /* ==========================================================
+     熱
+
+     武器は自分の乗っているマス全部に熱を出す（毎秒 heat/リロード）。
+     マスは「基本 + 外気に触れている辺 + 隣の冷却器」のぶんだけ熱を捨てる。
+     捨てきれない量（net）が、そのマスに乗っている武器のリロードを伸ばす。
+
+     この作りで何が起きるか
+     - 強い武器ほど熱いので、主砲を固めると隣同士で熱を回し合って共倒れする
+     - 外周のマスは外気で冷えるが、内側はこもる。大きい車体ほど内側が多い
+     - 塞がったマスは穴＝通気口として働く。開けると置ける代わりに排熱が減る
+     - 武器でない部品（エンジン等）は熱を出さないので、武器の間の壁になる
+     ========================================================== */
+  var NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+  function heatMap() {
+    var H = D.heat, ch = chassis();
+    var own = {}, cool = {}, uid = {}, x, y, key;
+
+    /* 素の排熱。外へ face している辺の数だけ上がる
+       （車体の外側と、まだ塞がっているマスは「外気」として数える） */
+    for (y = 0; y < ch.rows; y++) {
+      for (x = 0; x < ch.cols; x++) {
+        if (isBlocked(x, y)) continue;
+        key = x + ',' + y;
+        var open = 0;
+        for (var d = 0; d < NB.length; d++) {
+          var nx = x + NB[d][0], ny = y + NB[d][1];
+          if (nx < 0 || ny < 0 || nx >= ch.cols || ny >= ch.rows || isBlocked(nx, ny)) open++;
+        }
+        cool[key] = H.cellBase + (ch.cool || 0) + H.openSide * open;
+        own[key] = 0;
+      }
+    }
+
+    /* 武器の発熱と、冷却器の排熱を配る */
+    placed().forEach(function (inst) {
+      var e = eff(inst);
+      var cells = instCells(inst).map(function (c) {
+        return (inst.x + c[0]) + ',' + (inst.y + c[1]);
+      });
+      if (e.heat && e.reload) {
+        /* 発熱は武器の性質だけで決まる。車体速度は混ぜない
+           （速い車体ほど熱いことにすると、速さが持ち味のジープだけ
+           二重に損をするうえ、なぜ熱いのかが画面から読み取れなくなる） */
+        var perSec = e.heat / e.reload;
+        cells.forEach(function (k) {
+          if (own[k] == null) return;
+          own[k] += perSec;
+          uid[k] = inst.uid;
+        });
+      }
+      if (e.cool) {
+        var given = {};
+        cells.forEach(function (k) {
+          var p = k.split(',');
+          NB.forEach(function (dd) {
+            var nk = (Number(p[0]) + dd[0]) + ',' + (Number(p[1]) + dd[1]);
+            /* 同じマスへ二重に配らない */
+            if (cool[nk] == null || given[nk]) return;
+            given[nk] = true;
+            cool[nk] += e.cool;
+          });
+        });
+      }
+    });
+
+    /* 隣のマスの熱が回り込む。これが武器どうしの反発になる。
+       同じ武器の自分のマスからは回り込ませない（大きい武器が自分の大きさで
+       損をするだけになり、「隣に何を置くか」という判断が薄れるため） */
+    var load = {}, net = {};
+    Object.keys(own).forEach(function (k) {
+      var p = k.split(','), v = own[k];
+      NB.forEach(function (d) {
+        var nk = (Number(p[0]) + d[0]) + ',' + (Number(p[1]) + d[1]);
+        if (!own[nk] || (uid[k] && uid[nk] === uid[k])) return;
+        v += H.spill * own[nk];
+      });
+      load[k] = v;
+      net[k] = v - cool[k];
+    });
+    return { own: own, cool: cool, load: load, net: net };
+  }
+
+  /* 武器の熱は、乗っているマスのうち一番苦しいマスで決まる */
+  function weaponHeat(inst, map) {
+    var H = D.heat, worst = null;
+    instCells(inst).forEach(function (c) {
+      var k = (inst.x + c[0]) + ',' + (inst.y + c[1]);
+      if (map.net[k] == null) return;
+      if (worst == null || map.net[k] > worst) worst = map.net[k];
+    });
+    if (worst == null) worst = 0;
+    var over = Math.max(0, worst - H.softAt);
+    return {
+      net: worst,
+      tier: worst > H.hardAt ? 'hot' : (worst > H.softAt ? 'warm' : ''),
+      mult: 1 + Math.min(H.slowMax, over * H.slowPer)
+    };
+  }
+
+  /* ==========================================================
      組み上がった車の性能
      ========================================================== */
   function build() {
@@ -423,17 +545,21 @@
     /* 過積載は速度で払う。1超過につき5%、下限は25% */
     b.spd = Math.max(0.25, b.spd - b.over * 0.05);
 
+    b.heat = heatMap();
     placed().forEach(function (i) {
       var e = eff(i);
       if (!isWeapon(e.kind)) return;
       var a = auraFor(i);
+      var h = weaponHeat(i, b.heat);
       b.weapons.push({
         uid: i.uid, name: e.name, kind: e.kind,
         dmg: Math.round(e.dmg * (1 + a.dmgPct)),
         ammo: e.ammo == null ? null : e.ammo + a.ammo,
-        reload: Math.max(0.15, e.reload * (1 + a.reload) / b.spd),
+        /* 熱で伸びたぶんはここで効く。整備画面の予測と戦闘で同じ数字になる */
+        reload: Math.max(0.15, e.reload * (1 + a.reload) / b.spd * h.mult),
         pierce: e.pierce,
-        aura: a
+        aura: a,
+        heatNet: h.net, heatTier: h.tier, heatMult: h.mult
       });
     });
     /* リロードの速い順に並べると、ログの流れが読みやすい */
@@ -660,6 +786,15 @@
         c.style.left = (x * cell) + 'px';
         c.style.top = (y * cell) + 'px';
         c.dataset.gx = x; c.dataset.gy = y;
+        /* 熱の予測で色づけする。置いた瞬間に盤が染まるのが狙い */
+        var hk = x + ',' + y, hn = b.heat.net[hk];
+        if (hn != null) {
+          if (hn > D.heat.hardAt) c.classList.add('is-hot');
+          else if (hn > D.heat.softAt) c.classList.add('is-warm');
+          else if (hn <= -1) c.classList.add('is-cold');
+          c.title = '発熱 ' + r1(b.heat.load[hk]) + ' / 排熱 ' + r1(b.heat.cool[hk]) +
+            (hn > 0 ? '　→ 捨てきれない ' + r1(hn) : '　→ 余裕 ' + r1(-hn));
+        }
         if (isBlocked(x, y)) {
           c.classList.add('is-blocked');
           var bc = document.createElement('canvas');
@@ -688,7 +823,7 @@
       }
     }
     placed().forEach(function (inst) {
-      var node = makeItemNode(inst, cell);
+      var node = makeItemNode(inst, cell, b.heat);
       node.style.left = (inst.x * cell) + 'px';
       node.style.top = (inst.y * cell) + 'px';
       grid.appendChild(node);
@@ -709,6 +844,7 @@
     clear(sum);
     var dps = 0;
     b.weapons.forEach(function (wp) { dps += wp.dmg / wp.reload; });
+    var hotGuns = b.weapons.filter(function (wp) { return wp.heatTier; });
     [
       ['装甲（体力）', S.hp + ' / ' + b.maxHp],
       ['積載', r1(b.weight) + ' / ' + b.cap + (b.over > 0 ? '（超過 ' + r1(b.over) + '）' : '')],
@@ -716,18 +852,37 @@
       ['被弾軽減', b.def],
       ['使えるマス', usableCells() + ' / ' + (chassis().cols * chassis().rows)],
       ['武器', b.weapons.length + ' 門'],
+      ['熱', hotGuns.length ? hotGuns.length + ' 門が過熱ぎみ' : '問題なし'],
       ['目安 毎秒火力', r1(dps)]
     ].forEach(function (row) {
       var d = el('div');
       d.appendChild(el('i', null, row[0]));
-      d.appendChild(el('b', null, String(row[1])));
+      var v = el('b', null, String(row[1]));
+      if (row[0] === '熱' && hotGuns.length) v.classList.add('is-hotnum');
+      d.appendChild(v);
       sum.appendChild(d);
     });
+
+    /* どの武器が、どれだけ遅くなっているかを名指しで出す。
+       盤が赤いだけでは「何をどうすればいいか」まで伝わらない */
+    var warn = $('grid-heatwarn');
+    clear(warn);
+    warn.hidden = !hotGuns.length;
+    if (hotGuns.length) {
+      warn.appendChild(el('b', null, '熱がこもっています'));
+      hotGuns.forEach(function (wp) {
+        warn.appendChild(el('p', null,
+          wp.name + '：発射間隔が ' + Math.round((wp.heatMult - 1) * 100) + '% 伸びています'));
+      });
+      warn.appendChild(el('p', 'ss-heatwarn-tip',
+        '武器どうしを離すか、あいだにエンジンを挟むか、冷却器を隣に置く。' +
+        '青いマス（外周や穴のそば）は熱がよく逃げます。'));
+    }
 
     renderDetail();
   }
 
-  function makeItemNode(inst, cell) {
+  function makeItemNode(inst, cell, heat) {
     var sz = instSize(inst);
     var node = el('button', 'ss-item');
     node.style.width = (sz.cols * cell) + 'px';
@@ -741,6 +896,15 @@
     if (inst.x != null && isWeapon(PART_BY_ID[inst.pid].kind)) {
       var a = auraFor(inst);
       if (a.list.length) node.appendChild(el('span', 'ss-linked', '★' + a.list.length));
+      /* 過熱している武器は盤の上で一目で分かるようにする */
+      if (heat) {
+        var hw = weaponHeat(inst, heat);
+        if (hw.tier) {
+          /* マスの色は部品の絵で隠れてしまうので、部品自体にも枠を出す */
+          node.classList.add('is-' + hw.tier);
+          node.appendChild(el('span', 'ss-heatmark is-' + hw.tier, '熱'));
+        }
+      }
     }
     node.title = PART_BY_ID[inst.pid].name;
     return node;
@@ -766,14 +930,28 @@
     if (e.hp) li('装甲 +' + e.hp);
     if (e.spd) li('速度 +' + Math.round(e.spd * 100) + '%');
     if (isWeapon(p.kind)) {
-      var a = inst.x != null ? auraFor(inst) : { dmg: 0, ammo: 0, reload: 0, list: [] };
+      /* 倉庫にある部品は隣接の相手がいないので、効果ゼロの器を渡す */
+      var a = inst.x != null ? auraFor(inst) : { dmgPct: 0, ammo: 0, reload: 0, list: [] };
       var b = build();
       var dmgNow = Math.round(e.dmg * (1 + a.dmgPct));
       li('威力 ' + dmgNow + (a.dmgPct ? '（+' + Math.round(a.dmgPct * 100) + '%）' : ''));
       li('弾 ' + (e.ammo == null ? '∞' : (e.ammo + a.ammo) + (a.ammo ? '（+' + a.ammo + '）' : '')));
+      var h = inst.x != null ? weaponHeat(inst, b.heat) : null;
       li('発射間隔 ' + r1(e.reload * (1 + a.reload)) + ' 秒' +
-        (inst.x != null ? '（車体速度こみ ' + r1(Math.max(0.15, e.reload * (1 + a.reload) / b.spd)) + ' 秒）' : ''));
+        (inst.x != null ? '（車体速度と熱こみ ' +
+          r1(Math.max(0.15, e.reload * (1 + a.reload) / b.spd * h.mult)) + ' 秒）' : ''));
       if (e.pierce) li('貫通 ' + (e.pierce >= 99 ? '完全' : e.pierce));
+      if (e.heat) {
+        li('発熱 ' + r1(e.heat) + ' /発（毎秒 ' + r1(e.heat / e.reload) + '）',
+          h && h.tier ? 'ss-heat is-' + h.tier : 'ss-heat');
+        if (h) {
+          li(h.tier
+            ? '置き場所の排熱が ' + r1(h.net) + ' 足りず、発射間隔が ' +
+              Math.round((h.mult - 1) * 100) + '% 伸びている'
+            : '置き場所の排熱は足りている（余裕 ' + r1(-h.net) + '）',
+            h.tier ? 'ss-heat is-' + h.tier : 'ss-heat');
+        }
+      }
       if (a.list.length) li('隣接：' + a.list.join('・'), 'ss-aura');
     }
     if (e.aura) {
@@ -783,6 +961,10 @@
       if (e.aura.reload) t.push('リロード' + Math.round(e.aura.reload * 100) + '%');
       li('隣接する武器へ ' + t.join(' / '), 'ss-aura');
       if (inst.x != null) li('いま効いている武器：' + auraTargets(inst) + ' 門', 'ss-aura');
+    }
+    if (e.cool) {
+      li('隣接するマスの排熱 +' + r1(e.cool), 'ss-heat');
+      if (inst.x != null) li('熱の逃げ場を作る。武器と武器の間に挟むのが効く', 'ss-heat');
     }
     box.appendChild(ul);
 
@@ -942,9 +1124,12 @@
     hintClear();
   }
 
+  /* ヒントだけ消す。className ごと入れ替えると、塞がったマスや熱の色まで消える */
   function hintClear() {
     var cells = $('grid').querySelectorAll('.ss-gridcell');
-    for (var i = 0; i < cells.length; i++) cells[i].className = 'ss-gridcell';
+    for (var i = 0; i < cells.length; i++) {
+      cells[i].classList.remove('is-hint', 'is-bad');
+    }
   }
 
   function targetCell(px, py) {
@@ -969,7 +1154,7 @@
       var x = t.x + c[0], y = t.y + c[1];
       if (x < 0 || y < 0 || x >= ch.cols || y >= ch.rows) return;
       var node = $('grid').querySelector('.ss-gridcell[data-gx="' + x + '"][data-gy="' + y + '"]');
-      if (node) node.className = 'ss-gridcell ' + (ok ? 'is-hint' : 'is-bad');
+      if (node) node.classList.add(ok ? 'is-hint' : 'is-bad');
     });
   }
 
@@ -1332,6 +1517,7 @@
           /* 弾無限の武器に弾数を足しても意味がないので、有限のものだけ */
           ammo: w.ammo == null ? null : w.ammo + (bf.ammo || 0),
           ammoMax: w.ammo == null ? null : w.ammo + (bf.ammo || 0),
+          heatTier: w.heatTier, heatMult: w.heatMult,
           t: 0
         };
       }),
@@ -1396,9 +1582,11 @@
     B.guns.forEach(function (g, idx) {
       var row = el('div', 'ss-gun');
       row.dataset.idx = idx;
+      if (g.heatTier) row.classList.add('is-' + g.heatTier);
       var bar = el('div', 'ss-gunbar');
       bar.appendChild(el('i'));
-      bar.appendChild(el('span', null, g.name));
+      bar.appendChild(el('span', null, g.name +
+        (g.heatTier ? '（熱で ' + Math.round((g.heatMult - 1) * 100) + '% 遅い）' : '')));
       row.appendChild(bar);
       row.appendChild(el('b', null, g.ammo == null ? '∞' : String(g.ammo)));
       box.appendChild(row);
@@ -1612,7 +1800,8 @@
       S.lastLoss = {
         foe: B.foe.name, armor: B.foe.armor, atk: B.foe.atk,
         tally: B.tally, meMax: B.meMax, foeHp: B.foeHp, foeMax: B.foeMax,
-        spd: B.me.spd, over: B.me.over, guns: B.guns.length
+        spd: B.me.spd, over: B.me.over, guns: B.guns.length,
+        hotGuns: B.guns.filter(function (g) { return g.heatTier; }).length
       };
     }
     S.inBattle = null;
@@ -2107,7 +2296,16 @@
         m: '弾が尽きて手が止まっていた。弾数無限の副砲を1門か、弾薬箱を武器の隣に置く'
       });
     }
-    /* 3. 過積載 */
+    /* 3. 熱 */
+    if (L.hotGuns > 0) {
+      out.push({
+        k: '熱でリロードが伸びていた武器',
+        v: L.hotGuns + ' 門',
+        m: '武器を固めて置くと熱がこもって遅くなる。間にエンジンなどを挟んで離すか、'
+          + '冷却器を隣に置くか、外周のマスへ寄せる'
+      });
+    }
+    /* 4. 過積載 */
     if (L.over > 0) {
       out.push({
         k: '過積載',

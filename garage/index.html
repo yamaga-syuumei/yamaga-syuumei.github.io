@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=2.3">
+<link rel="stylesheet" href="style.css?v=3.1">
 </head>
 <body>
 
@@ -82,7 +82,8 @@
       <p class="ss-sub" style="text-align:center; margin-top:20px;">覚えておくこと</p>
       <ul class="ss-rules">
         <li><b>重さ</b> 積んだ部品の重さ合計が積載量を超えると、全体の速度が落ちる</li>
-        <li><b>隣接</b> 弾薬箱・冷却器・照準装置は<b>隣のマスに接した武器</b>だけを強化する</li>
+        <li><b>隣接</b> 弾薬箱・照準装置は<b>隣のマスに接した武器</b>だけを強化する</li>
+        <li><b>熱</b> 強い武器ほど熱い。<b>武器どうしを固めると熱がこもって遅くなる</b>。外周や穴のそばは冷えやすく、冷却器は隣のマスを冷やす</li>
         <li><b>装甲</b> 敵の装甲は1発ごとに引かれる。副砲だけでは硬い敵を抜けない</li>
       </ul>
     </div>
@@ -147,6 +148,7 @@
             部品はドラッグで移動。<b>タップ／クリックでつかんで、置きたいマスでもう一度</b>でも動く。<br>
             回転は <b>R キー</b>／右クリック／つかんでいる間に出る<b>回転</b>ボタン。
           </p>
+          <div class="ss-heatwarn" id="grid-heatwarn" hidden></div>
           <div class="ss-summary" id="grid-summary"></div>
         </div>
 
@@ -413,7 +415,8 @@
         <dt>被弾軽減</dt><dd>敵の攻撃1発ごとに引く固定値。車体で決まる</dd>
         <dt>装甲（敵の）</dt><dd>こちらの攻撃1発ごとに引かれる固定値。<b>威力の低い副砲ほど損をする</b></dd>
         <dt>貫通</dt><dd>敵の装甲をこの数だけ無視する。硬い敵への答え</dd>
-        <dt>隣接（★）</dt><dd>弾薬箱・冷却器・照準装置は<b>辺で接した武器だけ</b>を強化する。★の数は効いている補助の数</dd>
+        <dt>隣接（★）</dt><dd>弾薬箱・照準装置は<b>辺で接した武器だけ</b>を強化する。★の数は効いている補助の数</dd>
+        <dt>熱</dt><dd>武器は撃つと熱を出し、<b>隣のマスの武器にも回り込む</b>。捨てきれないとその武器の発射間隔が伸びる（部品に「熱」の印が付く）。車体の外周や、まだ塞がっているマスに面したところは熱がよく逃げる。<b>冷却器</b>は隣のマスの排熱を上げるので、武器と武器の間に挟むと効く</dd>
         <dt>弾</dt><dd>主砲とスペシャルは弾数有限。副砲は無限。戦闘ごとに補給される</dd>
       </dl>
 
@@ -444,12 +447,12 @@
 
 <div class="ss-toast" id="toast" hidden></div>
 
-<script src="data.js?v=2.3"></script>
-<script src="sfx.js?v=2.3"></script>
-<script src="art.js?v=2.3"></script>
-<script src="game.js?v=2.3"></script>
+<script src="data.js?v=3.1"></script>
+<script src="sfx.js?v=3.1"></script>
+<script src="art.js?v=3.1"></script>
+<script src="game.js?v=3.1"></script>
 <!-- ?test=1 のときだけ動く回帰テスト。普段の起動には影響しない -->
-<script src="test.js?v=2.3"></script>
+<script src="test.js?v=3.1"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

@@ -241,8 +241,14 @@ html.no-motion .ss-screen { animation: none; }
   position: absolute; width: var(--cell); height: var(--cell);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.045);
 }
-.ss-gridcell.is-hint { background: rgba(63,184,122,.20); }
-.ss-gridcell.is-bad  { background: rgba(224,57,25,.22); }
+/* 熱の予測。置いた瞬間に盤が染まるので、配置の良し悪しが手を離す前に分かる。
+   涼しいマスも見せるのは「どこへ動かせば直るか」を示すため */
+.ss-gridcell.is-cold { background: rgba(80,160,220,.13); }
+.ss-gridcell.is-warm { background: rgba(224,138,40,.20); }
+.ss-gridcell.is-hot  { background: rgba(224,57,25,.28); }
+/* 配置ヒントは熱より手前に出す（今つかんでいるものの可否が優先） */
+.ss-gridcell.is-hint { background: rgba(63,184,122,.34); }
+.ss-gridcell.is-bad  { background: rgba(224,57,25,.40); }
 /* まだ開いていないマス */
 .ss-gridcell.is-blocked { box-shadow: none; }
 .ss-gridcell.is-blocked canvas { display: block; width: 100%; height: 100%; }
@@ -285,6 +291,28 @@ html.no-motion .ss-screen { animation: none; }
   position: absolute; left: 2px; top: 1px; font-size: 9px; font-weight: 800;
   color: #9fd8ff; text-shadow: 1px 1px 0 #000; line-height: 1;
 }
+.ss-item.is-warm { box-shadow: 0 0 0 2px rgba(224,138,40,.85); }
+.ss-item.is-hot { box-shadow: 0 0 0 2px rgba(255,90,74,.95); }
+.ss-item .ss-heatmark {
+  position: absolute; right: 2px; top: 1px; font-size: 9px; font-weight: 800;
+  text-shadow: 1px 1px 0 #000, 0 0 4px #000; line-height: 1;
+}
+.ss-item .ss-heatmark.is-warm { color: #ffb45a; }
+.ss-item .ss-heatmark.is-hot { color: #ff6a4a; }
+
+/* 熱の警告。どの武器がどれだけ遅いかを名指しで出す */
+.ss-heatwarn {
+  margin-top: 12px; padding: 9px 11px; border-radius: 8px;
+  background: rgba(224,57,25,.10); border: 1px solid rgba(224,57,25,.42);
+  font-size: 12px; line-height: 1.6;
+}
+.ss-heatwarn b { display: block; color: #ff8a70; margin-bottom: 3px; }
+.ss-heatwarn p { margin: 0; color: var(--ink-2); }
+.ss-heatwarn .ss-heatwarn-tip { margin-top: 5px; color: var(--ink-3); }
+.ss-summary b.is-hotnum { color: #ff8a70; }
+.ss-detail .ss-heat { color: #9fd8ff; }
+.ss-detail .ss-heat.is-warm { color: #ffb45a; }
+.ss-detail .ss-heat.is-hot { color: #ff8a70; }
 
 .ss-stash {
   min-height: 96px; background: #10151a; border: 1px dashed #3a4650; border-radius: 8px;
@@ -366,6 +394,11 @@ html.no-motion .ss-screen { animation: none; }
 }
 .ss-gun.is-ready .ss-gunbar i { background: #4a7a4f; }
 .ss-gun.is-empty { opacity: .4; }
+/* 熱で遅くなっている武器。なぜ止まって見えるのかを戦闘中にも示す */
+.ss-gun.is-warm .ss-gunbar { border-color: rgba(224,138,40,.6); }
+.ss-gun.is-warm .ss-gunbar span { color: #ffb45a; }
+.ss-gun.is-hot .ss-gunbar { border-color: rgba(224,57,25,.7); }
+.ss-gun.is-hot .ss-gunbar span { color: #ff8a70; }
 .ss-gun b { color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
 
 .ss-log {
