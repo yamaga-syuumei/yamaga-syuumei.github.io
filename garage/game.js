@@ -33,6 +33,8 @@
   D.chassis.forEach(function (c) { CHASSIS_BY_ID[c.id] = c; });
   var ITEM_BY_ID = {};
   (D.items || []).forEach(function (i) { ITEM_BY_ID[i.id] = i; });
+  var MOD_BY_ID = {};
+  (D.mods || []).forEach(function (m) { MOD_BY_ID[m.id] = m; });
   var ITEM_CAP = 5;                 // 持ち物の上限
 
   var KIND_LABEL = {
@@ -60,12 +62,13 @@
       if (raw) return JSON.parse(raw);
     } catch (e) { /* 保存できない設定でも遊べるようにする */ }
     return {
-      seenParts: {}, seenEnemies: {}, unlocked: {}, tut: {},
+      seenParts: {}, seenEnemies: {}, seenMods: {}, unlocked: {}, tut: {},
       stats: { battlesWon: 0, clears: 0, bestFloor: 0, maxGold: 0, shoplessClears: 0, clearedChassis: {} }
     };
   }
   var META = loadMeta();
   if (!META.tut) META.tut = {};   // 古いセーブ（tut を持たない）を引き継いだとき用
+  if (!META.seenMods) META.seenMods = {};
   if (META.stats.runs == null) META.stats.runs = 0;
 
   /* ==========================================================
@@ -157,6 +160,12 @@
     META.seenEnemies[id] = true;
     saveMeta(); checkAchievements();
   }
+  function markModSeen(id) {
+    if (!META.seenMods) META.seenMods = {};
+    if (META.seenMods[id]) return;
+    META.seenMods[id] = true;
+    saveMeta(); checkAchievements();
+  }
 
   /* 一度だけ出す案内を見たかどうか。実績とは違い達成度ではないので checkAchievements は呼ばない */
   function tutSeen(key) { return !!META.tut[key]; }
@@ -238,6 +247,29 @@
   }
 
   /* ==========================================================
+     改造
+
+     賞金首の報酬。車そのものへの恒久変更で、マスを使わない。
+     効果はここで1つに合算して、build() と heatMap() が読む。
+     ========================================================== */
+  function modSum() {
+    var out = {
+      hp: 0, def: 0, spd: 0, cellCool: 0,
+      ammoFlat: 0, ammoPct: 0, healPct: 0, openAll: false
+    };
+    if (!S || !S.mods) return out;
+    S.mods.forEach(function (id) {
+      var m = MOD_BY_ID[id];
+      if (!m) return;
+      Object.keys(m.effect).forEach(function (k) {
+        if (k === 'openAll') out.openAll = out.openAll || !!m.effect[k];
+        else if (out[k] != null) out[k] += m.effect[k];
+      });
+    });
+    return out;
+  }
+
+  /* ==========================================================
      部品の実効性能
      強化1段ごとに 威力/装甲/積載 +22%、弾+1、リロード-6%、速度+0.03
      ========================================================== */
@@ -313,6 +345,7 @@
     var ch = chassis();
     var key = x + ',' + y;
     if (!ch.blocked || ch.blocked.indexOf(key) < 0) return false;
+    if (modSum().openAll) return false;   // 拡張ベイ
     return !(S.opened && S.opened[key]);
   }
   /* まだ開いていないマスの一覧 */
@@ -440,7 +473,7 @@
   var NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
   function heatMap() {
-    var H = D.heat, ch = chassis();
+    var H = D.heat, ch = chassis(), md = modSum();
     var own = {}, cool = {}, uid = {}, x, y, key;
 
     /* 素の排熱。外へ face している辺の数だけ上がる
@@ -454,7 +487,7 @@
           var nx = x + NB[d][0], ny = y + NB[d][1];
           if (nx < 0 || ny < 0 || nx >= ch.cols || ny >= ch.rows || isBlocked(nx, ny)) open++;
         }
-        cool[key] = H.cellBase + (ch.cool || 0) + H.openSide * open;
+        cool[key] = H.cellBase + (ch.cool || 0) + md.cellCool + H.openSide * open;
         own[key] = 0;
       }
     }
@@ -529,10 +562,12 @@
      組み上がった車の性能
      ========================================================== */
   function build() {
-    var ch = chassis();
+    var ch = chassis(), md = modSum();
+    /* 改造は車体の素の数値に足し引きする。装甲と被弾軽減は0未満にしない */
     var b = {
-      maxHp: ch.hp, cap: ch.cap, weight: 0, spd: 1 + ch.spd,
-      def: ch.def, weapons: [], over: 0
+      maxHp: ch.hp + md.hp, cap: ch.cap, weight: 0,
+      spd: 1 + ch.spd + md.spd,
+      def: Math.max(0, ch.def + md.def), weapons: [], over: 0, mod: md
     };
     placed().forEach(function (i) {
       var e = eff(i);
@@ -541,6 +576,7 @@
       b.cap += e.cap;
       b.spd += e.spd;
     });
+    b.maxHp = Math.max(1, b.maxHp);
     b.over = Math.max(0, b.weight - b.cap);
     /* 過積載は速度で払う。1超過につき5%、下限は25% */
     b.spd = Math.max(0.25, b.spd - b.over * 0.05);
@@ -554,7 +590,9 @@
       b.weapons.push({
         uid: i.uid, name: e.name, kind: e.kind,
         dmg: Math.round(e.dmg * (1 + a.dmgPct)),
-        ammo: e.ammo == null ? null : e.ammo + a.ammo,
+        /* 弾の改造は弾数のある武器だけ。弾無限の副砲には効かない */
+        ammo: e.ammo == null ? null
+          : Math.round((e.ammo + a.ammo + md.ammoFlat) * (1 + md.ammoPct)),
         /* 熱で伸びたぶんはここで効く。整備画面の予測と戦闘で同じ数字になる */
         reload: Math.max(0.15, e.reload * (1 + a.reload) / b.spd * h.mult),
         pierce: e.pierce,
@@ -677,7 +715,7 @@
   /* ==========================================================
      画面切り替え
      ========================================================== */
-  var SCREENS = ['title', 'pick', 'map', 'garage', 'battle', 'reward', 'shop', 'rest', 'event', 'end', 'codex'];
+  var SCREENS = ['title', 'pick', 'map', 'garage', 'battle', 'reward', 'mod', 'shop', 'rest', 'event', 'end', 'codex'];
   function show(name) {
     SCREENS.forEach(function (s) { $('sc-' + s).hidden = (s !== name); });
     $('status').hidden = (name === 'title' || name === 'pick' || name === 'codex');
@@ -771,6 +809,7 @@
     $('garage-tut').hidden = !!pending || tutSeen('garage');
 
     $('grid-chassis').textContent = ch.name;
+    renderModBadges();
     var w = $('grid-weight');
     w.textContent = '重量 ' + r1(b.weight) + ' / ' + b.cap;
     w.classList.toggle('is-over', b.over > 0);
@@ -1786,6 +1825,12 @@
       logLine('win', '── ' + B.foe.name + ' を撃破 ──');
       window.SFX.defeat();
       S.hp = Math.max(1, S.hp);
+      /* 補修キット：勝つたびに自分で継ぐ */
+      var heal = Math.round(B.meMax * modSum().healPct);
+      if (heal > 0 && S.hp < B.meMax) {
+        S.hp = Math.min(B.meMax, S.hp + heal);
+        logLine('sys', '補修キットで装甲を ' + heal + ' 継いだ');
+      }
       $('battle-end').hidden = false;
       $('battle-next').textContent = B.type === 'boss' ? '結果を見る' : '戦利品';
       META.stats.battlesWon++; saveMeta(); checkAchievements();
@@ -1933,6 +1978,163 @@
     }
     b.onclick = onBuy;
     return b;
+  }
+
+  /* ==========================================================
+     改造（賞金首の報酬）
+
+     3択から1つ。どれにも代償があるので「強いほうを取る」では決まらない。
+     数値が抽象的なままだと選べないので、**いまの車に当てた結果**を各カードに出す。
+     ========================================================== */
+  var modGold = 0;
+
+  function modThumb(mod, px) {
+    var c = document.createElement('canvas');
+    var sp = window.ART.mod(mod);
+    c.width = sp.width; c.height = sp.height;
+    c.getContext('2d').drawImage(sp, 0, 0);
+    c.style.width = (px || 22) + 'px';
+    c.style.height = (px || 22) + 'px';
+    return c;
+  }
+
+  function hotCount(b) {
+    return b.weapons.filter(function (w) { return w.heatTier; }).length;
+  }
+  function totalAmmo(b) {
+    var n = 0;
+    b.weapons.forEach(function (w) { if (w.ammo != null) n += w.ammo; });
+    return n;
+  }
+
+  /* この改造を入れると、いまの車がどう変わるか。
+     実際に S.mods へ入れて build() し直すので、表示と中身がずれない */
+  function modPreview(id) {
+    var b0 = build(), cells0 = usableCells(), hot0 = hotCount(b0), ammo0 = totalAmmo(b0);
+    S.mods.push(id);
+    var b1 = build(), cells1 = usableCells(), hot1 = hotCount(b1), ammo1 = totalAmmo(b1);
+    S.mods.pop();
+
+    var out = [];
+    /* good は true=得 / false=損 / null=動くが今の車には効いていない。
+       「数値が変わる」と「得をする」は別物で、そこを混ぜると罠になる
+       （積載に余裕がある車の積載+10 は、緑で出すと嘘になる） */
+    function cmp(key, label, a, b, good, suffix) {
+      if (a === b) return;
+      out.push({
+        key: key, a: a, b: b, good: good,
+        t: label + ' ' + a + (suffix || '') + ' → ' + b + (suffix || '')
+      });
+    }
+    function dir(a, b, upIsGood) { return upIsGood ? b > a : b < a; }
+    /* 積載と重量は「超過しているか」でしか効かない */
+    var overGood = b1.over < b0.over ? true : (b1.over > b0.over ? false : null);
+
+    cmp('maxHp', '最大装甲', b0.maxHp, b1.maxHp, dir(b0.maxHp, b1.maxHp, true));
+    cmp('def', '被弾軽減', b0.def, b1.def, dir(b0.def, b1.def, true));
+    cmp('dps', '毎秒火力', r1(dps(b0)), r1(dps(b1)), dir(dps(b0), dps(b1), true));
+    cmp('spd', '速度', Math.round(b0.spd * 100), Math.round(b1.spd * 100),
+      dir(b0.spd, b1.spd, true), '%');
+    cmp('cap', '積載', b0.cap, b1.cap, overGood);
+    cmp('weight', '重量', r1(b0.weight), r1(b1.weight), overGood);
+    cmp('cells', '使えるマス', cells0, cells1, dir(cells0, cells1, true));
+    cmp('ammo', '弾の合計', ammo0, ammo1, dir(ammo0, ammo1, true));
+    cmp('hot', '過熱する武器', hot0, hot1, dir(hot0, hot1, false), '門');
+
+    /* 走行をまたいで効くものは、build() を1回比べても出てこない。
+       いまの車に当てた具体的な数字にして出す */
+    var m = MOD_BY_ID[id];
+    if (m && m.effect.healPct) {
+      out.push({
+        key: 'heal', good: true,
+        t: '戦闘に勝つたび 装甲+' + Math.round(b1.maxHp * m.effect.healPct)
+      });
+    }
+
+    /* 得が一つも無いなら、はっきりそう言う。罠にしない */
+    if (!out.some(function (x) { return x.good === true; })) {
+      out.push({ key: 'none', good: false, t: 'いまの車には効き目がない' });
+    }
+    return out;
+  }
+
+  function dps(b) {
+    var n = 0;
+    b.weapons.forEach(function (w) { n += w.dmg / w.reload; });
+    return n;
+  }
+
+  function modCard(m) {
+    var b = el('button', 'ss-goods');
+    var top = el('div', 'ss-goodstop');
+    top.appendChild(modThumb(m, 22));
+    var nm = el('div');
+    nm.appendChild(el('span', 'ss-kind', '改造'));
+    nm.appendChild(el('b', null, m.name));
+    top.appendChild(nm);
+    b.appendChild(top);
+    b.appendChild(el('div', 'ss-note', m.note));
+
+    var eb = el('div', 'ss-modeff');
+    eb.appendChild(el('em', 'is-up', m.good));
+    eb.appendChild(el('em', 'is-down', m.bad));
+    b.appendChild(eb);
+
+    var pv = modPreview(m.id);
+    if (pv.length) {
+      var c = el('div', 'ss-cmp');
+      c.appendChild(el('i', null, 'いまの車がどうなるか'));
+      var row = el('span');
+      pv.forEach(function (x) {
+        row.appendChild(el('em', x.good === true ? 'is-up' : (x.good === false ? 'is-down' : 'is-flat'), x.t));
+      });
+      c.appendChild(row);
+      b.appendChild(c);
+    }
+    b.onclick = function () { applyMod(m.id); };
+    return b;
+  }
+
+  function renderMods(gold) {
+    modGold = gold;
+    var pool = (D.mods || []).filter(function (m) { return S.mods.indexOf(m.id) < 0; });
+    if (!pool.length) { toModReward(); return; }
+    show('mod');
+    var box = $('mod-offer');
+    clear(box);
+    shuffled(pool).slice(0, 3).forEach(function (m) { box.appendChild(modCard(m)); });
+    refreshStatus();
+  }
+
+  function applyMod(id) {
+    S.mods.push(id);
+    markModSeen(id);
+    window.SFX.upgrade();
+    toast(MOD_BY_ID[id].name + ' を施した');
+    /* 装甲の上限が動くので、いまの装甲を合わせ直す */
+    syncHp(); save(); refreshStatus();
+    toModReward();
+  }
+
+  function toModReward() {
+    show('reward');
+    renderReward(modGold, 3);
+  }
+
+  /* 何を背負っているかを整備画面で常に見せる */
+  function renderModBadges() {
+    var box = $('grid-mods');
+    clear(box);
+    box.hidden = !S.mods.length;
+    S.mods.forEach(function (id) {
+      var m = MOD_BY_ID[id];
+      if (!m) return;
+      var b = el('span', 'ss-modbadge');
+      b.appendChild(modThumb(m, 14));
+      b.appendChild(el('b', null, m.name));
+      b.title = m.good + ' / ' + m.bad;
+      box.appendChild(b);
+    });
   }
 
   /* ==========================================================
@@ -2093,6 +2295,27 @@
     return b;
   }
 
+  /* 改造は一度施したものだけ中身が見える。次の走行で何を狙うかの材料になる */
+  function codexModCard(m) {
+    var seen = !!(META.seenMods && META.seenMods[m.id]);
+    var b = el('div', 'ss-goods' + (seen ? '' : ' is-locked'));
+    var top = el('div', 'ss-goodstop');
+    top.appendChild(seen ? modThumb(m, 22) : lockedThumb(22, 22));
+    var nm = el('div');
+    nm.appendChild(el('span', 'ss-kind', seen ? '改造' : '？？？'));
+    nm.appendChild(el('b', null, seen ? m.name : '？？？'));
+    top.appendChild(nm);
+    b.appendChild(top);
+    b.appendChild(el('div', 'ss-note', seen ? m.note : 'まだ施していない'));
+    if (seen) {
+      var eb = el('div', 'ss-modeff');
+      eb.appendChild(el('em', 'is-up', m.good));
+      eb.appendChild(el('em', 'is-down', m.bad));
+      b.appendChild(eb);
+    }
+    return b;
+  }
+
   function achRow(a) {
     var unlocked = !!META.unlocked[a.id];
     var row = el('div', 'ss-ach' + (unlocked ? ' is-on' : ''));
@@ -2114,6 +2337,11 @@
     D.enemies.forEach(function (e) { eBox.appendChild(codexEnemyCard(e)); });
     var eSeen = Object.keys(META.seenEnemies).length;
     $('codex-enemies-count').textContent = eSeen + '/' + D.enemies.length;
+
+    var mBox = $('codex-mods'); clear(mBox);
+    (D.mods || []).forEach(function (m) { mBox.appendChild(codexModCard(m)); });
+    $('codex-mods-count').textContent =
+      Object.keys(META.seenMods || {}).length + '/' + (D.mods || []).length;
 
     var aBox = $('codex-ach'); clear(aBox);
     ACHIEVEMENTS.forEach(function (a) { aBox.appendChild(achRow(a)); });
@@ -2425,6 +2653,7 @@
       itemStock: null,
       visitedShop: false,
       items: [],
+      mods: [],
       opened: {},
       seenEvents: [],
       buff: null,
@@ -2482,9 +2711,14 @@
     $('battle-next').onclick = function () {
       if (!B.win) { endRun(false); return; }
       if (B.type === 'boss') { endRun(true); return; }
+      /* 賞金首だけは、戦利品の前に改造を選ばせる。
+         ここが「この走行が何者になるか」を決める1手 */
+      if (B.type === 'elite') { renderMods(B.foe.gold); return; }
       show('reward');
-      renderReward(B.foe.gold, B.type === 'elite' ? 3 : 3);
+      renderReward(B.foe.gold, 3);
     };
+
+    $('mod-skip').onclick = function () { window.SFX.select(); toModReward(); };
 
     $('reward-skip').onclick = function () { afterNode(); };
     $('shop-leave').onclick = function () { afterNode(); };
@@ -2497,7 +2731,7 @@
       btn.onclick = function () {
         document.querySelectorAll('#sc-codex .ss-tab').forEach(function (t) { t.classList.remove('is-on'); });
         btn.classList.add('is-on');
-        ['parts', 'enemies', 'ach'].forEach(function (t) { $('codex-' + t).hidden = (t !== btn.dataset.tab); });
+        ['parts', 'enemies', 'mods', 'ach'].forEach(function (t) { $('codex-' + t).hidden = (t !== btn.dataset.tab); });
       };
     });
 
@@ -2704,6 +2938,7 @@
     if (S.lightCost == null) S.lightCost = 75;
     if (S.visitedShop == null) S.visitedShop = false;
     if (!S.items) S.items = [];
+    if (!S.mods) S.mods = [];
     if (!S.opened) S.opened = {};
     if (S.openCost == null) S.openCost = 110;
     $('title-continue').hidden = false;
@@ -2724,6 +2959,7 @@
       applyEvent: applyEvent,
       addItem: addItem,
       useItem: useItem,
+      modPreview: modPreview,
       checkAchievements: checkAchievements,
       save: save,
       build: build,

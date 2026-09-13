@@ -206,6 +206,128 @@
     ok('焚き火：回復量は不足分までしか出さない',
       /装甲を 5 回復/.test(restBtn.textContent), 'text=' + restBtn.textContent);
 
+    /* ---------- 改造 ----------
+       走行の性格を決める1手。効果と代償が必ず両方乗ることと、
+       カードの予告が実際の結果と食い違わないことを押さえる */
+
+    function withMod(cid, modId, extra) {
+      G.startRun(cid);
+      (extra || []).forEach(function (p) { G.give(p); });
+      var before = G.build();
+      G.state().mods.push(modId);
+      return { before: before, after: G.build() };
+    }
+
+    var mCrew = withMod('ch_apc', 'md_crew');
+    ok('改造：効果が乗る（複座化の速度+12%）',
+      Math.abs((mCrew.after.spd - mCrew.before.spd) - 0.12) < 0.001,
+      r2(mCrew.before.spd) + ' → ' + r2(mCrew.after.spd));
+    ok('改造：代償も乗る（複座化で排熱−0.5）',
+      Math.abs((mCrew.after.heat.cool['1,1'] - mCrew.before.heat.cool['1,1']) + 0.5) < 0.001,
+      r2(mCrew.before.heat.cool['1,1']) + ' → ' + r2(mCrew.after.heat.cool['1,1']));
+
+    /* 効果も代償も「実際に効く資源」でなければ、選択にならない。
+       積載は超過しない限り効かないので、改造の通貨には使わない */
+    var usesCap = (D.mods || []).filter(function (m) {
+      return m.effect.cap != null || m.effect.partWeight != null;
+    });
+    ok('改造：効きもしない積載・重量を通貨に使っていない', usesCap.length === 0,
+      usesCap.map(function (m) { return m.name; }).join(','));
+
+    var mFin = withMod('ch_apc', 'md_fin');
+    ok('改造：放熱板で全マスの排熱が上がる',
+      Math.abs((mFin.after.heat.cool['1,1'] - mFin.before.heat.cool['1,1']) - 0.7) < 0.001,
+      r2(mFin.before.heat.cool['1,1']) + ' → ' + r2(mFin.after.heat.cool['1,1']));
+    ok('改造：放熱板の代償で最大装甲が下がる',
+      mFin.after.maxHp - mFin.before.maxHp === -15,
+      mFin.before.maxHp + ' → ' + mFin.after.maxHp);
+
+    var mBay = withMod('ch_ogre', 'md_bay');
+    ok('改造：拡張ベイで塞がったマスが開く',
+      Object.keys(mBay.after.heat.cool).length === 20 &&
+      Object.keys(mBay.before.heat.cool).length === 17,
+      Object.keys(mBay.before.heat.cool).length + ' → ' + Object.keys(mBay.after.heat.cool).length);
+
+    /* 補修キット：勝つたびに装甲が戻る（走行を通した消耗に効く） */
+    G.startRun('ch_apc');
+    G.state().mods.push('md_kit');
+    G.warpTo('battle');
+    var kb = G.battle();
+    kb.meHp = 20; kb.foeHp = 1;
+    G.step(1);
+    ok('改造：補修キットは戦闘に勝つと装甲を継ぐ', G.state().hp > 20, 'hp=' + G.state().hp);
+
+    var mSpare = withMod('ch_apc', 'md_spare');
+    var mgB = weaponIn(mSpare.before, partName(D, 's_mg'));
+    var mgA = weaponIn(mSpare.after, partName(D, 's_mg'));
+    var m76B = weaponIn(mSpare.before, partName(D, 'm_76'));
+    var m76A = weaponIn(mSpare.after, partName(D, 'm_76'));
+    ok('改造：弾の改造は弾数無限の副砲に効かない',
+      mgB.ammo === null && mgA.ammo === null);
+    ok('改造：弾数のある武器には効く（予備弾倉 +4）',
+      m76A.ammo === m76B.ammo + 4, m76B.ammo + ' → ' + m76A.ammo);
+
+    /* カードの予告と実際がずれないこと。ずれたら選べない画面になる */
+    var mismatch = null;
+    D.mods.forEach(function (m) {
+      if (mismatch) return;
+      G.startRun('ch_apc');
+      G.give('m_105');
+      var pv = G.modPreview(m.id);
+      G.state().mods.push(m.id);
+      var after = G.build();
+      var real = {
+        maxHp: after.maxHp, cap: after.cap, def: after.def,
+        spd: Math.round(after.spd * 100),
+        hot: after.weapons.filter(function (w) { return w.heatTier; }).length
+      };
+      pv.forEach(function (row) {
+        if (mismatch || real[row.key] == null) return;
+        if (real[row.key] !== row.b) {
+          mismatch = m.name + ' の ' + row.key + '：予告 ' + row.b + ' / 実際 ' + real[row.key];
+        }
+      });
+    });
+    ok('改造：カードの予告と実際の結果が全改造で一致する', mismatch === null, mismatch || '8種すべて一致');
+
+    /* 「効き目がない」は本当に効かないときだけ出す。
+       走行をまたいで効く改造に出すと、良い手を捨てさせてしまう */
+    G.startRun('ch_ogre');
+    G.give('m_how');
+    var kitPv = G.modPreview('md_kit');
+    ok('改造：走行をまたぐ効果も予告に出る（補修キット）',
+      kitPv.some(function (x) { return x.key === 'heal'; }) &&
+      !kitPv.some(function (x) { return x.key === 'none'; }),
+      kitPv.map(function (x) { return x.t; }).join(' / '));
+
+    /* 賞金首を倒したときだけ改造を選べる */
+    G.startRun('ch_apc');
+    G.warpTo('elite');
+    G.battle().foeHp = 1;
+    G.step(1);
+    document.getElementById('battle-next').click();
+    ok('改造：賞金首に勝つと改造画面が出る', document.getElementById('sc-mod').hidden === false);
+
+    G.startRun('ch_apc');
+    G.warpTo('battle');
+    G.battle().foeHp = 1;
+    G.step(1);
+    document.getElementById('battle-next').click();
+    ok('改造：雑魚戦では出ない（戦利品へ直行）',
+      document.getElementById('sc-mod').hidden === true &&
+      document.getElementById('sc-reward').hidden === false);
+
+    /* 取り尽くしたら素通りする */
+    G.startRun('ch_apc');
+    D.mods.forEach(function (m) { G.state().mods.push(m.id); });
+    G.warpTo('elite');
+    G.battle().foeHp = 1;
+    G.step(1);
+    document.getElementById('battle-next').click();
+    ok('改造：全部取ったあとは改造画面を出さない',
+      document.getElementById('sc-mod').hidden === true &&
+      document.getElementById('sc-reward').hidden === false);
+
     /* ---------- 消耗品 ---------- */
     G.startRun('ch_jeep');
     s = G.state();
@@ -247,6 +369,8 @@
     var enemiesCount = document.getElementById('codex-enemies').children.length;
     ok('図鑑：部品カード数がデータ件数と一致', partsCount === D.parts.length, 'got=' + partsCount + ' want=' + D.parts.length);
     ok('図鑑：敵カード数がデータ件数と一致', enemiesCount === D.enemies.length, 'got=' + enemiesCount + ' want=' + D.enemies.length);
+    var modsCount = document.getElementById('codex-mods').children.length;
+    ok('図鑑：改造カード数がデータ件数と一致', modsCount === D.mods.length, 'got=' + modsCount + ' want=' + D.mods.length);
 
     /* ---------- 保存・読み込み ---------- */
     G.startRun('ch_apc');

@@ -300,6 +300,28 @@ html.no-motion .ss-screen { animation: none; }
 .ss-item .ss-heatmark.is-warm { color: #ffb45a; }
 .ss-item .ss-heatmark.is-hot { color: #ff6a4a; }
 
+/* ==========================================================
+   改造（賞金首の報酬）
+   効果と代償を必ず並べて見せる。片方だけ見えると決断にならない
+   ========================================================== */
+.ss-modeff { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.ss-modeff em {
+  font-style: normal; font-size: 11.5px; font-weight: 700;
+  border-radius: 5px; padding: 3px 7px;
+}
+.ss-modeff em.is-up { color: #8ce0a8; background: rgba(63,184,122,.14); }
+.ss-modeff em.is-down { color: #ff9a86; background: rgba(224,57,25,.14); }
+
+/* いま背負っている改造。整備画面に出しっぱなしにする */
+.ss-modbadges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ss-modbadge {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 3px 9px 3px 5px; background: var(--panel2);
+}
+.ss-modbadge canvas { image-rendering: pixelated; display: block; }
+.ss-modbadge b { font-size: 11.5px; color: var(--ink-2); }
+
 /* 熱の警告。どの武器がどれだけ遅いかを名指しで出す */
 .ss-heatwarn {
   margin-top: 12px; padding: 9px 11px; border-radius: 8px;
@@ -440,6 +462,8 @@ html.no-motion .ss-screen { animation: none; }
 }
 .ss-cmp em.is-up { background: rgba(79,211,147,.16); color: var(--green); }
 .ss-cmp em.is-down { background: rgba(255,90,60,.16); color: var(--red); }
+/* 数値は動くが、今の車には効いていないもの。緑で出すと嘘になる */
+.ss-cmp em.is-flat { background: rgba(255,255,255,.06); color: var(--ink-3); }
 
 .ss-goods.is-locked { opacity: .55; }
 .ss-goods.is-locked canvas { filter: grayscale(1); }

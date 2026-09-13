@@ -284,6 +284,67 @@ window.GAME_DATA = (function () {
   ];
 
   /* ==========================================================
+     改造
+
+     賞金首に勝つと3択から1つ選ぶ、車そのものへの恒久変更。
+     部品ではないのでマスを使わない。1周で最大2つ（賞金首は5階と9階）。
+
+     **すべてに代償を付ける。** 利点だけの改造を足すと、ただの強化になって
+     決断が消える。ここが改造の芯なので、増やすときも必ず代償を書くこと。
+
+     effect
+       hp         最大装甲の増減
+       def        被弾軽減の増減
+       spd        全体速度の増減（加算。0.12 で +12%）
+       cellCool   全マスの排熱の増減
+       healPct    戦闘に勝ったとき最大装甲の n 割を回復
+       ammoFlat   弾数有限の武器の弾 +n
+       ammoPct    弾数有限の武器の弾 +n割
+       openAll    塞がったマスを全部開ける
+     ========================================================== */
+  var mods = [
+    { id: 'md_kit', name: '補修キット', art: 'tank',
+      good: '戦闘に勝つたび装甲が8%回復', bad: '被弾ダメージ +2',
+      note: '資材を積み込んで、戦いのあと自分で継ぐ。そのぶん装甲に隙間ができる。',
+      effect: { healPct: 0.08, def: -2 } },
+
+    { id: 'md_fin', name: '放熱板', art: 'fin',
+      good: '全マスの排熱 +0.7', bad: '最大装甲 −15',
+      note: '車体に熱を逃がす羽根を生やす。被弾には弱くなる。',
+      effect: { cellCool: 0.7, hp: -15 } },
+
+    { id: 'md_maga', name: '弾薬庫', art: 'maga',
+      good: '弾数のある武器の弾 +50%', bad: '全マスの排熱 −0.4',
+      note: '弾を詰め込む。熱の逃げ場が減る。',
+      effect: { ammoPct: 0.5, cellCool: -0.4 } },
+
+    { id: 'md_frame', name: '軽量フレーム', art: 'frame',
+      good: '全装備の速度 +10%', bad: '最大装甲 −20',
+      note: '骨格を削って身軽にする。そのぶん打たれ弱くなる。',
+      effect: { spd: 0.10, hp: -20 } },
+
+    { id: 'md_crew', name: '複座化', art: 'crew',
+      good: '全装備の速度 +12%', bad: '全マスの排熱 −0.5',
+      note: '人手を増やして手数を上げる。車内が狭くなって熱がこもる。',
+      effect: { spd: 0.12, cellCool: -0.5 } },
+
+    { id: 'md_armor', name: '増加装甲', art: 'armor',
+      good: '被弾軽減 +3', bad: '速度 −10%',
+      note: '鉄板を貼り増す。重くなって動きが鈍る。',
+      effect: { def: 3, spd: -0.10 } },
+
+    { id: 'md_bay', name: '拡張ベイ', art: 'bay',
+      good: '塞がったマスが全部開く', bad: '全マスの排熱 −0.5',
+      note: '塞いでいた鉄板を剥がす。置ける場所は増えるが、通気口も無くなる。',
+      effect: { openAll: true, cellCool: -0.5 } },
+
+    { id: 'md_spare', name: '予備弾倉', art: 'spare',
+      good: '弾数のある武器の弾 +4', bad: '被弾軽減 −1',
+      note: '弾の少ない砲ほど効く。積む場所を装甲から削り出す。',
+      effect: { ammoFlat: 4, def: -1 } }
+  ];
+
+  /* ==========================================================
      進行
      ========================================================== */
   var run = {
@@ -316,5 +377,5 @@ window.GAME_DATA = (function () {
     slowMax: 1.5      // リロードの伸びの上限（最大2.5倍）
   };
 
-  return { chassis: chassis, parts: parts, items: items, events: events, enemies: enemies, run: run, heat: heat };
+  return { chassis: chassis, parts: parts, items: items, events: events, enemies: enemies, mods: mods, run: run, heat: heat };
 })();

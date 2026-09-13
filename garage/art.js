@@ -654,9 +654,110 @@ window.ART = (function () {
     return itemCache[item.id];
   }
 
+  /* ==========================================================
+     改造（16x16）
+     賞金首の報酬。部品ではなく車そのものへの手入れなので、
+     どれも「車体に何かを足した」形にしてある
+     ========================================================== */
+  var modArt = {
+    /* 増槽：増設した燃料タンク */
+    tank: function (a, R) {
+      a.r(3, 4, 10, 9, OUT);
+      a.blob(8, 8, 4, 4, R[2]);
+      a.r(4, 5, 8, 1, R[4]);
+      a.r(4, 11, 8, 1, R[0]);
+      a.r(7, 2, 2, 3, OUT); a.p(7, 3, R[3]);
+      a.dots([[5, 8], [11, 9]], R[1]);
+    },
+    /* 放熱板：櫛状のフィン */
+    fin: function (a, R) {
+      a.r(2, 10, 12, 3, OUT);
+      a.r(3, 11, 10, 1, R[1]);
+      for (var i = 0; i < 5; i++) {
+        a.r(3 + i * 2, 3, 2, 8, OUT);
+        a.r(3 + i * 2, 4, 1, 6, R[3]);
+      }
+    },
+    /* 弾薬庫：積み上げた弾 */
+    maga: function (a, R) {
+      a.r(2, 6, 12, 8, OUT);
+      a.r(3, 7, 10, 6, R[1]);
+      [4, 7, 10].forEach(function (x) {
+        a.r(x - 1, 3, 3, 5, OUT);
+        a.r(x - 1, 4, 2, 4, ramp('#c8a83c')[3]);
+        a.p(x - 1, 4, '#ffe9a0');
+      });
+      a.r(3, 10, 10, 1, R[0]);
+    },
+    /* 軽量フレーム：骨組み */
+    frame: function (a, R) {
+      a.r(2, 3, 12, 10, OUT);
+      a.r(3, 4, 10, 8, '#11161b');
+      a.r(3, 4, 10, 1, R[3]);
+      a.r(3, 11, 10, 1, R[1]);
+      a.r(3, 4, 1, 8, R[2]); a.r(12, 4, 1, 8, R[2]);
+      for (var i = 0; i < 4; i++) a.p(4 + i * 3, 7 + (i % 2), R[4]);
+    },
+    /* 複座化：ふたつの座席 */
+    crew: function (a, R) {
+      [4, 10].forEach(function (cx) {
+        a.r(cx - 3, 4, 6, 4, OUT);
+        a.r(cx - 2, 5, 4, 2, R[3]);
+        a.r(cx - 3, 8, 6, 5, OUT);
+        a.r(cx - 2, 9, 4, 3, R[1]);
+      });
+      a.r(7, 6, 2, 6, OUT);
+    },
+    /* 増加装甲：貼り増した鉄板 */
+    armor: function (a, R) {
+      a.r(2, 2, 12, 12, OUT);
+      a.r(3, 3, 10, 10, R[1]);
+      a.r(3, 3, 10, 1, R[3]);
+      a.r(3, 12, 10, 1, R[0]);
+      a.r(6, 3, 1, 10, R[0]); a.r(10, 3, 1, 10, R[0]);
+      [[4, 4], [11, 4], [4, 11], [11, 11]].forEach(function (d) { a.p(d[0], d[1], R[4]); });
+    },
+    /* 拡張ベイ：剥がした鉄板の下に空いたマス */
+    bay: function (a, R) {
+      a.r(2, 2, 12, 12, OUT);
+      a.r(3, 3, 10, 10, '#11161b');
+      a.r(3, 3, 5, 5, R[2]);
+      a.r(3, 3, 5, 1, R[4]);
+      a.r(8, 8, 5, 5, R[1]);
+      a.dots([[10, 5], [5, 10], [11, 4]], R[3]);
+    },
+    /* 予備弾倉：外付けの弾倉 */
+    spare: function (a, R) {
+      a.r(4, 2, 8, 5, OUT);
+      a.r(5, 3, 6, 3, R[2]);
+      a.r(3, 7, 10, 7, OUT);
+      a.r(4, 8, 8, 5, R[1]);
+      a.r(4, 8, 8, 1, R[3]);
+      [5, 8, 11].forEach(function (x) { a.r(x - 1, 9, 1, 3, ramp('#c8a83c')[3]); });
+    }
+  };
+
+  var MOD_COLOR = {
+    tank: '#8a7a3c', fin: '#4a86b8', maga: '#b09030', frame: '#7c8a99',
+    crew: '#57a07a', armor: '#6d6f7a', bay: '#8a6f4a', spare: '#a0704a'
+  };
+
+  var modCache = {};
+  function modSprite(mod) {
+    if (modCache[mod.id]) return modCache[mod.id];
+    var R = ramp(MOD_COLOR[mod.art] || '#8a8f9a');
+    modCache[mod.id] = make(16, 16, function (a) {
+      var f = modArt[mod.art];
+      if (f) f(a, R);
+      else { a.r(3, 3, 10, 10, OUT); a.r(4, 4, 8, 8, R[2]); }
+    });
+    return modCache[mod.id];
+  }
+
   return {
     CELL: CELL,
     part: partSprite,
+    mod: modSprite,
     item: itemSprite,
     enemy: enemySprite,
     node: nodeSprite,
