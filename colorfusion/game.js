@@ -203,7 +203,7 @@
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = '#05070d';
       ctx.fillRect(0, 0, cv.width, cv.height);
-      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var dpr = dprFor(view.w, view.h);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
   }
@@ -268,9 +268,22 @@
 
   /* ---------- 画面サイズ ---------- */
 
-  function resize() {
+  /* 仮想1000の盤面を、デバイスピクセルで何px幅まで描くか。
+     軌跡のために毎フレーム画面全体を塗りつぶすので、描画の重さは面積に比例する。
+     1000を1500pxで描けば十分で、それ以上は見た目が変わらないまま重くなるだけ。
+     実測：0.6Mpx で 0.52ms、8.3Mpx で 1.98ms（画面消し1回あたり） */
+  var FIELD_PX_CAP = 1500;
+
+  function dprFor(w, h) {
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var fieldPx = Math.min(w, h) * dpr;        // 仮想1000ぶんのデバイスピクセル
+    if (fieldPx > FIELD_PX_CAP) dpr *= FIELD_PX_CAP / fieldPx;
+    return dpr;
+  }
+
+  function resize() {
     var w = cv.clientWidth, h = cv.clientHeight;
+    var dpr = dprFor(w, h);
     [cv, cv2].forEach(function (c) {
       c.width = Math.round(w * dpr);
       c.height = Math.round(h * dpr);
@@ -1583,7 +1596,8 @@
                 shards: shards, pending: pending,
                 stage: function () { return { lap: lap, stage: stage, colors: P.colors, spawn: P.spawnEvery, drain: P.drain, speed: P.speed, hues: COLORS.map(function (c) { return c.hue; }) }; },
                 core: core, restart: restart, toTitle: toTitle, VERSION: VERSION,
-                FIELD_R: FIELD_R,
+                FIELD_R: FIELD_R, dprFor: dprFor,
+                canvasPx: function () { return { w: cv.width, h: cv.height, Mpx: +(cv.width * cv.height / 1e6).toFixed(2) }; },
                 rank: function () { return rank; }, share: shareText,
                 tip: function () { return tip; },
                 runs: function () { return runs; },
