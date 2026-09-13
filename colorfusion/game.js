@@ -33,6 +33,8 @@
    - 上：コアと矢印。毎フレーム消すので、ぼやけない
 
    座標系は 1000×1000 の仮想空間に固定する（§7）。
+   遊べる領域はその内接円。四角だと四隅から来るものだけコアまで 1.41 倍の距離があり、
+   方角で猶予が変わってしまう。円なら全方位で同じ。
    ========================================================== */
 (function () {
   'use strict';
@@ -46,6 +48,7 @@
   var VW = 1000, VH = 1000;
   var CX = VW / 2, CY = VH / 2;
   var CORE_R = 46;
+  var FIELD_R = 500;                 // 遊べる領域の半径（仮想座標の内接円）
 
   /* ★ は実機で確認して決めた値。それ以外は仮 */
   var P = {
@@ -80,7 +83,7 @@
 
     trail: 0.04,       // 軌跡の消え方。小さいほど尾が長く残る
     speed: 105,
-    spawnEvery: 0.45,   // ★ これより長いと同色が出会わず連鎖しない
+    spawnEvery: 0.45,   // 段階進行を切ったときの値。長すぎると同色が出会わない
     life: 3.0,
     count: 3,
     jitter: 7,
@@ -95,16 +98,20 @@
 
   /* 進行の段。at は融合回数。
      出現間隔はここが肝で、最初ほど短い（＝大量に降る）。
-     進むほど間隔が伸びて数が減り、1つを取りこぼせなくなる */
+     進むほど間隔が伸びて数が減り、1つを取りこぼせなくなる。
+
+     最初から2色にしてある。1色だと出会い＝必ず融合で、
+     「同じ色だけがくっつく」というルールがそもそも見えない。
+     2色なら半分は素通りするので、最初の数秒でルールが目に入る */
   var STAGES = [
-    { at:   0, colors: 1, spawn: 0.22, drain: 0,  speed: 105, say: '' },
-    { at:   3, colors: 1, spawn: 0.26, drain: 4,  speed: 105, say: '光が減りはじめる' },
-    { at:  10, colors: 2, spawn: 0.30, drain: 5,  speed: 105, say: '三角が来る' },
-    { at:  22, colors: 3, spawn: 0.38, drain: 6,  speed: 110, say: '四角が来る' },
-    { at:  36, colors: 4, spawn: 0.46, drain: 7,  speed: 115, say: '六角が来る' },
-    { at:  52, colors: 4, spawn: 0.56, drain: 9,  speed: 120, say: '数が減る' },
-    { at:  70, colors: 4, spawn: 0.66, drain: 11, speed: 128, say: '一つが重くなる' },
-    { at:  86, colors: 4, spawn: 0.76, drain: 13, speed: 136, say: '静かになる' },
+    { at:   0, colors: 2, spawn: 0.30, drain: 0,  speed: 105, say: '' },
+    { at:   3, colors: 2, spawn: 0.32, drain: 4,  speed: 105, say: '光が減りはじめる' },
+    { at:  12, colors: 3, spawn: 0.36, drain: 5,  speed: 108, say: '四角が来る' },
+    { at:  26, colors: 4, spawn: 0.42, drain: 6,  speed: 112, say: '六角が来る' },
+    { at:  40, colors: 4, spawn: 0.48, drain: 7,  speed: 115, say: '速くなる' },
+    { at:  56, colors: 4, spawn: 0.56, drain: 9,  speed: 120, say: '数が減る' },
+    { at:  72, colors: 4, spawn: 0.66, drain: 11, speed: 128, say: '一つが重くなる' },
+    { at:  88, colors: 4, spawn: 0.76, drain: 13, speed: 136, say: '静かになる' },
     { at: 105, colors: 4, spawn: 0.86, drain: 15, speed: 144, say: '光が遠い' }
   ];
   /* 周回。最終段から LAP_EXTRA だけ融合したら次の周へ。
@@ -147,6 +154,8 @@
 
   var view = { scale: 1, ox: 0, oy: 0, w: 0, h: 0 };
   var shapes = [], arrows = [], parts = [], seq = 0;
+  var shards = [];                    // 縁を越えて砕けた欠片
+  var pending = [];                   // 本体が消えるのを待っている砕け
   var spawnTimer = 0, tPrev = 0, tNow = 0;
   var drag = null;
   var core = { t: 0, pulse: 0, light: 0, flick: 0 };
@@ -158,6 +167,9 @@
   var overT = 0;
   var score = 0, high = 0, newHigh = false;
   var rank = '';                      // ランの称号。終わった瞬間に決めて動かさない
+  var tip = null;                     // 結果画面に出す一言。終わった瞬間に決めて動かさない
+  var runs = 0;                       // 何回遊んだか。最初の数回はルールを順に見せる
+  try { runs = parseInt(localStorage.getItem('cf_runs') || '0', 10) || 0; } catch (e) { runs = 0; }
   var stat = { fuse: 0, lost: 0, biggest: 1, chain: 0, fps: 60, mass: 0 };
   var texts = [];                     // 得点をその場に浮かせる
   /* 連鎖は「盤面のどこかで融合が続いている間」を1本と数える。
@@ -174,6 +186,7 @@
 
   function restart() {
     shapes.length = 0; arrows.length = 0; parts.length = 0;
+    shards.length = 0; pending.length = 0;
     heat = 0; drag = null;
     core.light = P.lightStart; core.pulse = 0;
     score = 0; newHigh = false;
@@ -213,6 +226,7 @@
   /* 自分で矢印を引く。同色どうしを寄せるのを優先し、
      相手がいなければ大きいものをコアへ送る。この2つがこのゲームの全部なので */
   function demoAI(dt) {
+    if (state !== 'title') return;   // プレイ中に矢印が勝手に引かれないように
     demo.next -= dt;
     if (demo.next > 0) return;
     demo.next = 0.65 + Math.random() * 0.6;
@@ -319,6 +333,50 @@
     while (d < -Math.PI) d += Math.PI * 2;
     var na = a1 + d * a.pow;
     return [Math.cos(na), Math.sin(na)];
+  }
+
+  /* ---------- 結果画面の一言 ---------- */
+
+  /* 最初の数回はルールそのものを順に見せる。
+     説明画面を置かないぶん、負けた直後のここが唯一の教える場所になる */
+  var TIP_RULES = [
+    ['同じ色どうしだけが融合します', '形が違うものはすり抜けます'],
+    ['同じ色は近づくと引き合います', '近くまで寄せれば、あとは勝手にくっつきます'],
+    ['短い矢印ほど強く曲がります', '長い矢印は広く拾えますが、あまり曲がりません'],
+    ['融合で散る火花は、親と違う色になります', '赤をまとめると、青や黄の材料が湧きます']
+  ];
+
+  /* 上から順に見て、最初に当てはまったものを出す。
+     そのランで実際に足りなかったことを言う */
+  var TIP_HINTS = [
+    { ok: function (r) { return r.fuse < 12; },
+      t: ['まず同じ色を2つ寄せることから', '矢印は、行かせたい向きへ引きます'] },
+    { ok: function (r) { return r.big < 4; },
+      t: ['小さいまま通していませんか', '点は大きさの1.6乗。倍に育てると3倍入ります'] },
+    { ok: function (r) { return r.lost > r.fuse * 1.5; },
+      t: ['逃がしている光が多いようです', '矢印はコアの方向へも引けます'] },
+    { ok: function (r) { return r.chain < 5; },
+      t: ['連鎖が続いている間に吸い込むと倍率が乗ります', '数字の下の帯が、連鎖の残り時間です'] },
+    { ok: function (r) { return r.big >= 8; },
+      t: ['育てた塊は、連鎖が切れる前に通すと一番伸びます', '大きいまま抱えていると、光が先に尽きます'] },
+    { ok: function (r) { return r.stage >= 9; },
+      t: ['あと少しで2周目です', '周が変わると配色が入れ替わります'] }
+  ];
+
+  var TIP_GENERAL = [
+    ['コアの光は常に減っています', '手が止まっている時間が、そのまま損になります'],
+    ['矢印は3本まで', '4本目を引くと、古いものから消えます'],
+    ['火花も融合の材料です', '拾えば無駄になりません'],
+    ['大きい塊は当たり判定も大きくなります', '育つほど巻き込みやすくなります'],
+    ['進むほど数が減り、1つが重くなります', '終盤は取りこぼしが効きます']
+  ];
+
+  function pickTip() {
+    if (runs < TIP_RULES.length) return TIP_RULES[runs];
+    var r = { fuse: stat.fuse, big: stat.biggest, lost: stat.lost,
+              chain: stat.chain, stage: stage + 1, lap: lap + 1 };
+    for (var i = 0; i < TIP_HINTS.length; i++) if (TIP_HINTS[i].ok(r)) return TIP_HINTS[i].t;
+    return TIP_GENERAL[runs % TIP_GENERAL.length];
   }
 
   /* ---------- 称号 ---------- */
@@ -434,11 +492,9 @@
 
   function spawn() {
     if (shapes.length >= P.maxShapes) return;
-    var p = Math.random() * 4, x, y;
-    if (p < 1)      { x = Math.random() * VW; y = -R0; }
-    else if (p < 2) { x = VW + R0;            y = Math.random() * VH; }
-    else if (p < 3) { x = Math.random() * VW; y = VH + R0; }
-    else            { x = -R0;                y = Math.random() * VH; }
+    var edge = Math.random() * Math.PI * 2;
+    var x = CX + Math.cos(edge) * (FIELD_R + R0);
+    var y = CY + Math.sin(edge) * (FIELD_R + R0);
 
     var ang = Math.atan2(CY - y, CX - x);
     ang += (Math.random() - 0.5) * 2 * (P.jitter * Math.PI / 180);
@@ -531,6 +587,43 @@
     SFX.se('fuse', { rate: 1 + Math.min(0.9, (chain.n - 1) * 0.045) });
   }
 
+  /* 縁を越えたものが砕ける。
+     本体が消えてから少し置いて、暗い欠片が全方向へはじける。
+     同時に出すと本体の光に隠れて、はじけたことが見えない。
+     飛ぶ距離は塊の半径に比例させる。固定値だと、大きい塊ほど
+     自分の体から欠片が出られず「小さくはじけた」ようにしか見えない。
+     光らせない。このゲームは「光る＝良いこと」で統一しているので、
+     損失を光らせると逆の意味に読まれる */
+  var SHARD_WAIT = 0.09;             // 本体が消えてから、はじけるまで
+  var SHARD_DRAG = 9;                // 欠片の減速。飛距離 ≒ 初速 ÷ これ
+
+  function shatter(s) {
+    pending.push({ x: s.x, y: s.y, size: s.size, ci: s.ci, t: SHARD_WAIT });
+  }
+
+  function burstShards(p) {
+    var hue = COLORS[p.ci].hue;
+    var r = radius(p.size);
+    var n = Math.max(5, Math.min(32, Math.round(5 + p.size * 1.5)));
+    if (shards.length > 320) n = Math.min(n, 6);
+    var base = Math.random() * Math.PI * 2;
+    var longer = Math.min(0.35, p.size * 0.02);
+    for (var i = 0; i < n; i++) {
+      /* 等間隔に散らすと星形に見えるので、大きく崩す */
+      var a = base + (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 2.4;
+      /* 飛距離が半径の 0.8〜1.8 倍になる初速 */
+      var sp = r * (7 + Math.random() * 9);
+      shards.push({
+        x: p.x + Math.cos(a) * r * (0.1 + Math.random() * 0.5),
+        y: p.y + Math.sin(a) * r * (0.1 + Math.random() * 0.5),
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 0.18 + Math.random() * (0.32 + longer), max: 0.50 + longer,
+        w: 1.6 + Math.random() * (1.8 + r * 0.16),
+        tail: (0.6 + Math.random() * 0.9) * (1 + r * 0.02), hue: hue
+      });
+    }
+  }
+
   function floatText(x, y, str, hue) {
     texts.push({ x: x, y: y, s: str, hue: hue === undefined ? -1 : hue, life: 0.9, max: 0.9 });
     if (texts.length > 40) texts.shift();
@@ -602,7 +695,8 @@
       }
 
       var m = radius(s.size) + 40;
-      if (s.x < -m || s.x > VW + m || s.y < -m || s.y > VH + m) {
+      if (Math.hypot(s.x - CX, s.y - CY) > FIELD_R + m) {
+        shatter(s);
         shapes.splice(j, 1); stat.lost++; continue;
       }
 
@@ -648,6 +742,19 @@
       pt.vx *= Math.exp(-2.6 * dt); pt.vy *= Math.exp(-2.6 * dt);
     }
 
+    for (var pd = pending.length - 1; pd >= 0; pd--) {
+      pending[pd].t -= dt;
+      if (pending[pd].t <= 0) { burstShards(pending[pd]); pending.splice(pd, 1); }
+    }
+
+    for (var d = shards.length - 1; d >= 0; d--) {
+      var sh = shards[d];
+      sh.life -= dt;
+      if (sh.life <= 0) { shards.splice(d, 1); continue; }
+      sh.x += sh.vx * dt; sh.y += sh.vy * dt;
+      sh.vx *= Math.exp(-SHARD_DRAG * dt); sh.vy *= Math.exp(-SHARD_DRAG * dt);
+    }
+
     for (var y2 = texts.length - 1; y2 >= 0; y2--) {
       texts[y2].life -= dt;
       texts[y2].y -= dt * 34;
@@ -673,11 +780,14 @@
 
     /* 光は常に減る。尽きたらラン終了 */
     core.light -= P.drain * dt;
-    if (core.light <= 0) {
+    if (core.light <= 0 && state === 'play') {
       core.light = 0;
       state = 'over';
       overT = tNow;
       rank = rankOf();
+      tip = pickTip();
+      runs++;
+      try { localStorage.setItem('cf_runs', String(runs)); } catch (e) {}
       SFX.se('over');
       if (score > high) {
         high = score; newHigh = true;
@@ -717,7 +827,7 @@
         break;
       }
       x += dx * step; y += dy * step;
-      if (x < -60 || x > VW + 60 || y < -60 || y > VH + 60) break;
+      if (Math.hypot(x - CX, y - CY) > FIELD_R + 60) break;
       if (Math.hypot(x - CX, y - CY) < CORE_R) break;
     }
     pts.push(x, y);
@@ -786,6 +896,25 @@
     ctx.lineJoin = 'round';
     pathShape(ctx, s, r); ctx.fill();
     ctx.shadowBlur = 0;
+  }
+
+  /* 砕けた欠片。加算合成にしない。
+     進む向きに伸ばした短い線で描く。丸だと粒に見えて「欠片」にならない */
+  function drawShards() {
+    ctx.lineCap = 'butt';
+    for (var i = 0; i < shards.length; i++) {
+      var p = shards[i];
+      var t = p.life / p.max;
+      var sp = Math.hypot(p.vx, p.vy) || 1;
+      var tail = (3 + Math.min(26, sp * 0.045)) * (p.tail || 1);
+      ctx.strokeStyle = 'hsla(' + p.hue + ',58%,' + (30 + t * 32).toFixed(0) + '%,' + Math.min(1, t * 1.3).toFixed(3) + ')';
+      ctx.lineWidth = p.w * (0.45 + t * 0.75);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx / sp * tail, p.y - p.vy / sp * tail);
+      ctx.stroke();
+    }
+    ctx.lineCap = 'round';
   }
 
   function drawParts() {
@@ -1021,6 +1150,7 @@
     for (var i = 0; i < shapes.length; i++) {
       if (shapes[i].frag) drawSpark(shapes[i]); else drawEnergy(shapes[i]);
     }
+    drawShards();
     ctx.globalCompositeOperation = 'lighter';
     drawParts();
     ctx.restore();
@@ -1041,9 +1171,13 @@
       ctx2.fillRect(0, 0, VW, VH);
     }
 
-    ctx2.strokeStyle = 'rgba(120,200,255,0.10)';
+    /* 領域の縁。ここを越えたものは失われるので、うっすら見せる */
+    ctx2.strokeStyle = 'rgba(120,200,255,0.16)';
     ctx2.lineWidth = 2;
-    ctx2.strokeRect(0, 0, VW, VH);
+    ctx2.beginPath(); ctx2.arc(CX, CY, FIELD_R, 0, 6.2832); ctx2.stroke();
+    ctx2.strokeStyle = 'rgba(120,200,255,0.05)';
+    ctx2.lineWidth = 14;
+    ctx2.beginPath(); ctx2.arc(CX, CY, FIELD_R - 8, 0, 6.2832); ctx2.stroke();
 
     drawThreads();
     drawCore();
@@ -1225,6 +1359,24 @@
     ctx2.font = '14px system-ui, sans-serif';
     ctx2.fillText('画面をクリック／タップで再開', cx, cy + (newHigh ? 190 : 166));
     ctx2.shadowBlur = 0;
+
+    /* 一言。称号やスコアと競わないよう、いちばん下に静かに置く */
+    if (tip && t > 0.5) {
+      var ty = Math.min(cy + (newHigh ? 234 : 210), view.h - 42);
+      ctx2.fillStyle = 'rgba(140,185,225,' + (0.5 * t) + ')';
+      ctx2.font = '11px system-ui, sans-serif';
+      ctx2.fillText('ヒント', cx, ty - 18);
+      ctx2.fillStyle = 'rgba(120,165,205,' + (0.3 * t) + ')';
+      ctx2.fillRect(cx - 90, ty - 12, 180, 1);
+      ctx2.fillStyle = 'rgba(195,225,250,' + (0.82 * t) + ')';
+      ctx2.font = '14px system-ui, sans-serif';
+      ctx2.fillText(tip[0], cx, ty + 6);
+      if (tip[1]) {
+        ctx2.fillStyle = 'rgba(155,195,232,' + (0.6 * t) + ')';
+        ctx2.font = '12px system-ui, sans-serif';
+        ctx2.fillText(tip[1], cx, ty + 26);
+      }
+    }
     ctx2.restore();
   }
 
@@ -1428,14 +1580,22 @@
   window.CF = { P: P, shapes: shapes, arrows: arrows, parts: parts, view: view,
                 stat: stat, turn: turn, powerOf: powerOf, shapeArrow: shapeArrow,
                 chain: chain, STAGES: STAGES, PALETTES: PALETTES, COLORS: COLORS,
+                shards: shards, pending: pending,
                 stage: function () { return { lap: lap, stage: stage, colors: P.colors, spawn: P.spawnEvery, drain: P.drain, speed: P.speed, hues: COLORS.map(function (c) { return c.hue; }) }; },
                 core: core, restart: restart, toTitle: toTitle, VERSION: VERSION,
+                FIELD_R: FIELD_R,
                 rank: function () { return rank; }, share: shareText,
+                tip: function () { return tip; },
+                runs: function () { return runs; },
+                setRuns: function (n) { runs = n; try { localStorage.setItem('cf_runs', String(n)); } catch (e) {} },
                 info: function () { return { state: state, score: +score.toFixed(0), high: +high.toFixed(0), light: +core.light.toFixed(1) }; },
                 sim: function (sec, step) {
                   step = step || 1 / 60;
                   var n = Math.round(sec / step);
-                  for (var i = 0; i < n; i++) { tNow += step; update(step); }
+                  for (var i = 0; i < n; i++) {
+                    if (state !== 'play' && state !== 'title') break;
+                    tNow += step; update(step);
+                  }
                   return { frames: n, shapes: shapes.length };
                 } };
 
