@@ -36,6 +36,13 @@ html, body {
   pointer-events: none;
 }
 .hud span { flex: 1; }
+/* .hud は遊んでいる間 .bare（右寄せ）になるので、戻り先は左に固定する */
+.cf-home {
+  pointer-events: auto; margin-right: auto;
+  color: rgba(200,230,255,.7); text-decoration: none;
+  font-weight: 700; white-space: nowrap;
+}
+.cf-home:hover { color: #fff; }
 .hud button {
   pointer-events: auto;
   font: inherit; font-size: 12px;
