@@ -1,0 +1,116 @@
+/* カラー・フュージョン 試作 step1
+   画面は固定。ページ側は一切スクロールさせない（§4.11） */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #05070d;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: system-ui, "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  color: #cfe6ff;
+}
+
+#cv, #cv2 {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+  touch-action: none;
+}
+#cv2 { z-index: 1; }
+
+.hud {
+  position: fixed;
+  z-index: 3;
+  top: max(10px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  display: flex; gap: 8px; align-items: center;
+  font-size: 12px; letter-spacing: .04em;
+  color: rgba(180,215,255,.6);
+  pointer-events: none;
+}
+.hud span { flex: 1; }
+.hud button {
+  pointer-events: auto;
+  font: inherit; font-size: 12px;
+  color: rgba(200,230,255,.85);
+  background: rgba(30,60,95,.45);
+  border: 1px solid rgba(130,190,255,.35);
+  border-radius: 5px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.hud button:hover { background: rgba(45,85,130,.6); }
+
+.hint {
+  position: fixed;
+  z-index: 3;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  text-align: center;
+  font-size: 11px;
+  color: rgba(160,200,240,.45);
+  pointer-events: none;
+}
+.hint b { color: rgba(210,235,255,.75); font-weight: 600; }
+
+.panel {
+  position: fixed;
+  z-index: 4;
+  top: max(44px, calc(env(safe-area-inset-top) + 36px));
+  right: max(12px, env(safe-area-inset-right));
+  width: 250px;
+  background: rgba(8,16,28,.92);
+  border: 1px solid rgba(120,180,255,.28);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 7px;
+  font-size: 12px;
+}
+.panel label {
+  display: grid;
+  grid-template-columns: 84px 1fr 38px;
+  align-items: center; gap: 6px;
+  color: rgba(190,220,255,.8);
+}
+.panel input[type=range] { width: 100%; accent-color: #5fc8ff; }
+.panel b { text-align: right; font-variant-numeric: tabular-nums; color: #8fd8ff; }
+.panel label.chk input { width: auto; justify-self: start; }
+.panel { max-height: calc(100vh - 90px); overflow-y: auto; }
+.panel hr { border: 0; border-top: 1px solid rgba(120,180,255,.2); margin: 2px 0; }
+
+/* 結果画面のコピー。キャンバスの再開クリックより手前に置く */
+.over {
+  position: fixed;
+  z-index: 3;
+  left: 50%;
+  top: calc(50% + 108px);
+  transform: translateX(-50%);
+}
+.over button {
+  font: inherit; font-size: 13px;
+  color: rgba(210,238,255,.9);
+  background: rgba(28,58,92,.6);
+  border: 1px solid rgba(130,190,255,.45);
+  border-radius: 6px;
+  padding: 7px 16px;
+  cursor: pointer;
+}
+.over button:hover { background: rgba(45,90,138,.75); }
+
+/* 設定パネル（音量と素材の出どころ） */
+.panel.set { width: 230px; }
+.panel.set label { grid-template-columns: 56px 1fr 40px; }
+.credits { color: rgba(175,210,245,.7); line-height: 1.6; }
+.credits .ttl { color: rgba(200,230,255,.85); margin-bottom: 3px; }
+.credits .none { color: rgba(160,195,230,.5); }
+.credits a { color: #8fd8ff; }
+.ver { margin-top: 8px; color: rgba(140,180,220,.5); font-size: 11px; text-align: right; }
+.hud.bare { justify-content: flex-end; }

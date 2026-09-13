@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>カラー・フュージョン</title>
+<!-- 公開するときに外す。いまはベータなので検索に出さない -->
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="style.css?v=1789273391">
+</head>
+<body>
+
+<canvas id="cv"></canvas>
+<canvas id="cv2"></canvas>
+
+<div class="hud">
+  <span id="stat"></span>
+  <button id="tune">調整</button>
+  <button id="gear">設定</button>
+  <button id="clear">やり直す</button>
+</div>
+
+<div class="hint">ドラッグして矢印を引く。<b>矢印の向きへ飛ぶ。</b>短い矢印ほど強く曲がる。<b>同じ色は近づくと糸でつながり、引き合って融合する。</b></div>
+
+<div class="panel set" id="setting" hidden>
+  <label>BGM<input type="range" id="v-bgm" min="0" max="1" step="0.05"><b id="v-bgm-v"></b></label>
+  <label>効果音<input type="range" id="v-se" min="0" max="1" step="0.05"><b id="v-se-v"></b></label>
+  <hr>
+  <div class="credits" id="credits"></div>
+  <p class="ver" id="ver"></p>
+</div>
+
+<div class="over" id="over" hidden><button id="copy">結果をコピー</button></div>
+
+<div class="panel" id="panel" hidden>
+  <label>矢印の下限<input type="range" id="p-amin" min="20" max="300" step="5"><b id="p-amin-v"></b></label>
+  <label>矢印の上限<input type="range" id="p-amax" min="150" max="900" step="10"><b id="p-amax-v"></b></label>
+  <label>強さ・短<input type="range" id="p-pn" min="0.2" max="1" step="0.05"><b id="p-pn-v"></b></label>
+  <label>強さ・長<input type="range" id="p-pf" min="0" max="1" step="0.05"><b id="p-pf-v"></b></label>
+  <label>当たり幅<input type="range" id="p-band" min="4" max="80" step="1"><b id="p-band-v"></b></label>
+  <label>引き合う距離<input type="range" id="p-pullr" min="0" max="500" step="10"><b id="p-pullr-v"></b></label>
+  <label>引き合う強さ<input type="range" id="p-pullf" min="0" max="8" step="0.1"><b id="p-pullf-v"></b></label>
+  <hr>
+  <label>連鎖の猶予<input type="range" id="p-combo" min="0.3" max="4" step="0.1"><b id="p-combo-v"></b></label>
+  <label>連鎖の倍率<input type="range" id="p-cmul" min="0" max="2" step="0.1"><b id="p-cmul-v"></b></label>
+  <hr>
+  <label>光の減り<input type="range" id="p-drain" min="0" max="30" step="0.5"><b id="p-drain-v"></b></label>
+  <label>回復の基本<input type="range" id="p-paybase" min="0.2" max="6" step="0.1"><b id="p-paybase-v"></b></label>
+  <label>回復の伸び<input type="range" id="p-payexp" min="1" max="2.6" step="0.05"><b id="p-payexp-v"></b></label>
+  <label>光の上限<input type="range" id="p-lmax" min="20" max="300" step="10"><b id="p-lmax-v"></b></label>
+  <hr>
+  <label>塊が減る割合<input type="range" id="p-shrink" min="0" max="0.6" step="0.02"><b id="p-shrink-v"></b></label>
+  <label>火花の最小数<input type="range" id="p-fmin" min="1" max="8" step="1"><b id="p-fmin-v"></b></label>
+  <label>火花の上限数<input type="range" id="p-fmax" min="3" max="16" step="1"><b id="p-fmax-v"></b></label>
+  <label>火花の増え方<input type="range" id="p-fgrow" min="0" max="3" step="0.1"><b id="p-fgrow-v"></b></label>
+  <label>火花の単位<input type="range" id="p-funit" min="0.1" max="2" step="0.1"><b id="p-funit-v"></b></label>
+  <label>火花の初速<input type="range" id="p-fspeed" min="60" max="500" step="10"><b id="p-fspeed-v"></b></label>
+  <label>火花の減速<input type="range" id="p-fdecay" min="0.3" max="8" step="0.1"><b id="p-fdecay-v"></b></label>
+  <label class="chk">火花も火花を生む<input type="checkbox" id="p-fchain"><b></b></label>
+  <hr>
+  <label>軌跡の残り<input type="range" id="p-trail" min="0.02" max="1" step="0.01"><b id="p-trail-v"></b></label>
+  <hr>
+  <label>速度<input type="range" id="p-speed" min="40" max="260" step="5"><b id="p-speed-v"></b></label>
+  <label>出現間隔<input type="range" id="p-spawn" min="0.15" max="2" step="0.05"><b id="p-spawn-v"></b></label>
+  <label>矢印の寿命<input type="range" id="p-life" min="0.5" max="8" step="0.25"><b id="p-life-v"></b></label>
+  <label>矢印の本数<input type="range" id="p-count" min="1" max="8" step="1"><b id="p-count-v"></b></label>
+  <label>狙いのばらつき<input type="range" id="p-jitter" min="0" max="30" step="1"><b id="p-jitter-v"></b></label>
+  <label>盤面の上限<input type="range" id="p-maxs" min="40" max="400" step="10"><b id="p-maxs-v"></b></label>
+  <label>色数<input type="range" id="p-colors" min="1" max="4" step="1"><b id="p-colors-v"></b></label>
+  <label class="chk">段階進行<input type="checkbox" id="p-stage"><b></b></label>
+  <label class="chk">先読み<input type="checkbox" id="p-prev"><b></b></label>
+</div>
+
+<script src="sound.js?v=1789273391"></script>
+<script src="game.js?v=1789273391"></script>
+</body>
+</html>
