@@ -662,13 +662,13 @@ body.verified #gate { display: none; }
 
 #pp-board.is-cleared .pp-cell.is-on { border-color: var(--red); }
 
-/* 埋め込みパズルの下に置く、別ページのゲームへのリンク */
-/* ブラウザゲームの一覧カード。tank/ garage/ のように増えたら横に並べる */
+/* ブラウザゲームの一覧カード。埋め込みパズルより上に置く */
 .wg-more-grid {
   display: grid; gap: 12px; margin-top: 16px; align-items: start;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 .wg-more-grid .wg-more { margin-top: 0; }
+.wg-more-grid + .wg-grid { margin-top: 16px; }
 
 .wg-more-grid .card.has-thumb { padding: 0; overflow: hidden; }
 .wg-more-grid .card-thumb {
