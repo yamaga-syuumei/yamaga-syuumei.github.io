@@ -1703,6 +1703,8 @@
         };
       }),
       ramT: 0, over: false, speed: OPT.speed, last: 0,
+      /* 敵の挙動で動く値。素の数値は foe に残したまま、ここに差分を持つ */
+      bv: foe.behavior || {}, armorAdd: 0, hits: 0, baseInterval: foe.interval, dodged: 0,
       /* 負けたときに何が足りなかったか言うための記録 */
       tally: { dealt: 0, blocked: 0, taken: 0, shots: 0, dryT: 0, elapsed: 0 }
     };
@@ -1724,8 +1726,9 @@
     foeC.width = foeSp.width; foeC.height = foeSp.height;
     foeC.getContext('2d').drawImage(foeSp, 0, 0);
     $('battle-foename').textContent = foe.name;
-    $('battle-foeinfo').textContent = '装甲 ' + foe.armor + '　攻撃 ' + foe.atk +
-      '　間隔 ' + r1(foe.interval) + '秒' + (foe.trait ? '\n' + foe.trait : '');
+    /* 素の数値は上の行（battle-foestate）が毎秒出すので、ここは
+       「何をしてくる相手か」だけにする */
+    $('battle-foeinfo').textContent = foe.bnote || foe.trait || '';
 
     clear($('battle-log'));
     if (!tutSeen('battle')) {
@@ -1796,6 +1799,17 @@
     $('intent-num').textContent = r1(left) + '秒';
     $('intent-label').textContent = '次の攻撃 ' + Math.max(1, B.foe.atk - B.me.def);
     $('battle-intent').firstElementChild.classList.toggle('is-soon', left <= 0.9);
+
+    /* 挙動で動いている値をそのまま見せる。
+       何が起きたか分からないまま負けるのがいちばん悪い */
+    var st = $('battle-foestate');
+    var bits = ['装甲 ' + foeArmor() + (B.armorAdd >= 1 ? '（+' + Math.floor(B.armorAdd) + '）' : ''),
+      '攻撃 ' + B.foe.atk,
+      '間隔 ' + r1(B.foe.interval) + '秒' + (B.bv.speedUp && B.foe.interval < B.baseInterval - 0.05 ? '（加速中）' : '')];
+    if (B.bv.regen) bits.push('毎秒 +' + B.bv.regen + ' 回復');
+    if (B.dodged) bits.push('回避 ' + B.dodged + ' 回');
+    st.textContent = bits.join('　');
+    st.classList.toggle('is-bad', B.armorAdd >= 1 || (B.bv.speedUp && B.foe.interval < B.baseInterval - 0.05));
 
     var row = $('intent-salvo');
     if (B.foe.salvo) {
@@ -1873,6 +1887,7 @@
 
   function advance(dt) {
     B.tally.elapsed += dt;
+    foeBehavior(dt);
     var anyUsable = false;
 
     B.guns.forEach(function (g) {
@@ -1890,7 +1905,7 @@
       B.ramT += dt;
       if (B.ramT >= 3) {
         B.ramT = 0;
-        var d = Math.max(1, 4 - B.foe.armor);
+        var d = Math.max(1, 4 - foeArmor());
         B.foeHp -= d;
         logLine('me', '体当たり。' + d + ' のダメージ');
         flash('foe');
@@ -1915,12 +1930,51 @@
     }
   }
 
+  /* 挙動で増えたぶんを足した、いまの装甲 */
+  function foeArmor() {
+    return B.foe.armor + Math.floor(B.armorAdd);
+  }
+
+  /* 時間の経過で変わる敵の挙動。毎フレーム呼ぶ */
+  function foeBehavior(dt) {
+    var bv = B.bv;
+    if (bv.speedUp) {
+      /* 放っておくと加速する。下限は元の45% */
+      var f = Math.max(0.45, 1 - bv.speedUp * B.tally.elapsed);
+      B.foe.interval = B.baseInterval * f;
+    }
+    if (bv.armorPerSec) {
+      B.armorAdd = Math.min(bv.armorMax || 99, B.armorAdd + bv.armorPerSec * dt);
+    }
+    if (bv.regen && B.foeHp > 0 && B.foeHp < B.foeMax) {
+      B.foeHp = Math.min(B.foeMax, B.foeHp + bv.regen * dt);
+    }
+  }
+
   function fireGun(g) {
     var raw = g.dmg;
-    var armor = Math.max(0, B.foe.armor - g.pierce);
+    if (g.ammo != null) g.ammo--;
+
+    /* 回避する敵。重い一撃ほど損をするので、手数の構成が有利になる */
+    B.hits++;
+    if (B.bv.dodgeEvery && B.hits % B.bv.dodgeEvery === 0) {
+      B.dodged++;
+      logLine('sys', B.foe.name + ' は身をかわした（' + g.name + ' の一撃）');
+      B.tally.blocked += raw;
+      if (g.ammo === 0) logLine('sys', g.name + ' は弾切れ');
+      return;
+    }
+
+    var armor = Math.max(0, foeArmor() - g.pierce);
     var dealt = Math.max(1, raw - armor);
     B.foeHp -= dealt;
-    if (g.ammo != null) g.ammo--;
+
+    /* 撃たれるたびに硬くなる敵。手数で殴るほど自分で不利を作る */
+    if (B.bv.armorPerHit) {
+      var before = foeArmor();
+      B.armorAdd = Math.min(B.bv.armorMax || 99, B.armorAdd + B.bv.armorPerHit);
+      if (foeArmor() > before) logLine('sys', B.foe.name + ' の装甲が厚くなった（' + foeArmor() + '）');
+    }
 
     var blocked = raw - dealt;
     B.tally.dealt += dealt;
@@ -2433,9 +2487,15 @@
     var note = 'まだ遭遇していない';
     if (seen) {
       note = 'HP' + e.hp + '　装甲' + e.armor + '　攻撃' + e.atk +
-        (e.tier === 'mob' ? '（階層で上がる）' : '') + (e.trait ? '　' + e.trait : '');
+        (e.tier === 'mob' ? '（階層で上がる）' : '');
     }
     b.appendChild(el('div', 'ss-note', note));
+    /* 何をしてくる敵かは、次にどう組むかの材料になる */
+    if (seen && e.bnote) {
+      var bn = el('div', 'ss-modeff');
+      bn.appendChild(el('em', 'is-down', e.bnote));
+      b.appendChild(bn);
+    }
     return b;
   }
 

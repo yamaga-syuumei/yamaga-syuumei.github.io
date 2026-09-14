@@ -103,8 +103,8 @@ window.GAME_DATA = (function () {
 
     { id: 'm_how', name: '155mm榴弾砲', kind: 'main', shape: ['##', '##'],
       weight: 12, price: 215, tier: 3, color: '#7f8a96',
-      stats: { dmg: 42, ammo: 3, reload: 4.6, pierce: 2, heat: 15 },
-      note: '威力42 / 弾3 / 4.6秒 / 貫通2。撃ち切ったら黙る' },
+      stats: { dmg: 65, ammo: 3, reload: 4.6, pierce: 2, heat: 15 },
+      note: '威力65 / 弾3 / 4.6秒 / 貫通2。数発で黙るが一撃が重い' },
 
     /* ---------- 副砲：弾無限・威力低・リロード速い ---------- */
     { id: 's_mg', name: '7.62mm機関銃', kind: 'sub', shape: ['##'],
@@ -125,13 +125,13 @@ window.GAME_DATA = (function () {
     /* ---------- スペシャル：弾少・威力高・リロード遅い ---------- */
     { id: 'sp_missile', name: 'ミサイルポッド', kind: 'special', shape: ['##'],
       weight: 7, price: 195, tier: 2, color: '#a44a4a',
-      stats: { dmg: 48, ammo: 2, reload: 6.0, pierce: 3, heat: 20 },
-      note: '威力48 / 弾2 / 6.0秒 / 貫通3。弾薬箱と組ませたい' },
+      stats: { dmg: 75, ammo: 2, reload: 6.0, pierce: 3, heat: 20 },
+      note: '威力75 / 弾2 / 6.0秒 / 貫通3。弾薬箱と組ませたい' },
 
     { id: 'sp_rail', name: 'レールキャノン', kind: 'special', shape: ['###'],
       weight: 11, price: 275, tier: 3, color: '#7a5ec2',
-      stats: { dmg: 88, ammo: 1, reload: 9.0, pierce: 99, heat: 40 },
-      note: '威力88 / 弾1 / 9.0秒 / 装甲を完全に無視。弾薬箱が要る' },
+      stats: { dmg: 140, ammo: 1, reload: 9.0, pierce: 99, heat: 40 },
+      note: '威力140 / 弾1 / 9.0秒 / 装甲を完全に無視。弾薬箱が要る' },
 
     /* ---------- 補助：隣に置いた武器へ効く ---------- */
     { id: 'u_ammo', name: '弾薬箱', kind: 'support', shape: ['#'],
@@ -181,32 +181,52 @@ window.GAME_DATA = (function () {
 
   /* ==========================================================
      敵
+
      armor … 1発ごとに引く固定値。副砲だけの構成を刺しにいく数値
+     behavior … 戦い方を要求する挙動。乱数は入れない。
+       speedUp     毎秒この割合だけ攻撃間隔が縮む（下限は元の45%）→ 速攻を要求
+       dodgeEvery  この発数ごとに1発を回避する → 重い一撃ほど損。手数を要求
+       armorPerHit 被弾するたび装甲+1（armorMax まで）→ 手数ほど自分で硬くする
+       armorPerSec 毎秒この量だけ装甲が増える（armorMax まで）→ 瞬発力を要求
+       regen       毎秒この量だけ回復する → 削り続けても追いつかない。瞬発力を要求
+     bnote … その挙動の一言説明。マップ・戦闘・図鑑にそのまま出す
      ========================================================== */
   var enemies = [
     { id: 'en_drone', name: '野良ドローン', tier: 'mob',
-      hp: 76, armor: 0, atk: 7, interval: 2.4, gold: 24, art: 'drone', minFloor: 0 },
+      hp: 76, armor: 0, atk: 7, interval: 2.4, gold: 24, art: 'drone', minFloor: 0,
+      behavior: { speedUp: 0.035 },
+      bnote: '放っておくと加速する。長引くほど手がつけられない' },
 
     { id: 'en_buggy', name: '砂賊のバギー', tier: 'mob',
-      hp: 115, armor: 1, atk: 12, interval: 3.2, gold: 28, art: 'buggy', minFloor: 0 },
+      hp: 115, armor: 1, atk: 12, interval: 3.2, gold: 28, art: 'buggy', minFloor: 0,
+      behavior: { dodgeEvery: 4 },
+      bnote: '4発に1発を避ける。重い一撃ほど損をする' },
 
     { id: 'en_golem', name: '廃車ゴーレム', tier: 'mob',
-      hp: 185, armor: 4, atk: 17, interval: 4.2, gold: 36, art: 'golem', minFloor: 3 },
+      hp: 185, armor: 4, atk: 17, interval: 4.2, gold: 36, art: 'golem', minFloor: 3,
+      behavior: { armorPerHit: 1, armorMax: 7 },
+      bnote: '撃たれるたびに鉄屑を寄せて硬くなる。手数では固まるだけ' },
 
     { id: 'en_sniper', name: '自走砲スナイプ', tier: 'mob',
-      hp: 130, armor: 2, atk: 26, interval: 5.5, gold: 38, art: 'sniper', minFloor: 2 },
+      hp: 130, armor: 2, atk: 26, interval: 5.5, gold: 38, art: 'sniper', minFloor: 2,
+      bnote: '一撃が重い。次の攻撃までのゲージを見て、その前に倒す' },
 
     { id: 'en_stag', name: '賞金首「鉄クワガタ」', tier: 'elite',
       hp: 380, armor: 4, atk: 17, interval: 3.4, gold: 110, art: 'stag',
+      behavior: { armorPerSec: 0.3, armorMax: 12 },
+      bnote: '時間とともに殻が厚くなる。長引くほど通らなくなる',
       trait: '装甲が厚い。貫通か、重い一発が要る' },
 
     { id: 'en_leech', name: '賞金首「砂ヒル」', tier: 'elite',
       hp: 460, armor: 1, atk: 11, interval: 1.7, gold: 120, art: 'leech',
+      behavior: { regen: 4 },
+      bnote: '傷がふさがる（毎秒4回復）。削り続けても追いつかない',
       trait: '手数で削ってくる。短期決戦を狙いたい' },
 
     { id: 'en_golgoda', name: '大型戦車「ゴルゴダ」', tier: 'boss',
       hp: 780, armor: 6, atk: 19, interval: 4.6, gold: 240, art: 'golgoda',
       salvo: { every: 15, mult: 2.3 },
+      bnote: '15秒ごとに一斉射撃',
       trait: '15秒ごとに一斉射撃。装甲6' }
   ];
 

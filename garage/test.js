@@ -22,6 +22,10 @@
   function ok(name, cond, detail) {
     results.push({ name: name, pass: !!cond, detail: detail || '' });
   }
+  function statOf(D, id, key) {
+    var p = D.parts.filter(function (x) { return x.id === id; })[0];
+    return p && p.stats ? p.stats[key] : null;
+  }
   function partName(D, id) {
     var hit = D.parts.filter(function (p) { return p.id === id; })[0];
     return hit ? hit.name : null;
@@ -29,6 +33,14 @@
   function weaponIn(build, name) {
     return build.weapons.filter(function (w) { return w.name === name; })[0] || null;
   }
+  /* 決着まで進める。敵の挙動（回復など）が入ったので
+     「1秒進めれば倒せる」とは限らない */
+  function finish(G, cap) {
+    var t = 0;
+    while (G.battle() && !G.battle().over && t < (cap || 60)) { G.step(0.5); t += 0.5; }
+    return t;
+  }
+
   /* give() は自動配置なので、狙った隣接を作るために置いた後で座標を上書きする */
   function giveAt(G, pid, x, y, rot) {
     G.give(pid);
@@ -78,7 +90,11 @@
     giveAt(G, 'u_sight', 2, 0); // (1,0) の隣＝(2,0) で接する
     var bMg = G.build();
     var mg = weaponIn(bMg, partName(D, 's_mg'));
-    ok('B-3：機関銃(5) + 照準装置(+40%) = 7', !!mg && mg.dmg === 7, 'got=' + (mg && mg.dmg));
+    /* 期待値はデータから出す。武器の威力を調整するたびにテストが落ちないように
+       （見ているのは「率で乗るか」であって、特定の数字ではない） */
+    var mgWant = Math.round(statOf(D, 's_mg', 'dmg') * 1.4);
+    ok('B-3：機関銃 + 照準装置 は威力+40%', !!mg && mg.dmg === mgWant,
+      'got=' + (mg && mg.dmg) + ' want=' + mgWant);
 
     G.startRun('ch_jeep');
     s = G.state();
@@ -87,7 +103,9 @@
     giveAt(G, 'u_sight', 2, 0);  // (1,0) の隣で接する
     var bHow = G.build();
     var how = weaponIn(bHow, partName(D, 'm_how'));
-    ok('B-3：榴弾砲(42) + 照準装置(+40%) = 59', !!how && how.dmg === 59, 'got=' + (how && how.dmg));
+    var howWant = Math.round(statOf(D, 'm_how', 'dmg') * 1.4);
+    ok('B-3：榴弾砲 + 照準装置 も同じ率で乗る', !!how && how.dmg === howWant,
+      'got=' + (how && how.dmg) + ' want=' + howWant);
 
     /* ---------- 戦闘：より良い装備は同条件で上回る ----------
        敵側の乱数（どの雑魚が出るか）を消すため、戦闘開始後に
@@ -304,14 +322,16 @@
     G.startRun('ch_apc');
     G.warpTo('elite');
     G.battle().foeHp = 1;
-    G.step(1);
+    G.battle().bv = {};          // 回復などの挙動を切って確実に倒す
+    finish(G);
     document.getElementById('battle-next').click();
     ok('改造：賞金首に勝つと改造画面が出る', document.getElementById('sc-mod').hidden === false);
 
     G.startRun('ch_apc');
     G.warpTo('battle');
     G.battle().foeHp = 1;
-    G.step(1);
+    G.battle().bv = {};
+    finish(G);
     document.getElementById('battle-next').click();
     ok('改造：雑魚戦では出ない（戦利品へ直行）',
       document.getElementById('sc-mod').hidden === true &&
@@ -322,7 +342,8 @@
     D.mods.forEach(function (m) { G.state().mods.push(m.id); });
     G.warpTo('elite');
     G.battle().foeHp = 1;
-    G.step(1);
+    G.battle().bv = {};
+    finish(G);
     document.getElementById('battle-next').click();
     ok('改造：全部取ったあとは改造画面を出さない',
       document.getElementById('sc-mod').hidden === true &&
@@ -436,6 +457,72 @@
     var sighted = weaponIn(G.build(), partName(D, 'm_105'));
     ok('配置：照準装置も自動で武器の隣に置かれる', sighted.aura.list.length > 0,
       '隣接=' + (sighted.aura.list.join(',') || 'なし'));
+
+    /* ---------- 敵の挙動 ----------
+       以前は7体中6体が「N秒ごとにXダメージ」だけで、どの敵でも
+       構成の優劣が入れ替わらなかった＝どの敵と戦うかが選択になっていなかった */
+
+    /* 指定した敵と、指定した構成で戦わせる */
+    function fightVs(parts, foeId, secs) {
+      G.startRun('ch_apc');
+      G.state().parts.forEach(function (p) { p.x = null; p.y = null; });
+      parts.forEach(function (p) { G.give(p); });
+      G.warpTo('battle');
+      var B = G.battle();
+      var base = D.enemies.filter(function (e) { return e.id === foeId; })[0];
+      B.foe = JSON.parse(JSON.stringify(base));
+      B.foeHp = base.hp; B.foeMax = base.hp;
+      B.bv = base.behavior || {};
+      B.armorAdd = 0; B.hits = 0; B.dodged = 0; B.baseInterval = base.interval;
+      B.foeT = 0; B.salvoT = 0; B.ramT = 0; B.meHp = B.meMax;
+      var t = 0, cap = secs || 200;
+      while (G.battle() && !G.battle().over && t < cap) { G.step(0.5); t += 0.5; }
+      B = G.battle();
+      return { t: Math.round(t * 10) / 10, win: !!B.win, B: B };
+    }
+
+    var gl = fightVs(['s_hmg', 's_flame', 'u_sight'], 'en_golem', 12);
+    ok('敵：廃車ゴーレムは撃たれるほど装甲が増える', gl.B.armorAdd > 0,
+      '+' + gl.B.armorAdd);
+    ok('敵：装甲の増加に上限がある',
+      gl.B.armorAdd <= (gl.B.bv.armorMax || 0), gl.B.armorAdd + ' / 上限' + gl.B.bv.armorMax);
+
+    var bg = fightVs(['s_hmg', 's_flame'], 'en_buggy', 12);
+    ok('敵：砂賊のバギーは何発かに1発を避ける', bg.B.dodged > 0, '回避 ' + bg.B.dodged + ' 回');
+
+    var dr = fightVs(['s_mg'], 'en_drone', 12);
+    ok('敵：野良ドローンは時間とともに加速する',
+      dr.B.foe.interval < dr.B.baseInterval,
+      r2(dr.B.baseInterval) + '秒 → ' + r2(dr.B.foe.interval) + '秒');
+
+    var sg = fightVs(['s_mg'], 'en_stag', 12);
+    ok('敵：鉄クワガタは時間とともに装甲が増える', sg.B.armorAdd > 0, '+' + r2(sg.B.armorAdd));
+
+    /* 砂ヒルは回復する。削り手が弱いと減らない */
+    var lc = fightVs(['s_mg'], 'en_leech', 10);
+    var lcDealt = lc.B.tally.dealt;
+    ok('敵：砂ヒルは回復するので、削った量ほど減らない',
+      lc.B.foeMax - lc.B.foeHp < lcDealt,
+      '与えた' + Math.round(lcDealt) + ' / 実際に減った' + Math.round(lc.B.foeMax - lc.B.foeHp));
+
+    /* これが本題。敵によって構成の優劣が入れ替わること */
+    var burst = ['m_how', 'u_sight', 'u_ammo'];
+    var swarm = ['s_hmg', 's_flame', 'u_sight'];
+    var gBurst = fightVs(burst, 'en_golem');
+    var gSwarm = fightVs(swarm, 'en_golem');
+    var dBurst = fightVs(burst, 'en_drone');
+    var dSwarm = fightVs(swarm, 'en_drone');
+    ok('敵：廃車ゴーレムには重い一撃のほうが速い', gBurst.t < gSwarm.t,
+      '重砲' + gBurst.t + '秒 / 手数' + gSwarm.t + '秒');
+    ok('敵：野良ドローンには手数のほうが速い', dSwarm.t < dBurst.t,
+      '手数' + dSwarm.t + '秒 / 重砲' + dBurst.t + '秒');
+    ok('敵：相性が敵によって入れ替わる（どちらか一方が常に正解ではない）',
+      (gBurst.t < gSwarm.t) !== (dBurst.t < dSwarm.t));
+
+    /* 何をしてくる敵かが読めること。読めないまま負けるのがいちばん悪い */
+    var noNote = D.enemies.filter(function (e) { return !e.bnote; });
+    ok('敵：全ての敵に挙動の説明がある', noNote.length === 0,
+      noNote.map(function (e) { return e.name; }).join(',') || 'すべてあり');
 
     /* ---------- 消耗品 ---------- */
     G.startRun('ch_jeep');
