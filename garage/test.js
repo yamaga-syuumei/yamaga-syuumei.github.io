@@ -713,6 +713,97 @@
       document.getElementById('swap-ask').hidden &&
       G.state().parts[G.state().parts.length - 1].x != null);
 
+    /* ---------- 組んだ車がそのまま戦う（盤を主役にする） ----------
+       戦闘画面に盤が無く、武器名のリストになっていた。
+       プレイヤーが作るものは盤そのものなのに、いちばん肝心な場面で消えていて、
+       「自分が置いたものがこう働いた」が文字でしか返ってこなかった */
+
+    G.startRun('ch_apc');
+    ['m_105', 's_hmg', 'u_sight'].forEach(function (pp) { G.give(pp); });
+    G.warpTo('battle');
+    var board = document.getElementById('battle-me');
+    var placedN = G.state().parts.filter(function (pp) { return pp.x != null; }).length;
+
+    ok('盤：戦闘画面に盤が出る',
+      !!board.querySelector('.ss-sgrid'));
+    ok('盤：戦闘の盤に、整備で置いた部品が全部載っている',
+      board.querySelectorAll('.ss-item').length === placedN,
+      board.querySelectorAll('.ss-item').length + ' / ' + placedN);
+    ok('盤：マスの数が車体と一致する',
+      board.querySelectorAll('.ss-sgridcell').length === 4 * 4,
+      String(board.querySelectorAll('.ss-sgridcell').length));
+
+    /* 武器のマスにだけ、弾とリロードの器が付く */
+    var gunNodes = board.querySelectorAll('.ss-item.ss-bgun');
+    ok('盤：武器のマスだけに弾の表示が付く',
+      gunNodes.length === G.battle().guns.length,
+      gunNodes.length + ' / ' + G.battle().guns.length);
+
+    G.step(0.4);
+    var withRl = [].slice.call(gunNodes).filter(function (n) {
+      return parseFloat(n.style.getPropertyValue('--rl')) > 0;
+    });
+    ok('盤：リロードの進み具合が盤の上で動く', withRl.length > 0,
+      [].slice.call(gunNodes).map(function (n) {
+        return r2(parseFloat(n.style.getPropertyValue('--rl')) || 0);
+      }).join(' '));
+
+    /* 弾が減るのが盤の上で見える。これが見えるので「弾」の案内を消せた */
+    var ammoTags = board.querySelectorAll('.ss-bammo');
+    ok('盤：残弾が盤の上に出る', ammoTags.length > 0 &&
+      [].slice.call(ammoTags).some(function (t) { return /^[0-9]+$/.test(t.textContent); }),
+      [].slice.call(ammoTags).map(function (t) { return t.textContent; }).join(' '));
+
+    /* 撃った部品が名指しで光る */
+    var fired = false, ft = 0;
+    while (G.battle() && !G.battle().over && ft < 20 && !fired) {
+      G.step(0.25); ft += 0.25;
+      fired = !!document.querySelector('#battle-me .ss-item.is-firing');
+    }
+    ok('盤：撃った部品が盤の上で光る', fired, ft + '秒まで進めた');
+
+    /* 尽きた武器は盤の上で分かる */
+    G.startRun('ch_apc');
+    ['e_turbo', 'm_105', 's_hmg'].forEach(function (pp) { G.give(pp); });
+    G.warpTo('boss');
+    var sawDry = false, dt2 = 0;
+    while (G.battle() && !G.battle().over && dt2 < 120 && !sawDry) {
+      G.step(0.5); dt2 += 0.5;
+      sawDry = !!document.querySelector('#battle-me .ss-item.is-dry');
+    }
+    ok('盤：弾が尽きた武器が盤の上で分かる（案内を消せた根拠）', sawDry, dt2 + '秒まで進めた');
+
+    /* 熱は整備画面と同じ見え方にする。別の絵にすると結びつかない */
+    G.startRun('ch_jeep');
+    ['m_105', 'm_how', 's_hmg', 'e_turbo'].forEach(function (pp) { G.give(pp); });
+    var hotInGarage = G.build().weapons.filter(function (w) { return w.heatTier; }).length;
+    G.warpTo('battle');
+    var hotOnBoard = document.querySelectorAll('#battle-me .ss-item.is-warm, #battle-me .ss-item.is-hot').length;
+    ok('盤：熱の色が戦闘の盤にも出る（整備と同じ見え方）',
+      hotInGarage === 0 || hotOnBoard > 0, '整備=' + hotInGarage + ' 戦闘=' + hotOnBoard);
+
+    /* 車体選択で「盤の形」が見える。これが見えるので「塞がったマス」の案内を消せた */
+    G.renderPick();
+    var picks = document.querySelectorAll('#pick-list .ss-sgrid');
+    ok('盤：車体選択に盤の形が出る', picks.length === D.chassis.length,
+      picks.length + ' / ' + D.chassis.length);
+    ok('盤：車体選択で塞がったマスも見える（案内を消せた根拠）',
+      document.querySelectorAll('#pick-list .ss-sgridcell.is-blocked').length > 0,
+      String(document.querySelectorAll('#pick-list .ss-sgridcell.is-blocked').length));
+
+    /* 盤がはみ出すとページ全体に横スクロールが出る。実際に重戦車で出した */
+    G.startRun('ch_ogre');
+    G.state().map.cur = null;
+    G.renderGarage();
+    ok('盤：整備の盤が横スクロールを起こさない',
+      document.documentElement.scrollWidth <= window.innerWidth + 1,
+      document.documentElement.scrollWidth + ' / ' + window.innerWidth);
+    G.warpTo('boss');
+    ok('盤：戦闘の盤が横スクロールを起こさない',
+      document.documentElement.scrollWidth <= window.innerWidth + 1,
+      document.documentElement.scrollWidth + ' / ' + window.innerWidth);
+    finish(G);
+
     /* ---------- 遊びの中で教える案内 ----------
        画面はv5.9まで積み上げたのに、教える場面は初版の2つ（整備・戦闘）のまま
        だった。足りないぶんを説明文へ逃がした結果、タイトルに5行・あそびかたに
@@ -740,23 +831,30 @@
       G.tipOrder.join(','));
 
     ok('案内：戦闘中のものはログに出す（画面を止めない）',
-      tipKeys.filter(function (k) { return G.tips[k].at === 'log'; }).length >= 2 &&
+      tipKeys.filter(function (k) { return G.tips[k].at === 'log'; }).length >= 1 &&
       !document.getElementById('log-tip'));
+
+    /* 案内は減らす方向で維持する。⑧で盤を戦闘に出したことで、
+       弾（dry）と塞がったマス（blocked）は遊べば分かるようになったので消した。
+       増え直したら気づけるように上限を縛る */
+    ok('案内：案内の数を増やさない（4つまで）', tipKeys.length <= 4, tipKeys.join(','));
+    ok('案内：弾と塞がったマスの案内は消したまま',
+      !G.tips.dry && !G.tips.blocked, tipKeys.join(','));
 
     clearTut();
     ok('案内：条件を満たしていないものは出ない',
-      G.pickTip('garage', { heat: false, blocked: false }) === null);
+      G.pickTip('garage', { heat: false }) === null);
 
     /* 同時に満たしても1つだけ。並べて出すと読まれない */
-    var first = G.pickTip('garage', { heat: true, blocked: true });
-    ok('案内：同時に条件を満たしても1つしか選ばれない', first === 'heat', 'got=' + first);
+    var first = G.pickTip('map', { map: true, elite: true });
+    ok('案内：同時に条件を満たしても1つしか選ばれない', first === 'map', 'got=' + first);
 
-    G.meta().tut.tip_heat = true;
+    G.meta().tut.tip_map = true;
     ok('案内：閉じたものは二度と選ばれない（次の案内に進む）',
-      G.pickTip('garage', { heat: true, blocked: true }) === 'blocked');
-    G.meta().tut.tip_blocked = true;
+      G.pickTip('map', { map: true, elite: true }) === 'elite');
+    G.meta().tut.tip_elite = true;
     ok('案内：全部見たあとは何も出ない',
-      G.pickTip('garage', { heat: true, blocked: true }) === null);
+      G.pickTip('map', { map: true, elite: true }) === null);
 
     /* 最初の案内（ドラッグの説明）と重ねない */
     clearTut();
@@ -771,25 +869,14 @@
     ok('案内：賞金首が見えたら改造のことを出す',
       G.pickTip('map', { map: true, elite: true }) === 'elite');
 
-    /* ログの案内は1度きり。毎回の弾切れで繰り返されると邪魔になる */
+    /* ログの案内は1度きり。毎回繰り返されると邪魔になる */
     clearTut();
     G.startRun('ch_apc');
     G.warpTo('battle');
-    ok('案内：ログの案内は1度だけ', G.tipLog('dry') === true && G.tipLog('dry') === false);
+    ok('案内：ログの案内は1度だけ',
+      G.tipLog('behavior') === true && G.tipLog('behavior') === false);
 
-    /* 実際に弾切れしたら出ること（呼び出しを消しても気づけるように） */
-    clearTut();
-    G.startRun('ch_apc');
-    ['e_turbo', 'm_105', 's_hmg'].forEach(function (pp) { G.give(pp); });
-    G.warpTo('boss');
-    var seenDry = false, bt2 = 0;
-    while (G.battle() && !G.battle().over && bt2 < 120 && !seenDry) {
-      G.step(0.5); bt2 += 0.5;
-      seenDry = !!G.meta().tut.tip_dry;
-    }
-    ok('案内：主砲が尽きたら弾のことを教える', seenDry, bt2 + '秒まで進めた');
-
-    /* 敵の挙動も、発動した瞬間に1度だけ */
+    /* 敵の挙動は、発動した瞬間に1度だけ */
     clearTut();
     G.startRun('ch_apc');
     G.warpTo('battle');

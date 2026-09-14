@@ -17,7 +17,7 @@
   --purple:#8f6ede;
   --serif: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
   --sans:  "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
-  --cell:  48px;
+  --cell:  72px;
 }
 
 * { box-sizing: border-box; }
@@ -186,10 +186,29 @@ html.no-motion .ss-screen { animation: none; }
   transition: border-color .12s, transform .12s;
 }
 .ss-pick:hover { border-color: var(--amber); transform: translateY(-2px); }
-.ss-pick canvas { width: 96px; height: 72px; display: block; margin: 0 auto 6px; }
+.ss-pick > canvas { width: 96px; height: 72px; display: block; margin: 0 auto 6px; }
+/* 選んでいるのは盤の形。文字ではなく実物を出す */
+.ss-pickgrid { display: flex; flex-direction: column; align-items: center; gap: 5px; margin: 8px 0 10px; }
+.ss-pickcells { font-size: 11.5px; color: var(--ink-3); }
 .ss-pick b { display: block; font-size: 14.5px; margin-bottom: 4px; }
-.ss-pick .ss-picknums { color: var(--amber); font-size: 12.5px; letter-spacing: .03em; }
+.ss-pick .ss-picknums {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px 12px;
+  font-size: 12px; margin-bottom: 8px;
+}
+.ss-pick .ss-picknums div { display: flex; justify-content: space-between; border-bottom: 1px dotted #2a333c; }
+.ss-pick .ss-picknums i { font-style: normal; color: var(--ink-3); }
+.ss-pick .ss-picknums b { color: var(--amber); font-variant-numeric: tabular-nums; }
 .ss-pick .ss-picknote { color: var(--ink-2); font-size: 12.5px; }
+
+/* ---------- 盤（読むだけ。戦闘・車体選択で使う） ---------- */
+.ss-sgrid {
+  position: relative; background: #10151a;
+  border: 1px solid var(--line); border-radius: 6px;
+  box-shadow: inset 0 0 24px rgba(0,0,0,.55);
+}
+.ss-sgridcell { position: absolute; box-shadow: inset 0 0 0 1px rgba(255,255,255,.045); }
+.ss-sgridcell.is-blocked { box-shadow: none; }
+.ss-sgridcell.is-blocked canvas { display: block; width: 100%; height: 100%; }
 
 /* ---------- マップ ---------- */
 .ss-map { position: relative; padding: 10px 0; overflow-x: auto; }
@@ -231,7 +250,9 @@ html.no-motion .ss-screen { animation: none; }
 .ss-node.is-open .ss-nodetag { color: var(--amber); }
 
 /* ---------- 整備 ---------- */
-.ss-garage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+/* 盤がこのゲームの主役。以前は左右を 1fr : 1fr で割っていて、
+   盤が画面の5%しかなく、右半分は空の箱が並んでいた */
+.ss-garage { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .ss-gridhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .ss-gridhead b { font-size: 14px; }
 .ss-weight { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
@@ -267,6 +288,8 @@ html.no-motion .ss-screen { animation: none; }
   min-height: 54px; background: #10151a; border: 1px dashed #3a4650; border-radius: 8px;
   padding: 6px; display: grid; gap: 5px; align-content: flex-start;
 }
+/* 空のときは畳む。空の箱が画面を占めていると、盤が隅に追いやられる */
+.ss-bag.is-empty, .ss-stash.is-empty { min-height: 0; padding: 4px 8px; }
 .ss-bagitem {
   display: flex; align-items: center; gap: 9px; width: 100%;
   background: var(--panel2); border: 1px solid var(--line); border-radius: 7px;
@@ -373,6 +396,7 @@ html.no-motion .ss-screen { animation: none; }
   margin-top: 12px; background: var(--panel2); border: 1px solid var(--line);
   border-radius: 8px; padding: 12px 14px; min-height: 120px; font-size: 13px;
 }
+.ss-detail.is-empty { min-height: 0; padding: 8px 14px; }
 .ss-detail h4 { margin: 0 0 6px; font-size: 14px; }
 .ss-detail-empty { color: var(--ink-2); margin: 0; font-size: 12.5px; }
 .ss-detail .ss-kind { font-size: 11.5px; font-weight: 700; color: var(--amber); letter-spacing: .08em; }
@@ -393,6 +417,39 @@ html.no-motion .ss-screen { animation: none; }
 @keyframes hurt { 50% { filter: brightness(2.4) saturate(0); transform: translateX(3px); } }
 .ss-side-foe .ss-sprite.is-hurt { animation: hurtF .18s steps(2); }
 @keyframes hurtF { 50% { filter: brightness(2.4) saturate(0); transform: scaleX(-1) translateX(3px); } }
+/* 自車＝組んだ盤。ここで撃った部品が光り、リロードが溜まり、弾が減る */
+.ss-battleboard { display: flex; justify-content: center; }
+.ss-battleboard.is-hurt { animation: hurt .18s steps(2); }
+
+/* リロードの溜まり。--rl を game.js が毎フレーム入れる */
+.ss-battleboard .ss-bgun::after {
+  content: ''; position: absolute; left: 1px; right: 1px; bottom: 1px; height: 3px;
+  background: #3d8be0; border-radius: 2px;
+  transform: scaleX(var(--rl, 0)); transform-origin: left center;
+  pointer-events: none;
+}
+.ss-battleboard .ss-bgun.is-ready::after { background: var(--amber); }
+.ss-battleboard .ss-bgun.is-dry { filter: grayscale(1) brightness(.55); }
+.ss-battleboard .ss-bgun.is-dry::after { background: #4a5560; }
+
+/* 撃った瞬間。どの部品が働いたのかを盤の上で名指しする */
+.ss-battleboard .ss-item.is-firing { animation: gunFire .22s ease-out; z-index: 3; }
+@keyframes gunFire {
+  0%   { filter: brightness(3.2); transform: translateX(4px); }
+  60%  { filter: brightness(1.6); transform: translateX(-1px); }
+  100% { filter: none; transform: none; }
+}
+html.no-motion .ss-battleboard .ss-item.is-firing { animation: none; filter: brightness(2.2); }
+
+/* 残弾。整備画面の「弾が尽きるまで」と同じことを、戦闘中その場で見せる */
+.ss-bammo {
+  position: absolute; right: 1px; bottom: 4px; font-size: 9px; font-weight: 800;
+  color: #cfe6ff; text-shadow: 1px 1px 0 #000, 0 0 3px #000; line-height: 1;
+  pointer-events: none;
+}
+.ss-bammo.is-low { color: var(--amber); }
+.ss-bammo.is-empty { color: var(--red); }
+
 .ss-name { font-size: 13.5px; font-weight: 700; margin: 4px 0 5px; }
 .ss-hpline { display: flex; align-items: center; gap: 8px; }
 .ss-hpline .ss-bar { flex: 1; height: 10px; }
@@ -695,6 +752,22 @@ html.no-motion .ss-screen { animation: none; }
    ログだけだと当たった実感がない
    ========================================================== */
 .ss-fighter { position: relative; }
+/* 着弾。撃った → 当たった → 減った、の因果を絵にする */
+.ss-impact {
+  position: absolute; left: 50%; width: 26px; height: 26px; margin-top: -13px;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #fff 0%, var(--amber) 35%, rgba(255,90,60,0) 70%);
+  animation: hitPop .4s ease-out forwards;
+}
+.ss-impact.is-big { width: 46px; height: 46px; margin-top: -23px; }
+.ss-impact.is-miss {
+  background: radial-gradient(circle, #c8d4de 0%, rgba(148,160,170,0) 65%);
+}
+@keyframes hitPop {
+  0%   { transform: translateX(-50%) scale(.3); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1.5); opacity: 0; }
+}
+html.no-motion .ss-impact { animation: none; opacity: 0; }
 .ss-pop {
   position: absolute; left: 50%; top: 34%;
   font-size: 20px; font-weight: 800; letter-spacing: .02em;
@@ -735,7 +808,7 @@ html.no-motion .ss-node.is-open:hover { transform: none; }
 
 /* ---------- 狭い画面 ---------- */
 @media (max-width: 860px) {
-  :root { --cell: 32px; }
+  :root { --cell: 44px; }
   /* 狭い画面では「わかった」を右に並べると文章が細長く潰れる */
   .ss-tut { gap: 6px; }
   .ss-tut p, .ss-tut-tip p { flex: 1 1 100%; }

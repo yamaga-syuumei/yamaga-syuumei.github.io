@@ -188,15 +188,16 @@
      条件と文面をこの表に集めてある。散らばると「同時に2つ出る」
      「戦闘の山場でダイアログが出る」といった事故が起きるため。
      at: garage / map … その画面の帯。log … 戦闘ログの1行（画面を止めない）
+
+     **案内は減らす方向で維持する。** 説明が要るのは、行動の影響が
+     その場で返っていない印。⑧で盤を戦闘に出したことで
+     「弾（dry）」と「塞がったマス（blocked）」は遊べば分かるようになったので消した。
+     新しい仕組みを足すときも、まず**見せて分かるか**を試すこと。
      ---------------------------------------------------------- */
   var TIPS = {
     heat: {
       at: 'garage',
-      text: '盤の色は熱です。赤いマスの武器は発射が遅くなり、青いマス（外周や塞がったマスのそば）はよく冷えます。武器どうしを離すか、あいだにエンジンや冷却器を挟んでください。'
-    },
-    blocked: {
-      at: 'garage',
-      text: '斜線のマスは塞がっていて使えません。焚き火の増設やタイルパックで開きます。開くまでは熱の逃げ道にもなっています。'
+      text: '盤の色は熱です。赤いマスの武器は発射が遅くなります。武器どうしを離すか、あいだにエンジンや冷却器を挟んでください。'
     },
     map: {
       at: 'map',
@@ -206,17 +207,13 @@
       at: 'map',
       text: '賞金首が現れました。手強いかわりに、勝てば車そのものを作り替える「改造」を1つ選べます。走行中に2つまで。'
     },
-    dry: {
-      at: 'log',
-      text: '主砲は弾数が有限。尽きたあとは弾無限の副砲だけの後半になる。整備画面の「弾が尽きるまで」で先に分かる。'
-    },
     behavior: {
       at: 'log',
       text: '敵はそれぞれ違う戦い方をしてくる。何をしてくる相手かは、敵の名前の下に書いてある。'
     }
   };
   /* 同時に条件を満たしたときに、どれを先に出すか */
-  var TIP_ORDER = ['heat', 'blocked', 'map', 'elite'];
+  var TIP_ORDER = ['heat', 'map', 'elite'];
 
   function tipKey(k) { return 'tip_' + k; }
 
@@ -289,8 +286,16 @@
   }
 
   function cellPx() {
-    var v = getComputedStyle(document.documentElement).getPropertyValue('--cell');
-    return parseInt(v, 10) || 40;
+    var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell'), 10) || 40;
+    /* 盤を大きくしたら、重戦車（5列）が列からはみ出して
+       ページ全体に横スクロールが出た。入る大きさまで落とす。
+       ドラッグの当たり判定もこの値を使うので、描画と必ず同じ数を返すこと */
+    var g = $('grid');
+    var host = g && g.parentNode;
+    var avail = host ? host.clientWidth : 0;
+    var cols = (S && S.chassis && CHASSIS_BY_ID[S.chassis]) ? CHASSIS_BY_ID[S.chassis].cols : 4;
+    if (avail > 40 && cols > 0) v = Math.max(24, Math.min(v, Math.floor(avail / cols)));
+    return v;
   }
   var STASH_CELL = 32;
 
@@ -1196,6 +1201,7 @@
     var sc = $('stash-count');
     sc.textContent = st.length + ' 個' + (swapNum ? '（うち ' + swapNum + ' 個は入れ替えれば載る）' : '');
     sc.classList.toggle('is-swap', swapNum > 0);
+    stash.classList.toggle('is-empty', !st.length);
     if (!st.length) stash.appendChild(el('p', 'ss-stash-empty', '空。戦利品はここに入る。'));
     st.forEach(function (inst) { stash.appendChild(makeItemNode(inst, STASH_CELL)); });
 
@@ -1241,15 +1247,11 @@
     }
 
     /* --- 遊びの中で1つだけ教える ---
-       最初の案内（garage-tut）や部品選択中と重ねない。同時に出すと読まれない */
-    var hasBlocked = false;
-    for (var by = 0; by < ch.rows && !hasBlocked; by++) {
-      for (var bx = 0; bx < ch.cols; bx++) { if (isBlocked(bx, by)) { hasBlocked = true; break; } }
-    }
+       最初の案内（garage-tut）や部品選択中と重ねない。同時に出すと読まれない。
+       塞がったマスの案内は、車体選択で盤の形と「◯マス使える」を出したので消した */
     var hasHeat = false;
     for (var hk2 in b.heat.net) { if (b.heat.net[hk2] > D.heat.softAt) { hasHeat = true; break; } }
-    renderTip('garage', (pending || !$('garage-tut').hidden) ? null
-      : { heat: hasHeat, blocked: hasBlocked });
+    renderTip('garage', (pending || !$('garage-tut').hidden) ? null : { heat: hasHeat });
 
     renderDetail();
   }
@@ -1308,10 +1310,63 @@
     return node;
   }
 
+  /* ==========================================================
+     盤を描く（読むだけ・操作なし）
+
+     プレイヤーがこのゲームで作るものは盤そのもの。
+     ところが戦闘画面には盤が無く、武器名のリストになっていた。
+     「自分が置いたものが、こう働いた」が文字でしか返ってこない状態だったので、
+     整備画面の外でも同じ絵で見せる。
+
+     整備画面の #grid とは分けてある。あちらはドラッグの当たり判定・pending 状態・
+     キーボード操作を抱えていて、使い回すと壊れやすい。
+     ========================================================== */
+  function staticGrid(ch, insts, cell, heat, blockedFn) {
+    var wrap = el('div', 'ss-sgrid');
+    wrap.style.width = (ch.cols * cell) + 'px';
+    wrap.style.height = (ch.rows * cell) + 'px';
+    for (var y = 0; y < ch.rows; y++) {
+      for (var x = 0; x < ch.cols; x++) {
+        var c = el('div', 'ss-sgridcell');
+        c.style.left = (x * cell) + 'px';
+        c.style.top = (y * cell) + 'px';
+        c.style.width = cell + 'px';
+        c.style.height = cell + 'px';
+        if (blockedFn ? blockedFn(x, y) : false) {
+          c.classList.add('is-blocked');
+          var bc = document.createElement('canvas');
+          bc.width = cell; bc.height = cell;
+          var bg = bc.getContext('2d');
+          bg.imageSmoothingEnabled = false;
+          bg.drawImage(window.ART.blocked(), 0, 0, cell, cell);
+          c.appendChild(bc);
+        }
+        wrap.appendChild(c);
+      }
+    }
+    (insts || []).forEach(function (inst) {
+      var node = makeItemNode(inst, cell, heat);
+      node.tabIndex = -1;
+      node.style.left = (inst.x * cell) + 'px';
+      node.style.top = (inst.y * cell) + 'px';
+      wrap.appendChild(node);
+    });
+    return wrap;
+  }
+
+  /* 車体そのものの形。まだ走行が始まっていない車体選択でも描けるよう、
+     S（走行の状態）に触らない */
+  function chassisBlocked(ch) {
+    return function (x, y) {
+      return !!(ch.blocked && ch.blocked.indexOf(x + ',' + y) >= 0);
+    };
+  }
+
   function renderDetail() {
     var box = $('detail');
     clear(box);
     var inst = selUid ? instById(selUid) : null;
+    box.classList.toggle('is-empty', !inst);
     if (!inst) {
       box.appendChild(el('p', 'ss-detail-empty', '部品を選ぶと、ここに性能が出ます。'));
       return;
@@ -1498,6 +1553,7 @@
     var box = $('bag');
     clear(box);
     $('bag-count').textContent = S.items.length + ' / ' + ITEM_CAP;
+    box.classList.toggle('is-empty', !S.items.length);
     if (!S.items.length) {
       box.appendChild(el('p', 'ss-stash-empty', '空。行商や戦利品で手に入る。'));
       return;
@@ -2032,7 +2088,7 @@
       guns: b.weapons.map(function (w) {
         var bf = S.buff || { pierce: 0, ammo: 0 };
         return {
-          name: w.name, kind: w.kind, dmg: w.dmg,
+          uid: w.uid, name: w.name, kind: w.kind, dmg: w.dmg,
           pierce: w.pierce + (bf.pierce || 0),
           reload: w.reload,
           /* 弾無限の武器に弾数を足しても意味がないので、有限のものだけ */
@@ -2055,10 +2111,7 @@
     $('battle-end').hidden = true;
     $('battle-speed').textContent = '速度 x' + B.speed;
 
-    var meC = $('battle-me');
-    var chSp = window.ART.chassis(chassis());
-    meC.width = chSp.width; meC.height = chSp.height;
-    meC.getContext('2d').drawImage(chSp, 0, 0);
+    renderBattleBoard();
     $('battle-mename').textContent = chassis().name;
 
     var foeC = $('battle-foe');
@@ -2090,6 +2143,82 @@
     window.SFX.encounter();
 
     startLoop();
+  }
+
+  /* ==========================================================
+     戦闘中の盤
+
+     組んだ配置をそのまま出す。整備画面と同じ絵・同じ色にする
+     （別の絵にすると「これが自分の組んだ車だ」と結びつかない）。
+     ここで、撃った部品が光り、リロードが溜まり、弾が減り、熱で赤くなる。
+     ========================================================== */
+  /* 盤が主役なので、戦闘中も部品が何なのか見える大きさにする。
+     いちばん大きい重戦車（5×4）でも 220×176px で、戦闘画面の片側に収まる */
+  var BATTLE_CELL = 44;
+
+  function renderBattleBoard() {
+    var box = $('battle-me');
+    clear(box);
+    var b = B ? B.me : build();
+    /* 整備画面と同じ理由で、入る大きさまで落とす。
+       はみ出すとページ全体に横スクロールが出る */
+    var ch = chassis();
+    var avail = box.clientWidth || 0;
+    var cell = avail > 40 ? Math.max(22, Math.min(BATTLE_CELL, Math.floor(avail / ch.cols))) : BATTLE_CELL;
+    box.appendChild(staticGrid(ch, placed(), cell, b.heat, isBlocked));
+    /* 武器のマスにだけ、弾とリロードの器を足す */
+    (B ? B.guns : []).forEach(function (g) {
+      var n = boardNode(g.uid);
+      if (!n) return;
+      n.classList.add('ss-bgun');
+      n.appendChild(el('span', 'ss-bammo'));
+    });
+    updateBoard();
+  }
+
+  function boardNode(uid) {
+    if (uid == null) return null;
+    return $('battle-me').querySelector('.ss-item[data-uid="' + uid + '"]');
+  }
+
+  /* 毎フレーム走る。リロードの進み具合と残弾を盤の上で見せる */
+  function updateBoard() {
+    if (!B) return;
+    B.guns.forEach(function (g) {
+      var n = boardNode(g.uid);
+      if (!n) return;
+      n.style.setProperty('--rl', Math.min(1, g.t / g.reload));
+      n.classList.toggle('is-ready', g.t >= g.reload);
+      n.classList.toggle('is-dry', g.ammo === 0);
+      var tag = n.querySelector('.ss-bammo');
+      if (tag) {
+        tag.textContent = g.ammo == null ? '∞' : String(g.ammo);
+        tag.classList.toggle('is-low', g.ammo != null && g.ammo > 0 && g.ammo <= 2);
+        tag.classList.toggle('is-empty', g.ammo === 0);
+      }
+    });
+  }
+
+  /* 撃った部品を盤の上で光らせる。どれが働いたのかが分からないと、
+     置き方を変える理由が生まれない */
+  function markFire(uid) {
+    var n = boardNode(uid);
+    if (!n) return;
+    n.classList.remove('is-firing');
+    void n.offsetWidth;
+    n.classList.add('is-firing');
+  }
+
+  /* 着弾。撃った → 当たった → 減った、の因果を絵にする */
+  function impact(big, missed) {
+    var host = $('battle-foe').parentNode;
+    if (!host) return;
+    var e = el('span', 'ss-impact' + (big ? ' is-big' : '') + (missed ? ' is-miss' : ''));
+    var sp = $('battle-foe');
+    e.style.top = (sp.offsetTop + sp.offsetHeight * 0.45) + 'px';
+    e.style.marginLeft = (rint(45) - 22) + 'px';
+    host.appendChild(e);
+    setTimeout(function () { if (e.parentNode) e.parentNode.removeChild(e); }, 420);
   }
 
   function logLine(cls, text) {
@@ -2213,6 +2342,7 @@
     advance(dt);
     updateBars();
     updateGuns();
+    updateBoard();
     updateIntent();
     if (B.over) stopLoop();
   }
@@ -2298,14 +2428,17 @@
     var raw = g.dmg;
     if (g.ammo != null) g.ammo--;
 
+    markFire(g.uid);
+
     /* 回避する敵。重い一撃ほど損をするので、手数の構成が有利になる */
     B.hits++;
     if (B.bv.dodgeEvery && B.hits % B.bv.dodgeEvery === 0) {
       B.dodged++;
       logLine('sys', B.foe.name + ' は身をかわした（' + g.name + ' の一撃）');
+      impact(false, true);
       tipLog('behavior');
       B.tally.blocked += raw;
-      if (g.ammo === 0) { logLine('sys', g.name + ' は弾切れ'); tipLog('dry'); }
+      if (g.ammo === 0) logLine('sys', g.name + ' は弾切れ');
       return;
     }
 
@@ -2333,8 +2466,9 @@
     else if (g.kind === 'main') window.SFX.fire();
     else window.SFX.subFire();
     flash('foe');
+    impact(g.kind === 'special' || dealt >= 40);
     popDamage('foe', dealt, g.kind === 'special');
-    if (g.ammo === 0) { logLine('sys', g.name + ' は弾切れ'); tipLog('dry'); }
+    if (g.ammo === 0) logLine('sys', g.name + ' は弾切れ');
     checkEnd();
   }
 
@@ -3241,9 +3375,30 @@
       cv.getContext('2d').drawImage(sp, 0, 0);
       b.appendChild(cv);
       b.appendChild(el('b', null, ch.name));
-      b.appendChild(el('div', 'ss-picknums',
-        ch.cols + '×' + ch.rows + 'マス　積載 ' + ch.cap + '　装甲 ' + ch.hp +
-        '　被弾軽減 ' + ch.def + '　速度 ' + (ch.spd >= 0 ? '+' : '') + Math.round(ch.spd * 100) + '%'));
+
+      /* このゲームで選んでいるのは「盤の形」。
+         「4×3マス」と文字で書いても、何を選んでいるのかが分からない。
+         実物の盤を描く（塞がったマスも含めて、走り出したときそのままの形） */
+      var gw = el('div', 'ss-pickgrid');
+      gw.appendChild(staticGrid(ch, [], 26, null, chassisBlocked(ch)));
+      var blocked = (ch.blocked || []).length;
+      gw.appendChild(el('span', 'ss-pickcells',
+        (ch.cols * ch.rows - blocked) + ' マス使える' +
+        (blocked ? '（' + blocked + ' マスは塞がっている）' : '')));
+      b.appendChild(gw);
+
+      /* 1行に流すと4つの数値が同じ重さで並んで、どれが効くのか分からない。
+         項目と値に分けて、値だけを目立たせる */
+      var nums = el('div', 'ss-picknums');
+      [['積載', ch.cap], ['装甲', ch.hp], ['被弾軽減', ch.def],
+       ['速度', (ch.spd >= 0 ? '+' : '') + Math.round(ch.spd * 100) + '%']
+      ].forEach(function (row) {
+        var d = el('div');
+        d.appendChild(el('i', null, row[0]));
+        d.appendChild(el('b', null, String(row[1])));
+        nums.appendChild(d);
+      });
+      b.appendChild(nums);
       b.appendChild(el('div', 'ss-picknote', ch.note));
       b.onclick = function () { startRun(ch.id); };
       box.appendChild(b);
@@ -3602,7 +3757,7 @@
       step: function (sec) {
         var n = Math.ceil(sec / 0.05);
         for (var i = 0; i < n && B && !B.over; i++) advance(0.05);
-        updateBars(); updateGuns(); updateIntent();
+        updateBars(); updateGuns(); updateIntent(); updateBoard();
         return B ? { me: Math.ceil(B.meHp), foe: Math.ceil(B.foeHp), over: B.over, win: B.win } : null;
       },
       simulate: function (type, floor, times) {
@@ -3622,6 +3777,8 @@
       startRun: startRun,
       enterNode: enterNode,
       renderMap: renderMap,
+      renderPick: renderPick,
+      renderBattleBoard: renderBattleBoard,
       renderGarage: renderGarage,
       give: function (pid) { var i = newInst(pid); S.parts.push(i); autoPlace(i); syncHp(); renderGarage(); },
       gold: function (n) { S.gold = n; refreshStatus(); },

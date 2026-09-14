@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=6.1">
+<link rel="stylesheet" href="style.css?v=6.9">
 </head>
 <body>
 
@@ -193,7 +193,10 @@
       <div class="ss-field">
         <div class="ss-side ss-side-me">
           <div class="ss-fighter">
-            <canvas class="ss-sprite" id="battle-me"></canvas>
+            <!-- 自車は「ドット絵1枚」ではなく、組んだ盤そのもの。
+                 プレイヤーが作ったものが、戦っている場面に出ていないと
+                 「自分が置いたものがこう働いた」が返ってこない -->
+            <div class="ss-battleboard" id="battle-me"></div>
             <div class="ss-name" id="battle-mename">自車</div>
             <div class="ss-hpline"><span class="ss-bar"><em id="battle-mehp"></em></span><b id="battle-menum">--</b></div>
           </div>
@@ -494,12 +497,12 @@
 
 <div class="ss-toast" id="toast" hidden></div>
 
-<script src="data.js?v=6.1"></script>
-<script src="sfx.js?v=6.1"></script>
-<script src="art.js?v=6.1"></script>
-<script src="game.js?v=6.1"></script>
+<script src="data.js?v=6.9"></script>
+<script src="sfx.js?v=6.9"></script>
+<script src="art.js?v=6.9"></script>
+<script src="game.js?v=6.9"></script>
 <!-- ?test=1 のときだけ動く回帰テスト。普段の起動には影響しない -->
-<script src="test.js?v=6.1"></script>
+<script src="test.js?v=6.9"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
