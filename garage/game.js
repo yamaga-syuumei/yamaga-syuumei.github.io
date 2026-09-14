@@ -177,6 +177,86 @@
     saveMeta();
   }
 
+  /* ----------------------------------------------------------
+     遊びの中で1度だけ出す案内
+
+     以前は「覚えておくこと」をタイトルに5行、あそびかたに22見出し置いていた。
+     仕組みを足すたびに文章が増え、読まない人には何も伝わらず、
+     読む人には説明書になっていた。読ませるのをやめて、
+     必要になった瞬間に1つだけ出す。
+
+     条件と文面をこの表に集めてある。散らばると「同時に2つ出る」
+     「戦闘の山場でダイアログが出る」といった事故が起きるため。
+     at: garage / map … その画面の帯。log … 戦闘ログの1行（画面を止めない）
+     ---------------------------------------------------------- */
+  var TIPS = {
+    heat: {
+      at: 'garage',
+      text: '盤の色は熱です。赤いマスの武器は発射が遅くなり、青いマス（外周や塞がったマスのそば）はよく冷えます。武器どうしを離すか、あいだにエンジンや冷却器を挟んでください。'
+    },
+    blocked: {
+      at: 'garage',
+      text: '斜線のマスは塞がっていて使えません。焚き火の増設やタイルパックで開きます。開くまでは熱の逃げ道にもなっています。'
+    },
+    map: {
+      at: 'map',
+      text: '線をたどって登る道を選びます。戦闘ノードには出てくる相手が描いてあるので、戦う前に相手を見て道を決められます。'
+    },
+    elite: {
+      at: 'map',
+      text: '賞金首が現れました。手強いかわりに、勝てば車そのものを作り替える「改造」を1つ選べます。走行中に2つまで。'
+    },
+    dry: {
+      at: 'log',
+      text: '主砲は弾数が有限。尽きたあとは弾無限の副砲だけの後半になる。整備画面の「弾が尽きるまで」で先に分かる。'
+    },
+    behavior: {
+      at: 'log',
+      text: '敵はそれぞれ違う戦い方をしてくる。何をしてくる相手かは、敵の名前の下に書いてある。'
+    }
+  };
+  /* 同時に条件を満たしたときに、どれを先に出すか */
+  var TIP_ORDER = ['heat', 'blocked', 'map', 'elite'];
+
+  function tipKey(k) { return 'tip_' + k; }
+
+  /* 戦闘ログに出すもの。1度きり。画面は止めない */
+  function tipLog(k) {
+    if (tutSeen(tipKey(k))) return false;
+    markTutSeen(tipKey(k));
+    logLine('sys is-tip', '◆ ' + TIPS[k].text);
+    return true;
+  }
+
+  /* 帯で出すものを1つだけ選ぶ。条件を満たしていて、まだ閉じていないもの。
+     同時にいくつ満たしても出すのは1つ。残りは次の機会に回る */
+  function pickTip(at, cond) {
+    for (var i = 0; i < TIP_ORDER.length; i++) {
+      var k = TIP_ORDER[i];
+      if (TIPS[k].at !== at) continue;
+      if (!cond[k]) continue;
+      if (tutSeen(tipKey(k))) continue;
+      return k;
+    }
+    return null;
+  }
+  function renderTip(at, cond) {
+    var box = $(at + '-tip');
+    if (!box) return null;
+    var k = cond ? pickTip(at, cond) : null;
+    box.hidden = !k;
+    if (!k) return null;
+    $(at + '-tip-text').textContent = TIPS[k].text;
+    box.dataset.tip = k;
+    return k;
+  }
+  function closeTip(at) {
+    var box = $(at + '-tip');
+    if (!box || box.hidden) return;
+    if (box.dataset.tip) markTutSeen(tipKey(box.dataset.tip));
+    box.hidden = true;
+  }
+
   /* ==========================================================
      小物
      ========================================================== */
@@ -980,6 +1060,17 @@
         '青いマス（外周や穴のそば）は熱がよく逃げます。'));
     }
 
+    /* --- 遊びの中で1つだけ教える ---
+       最初の案内（garage-tut）や部品選択中と重ねない。同時に出すと読まれない */
+    var hasBlocked = false;
+    for (var by = 0; by < ch.rows && !hasBlocked; by++) {
+      for (var bx = 0; bx < ch.cols; bx++) { if (isBlocked(bx, by)) { hasBlocked = true; break; } }
+    }
+    var hasHeat = false;
+    for (var hk2 in b.heat.net) { if (b.heat.net[hk2] > D.heat.softAt) { hasHeat = true; break; } }
+    renderTip('garage', (pending || !$('garage-tut').hidden) ? null
+      : { heat: hasHeat, blocked: hasBlocked });
+
     renderDetail();
   }
 
@@ -1569,6 +1660,16 @@
     $('map-hint').textContent = m.cur
       ? '光っている行き先から選ぶ。線をたどれば、その先どこへ行けるかが分かる。'
       : '好きなところから走り出せる。線をたどって、どこを通って登るか決める。';
+
+    /* 賞金首は序盤の階には出ない。マップの案内を出した次の機会に回るのが自然な順 */
+    var hasElite = false;
+    m.floors.forEach(function (fr, f2) {
+      fr.forEach(function (n2, i2) {
+        if (n2.type === 'elite' && reach[f2 + ':' + i2] &&
+            m.cleared.indexOf(f2 + ':' + i2) < 0) hasElite = true;
+      });
+    });
+    renderTip('map', { map: true, elite: hasElite });
     /* 12階ぶんの縦長になるので、選べるところが画面に入るまで送る */
     setTimeout(function () {
       drawMapLines();
@@ -1938,6 +2039,9 @@
   /* 時間の経過で変わる敵の挙動。毎フレーム呼ぶ */
   function foeBehavior(dt) {
     var bv = B.bv;
+    /* 加速・自己修復・じわじわ硬くなる相手はログに出ないまま効く。
+       効きはじめが分かる頃（3秒）に一度だけ知らせる */
+    if ((bv.speedUp || bv.armorPerSec || bv.regen) && B.tally.elapsed > 3) tipLog('behavior');
     if (bv.speedUp) {
       /* 放っておくと加速する。下限は元の45% */
       var f = Math.max(0.45, 1 - bv.speedUp * B.tally.elapsed);
@@ -1960,8 +2064,9 @@
     if (B.bv.dodgeEvery && B.hits % B.bv.dodgeEvery === 0) {
       B.dodged++;
       logLine('sys', B.foe.name + ' は身をかわした（' + g.name + ' の一撃）');
+      tipLog('behavior');
       B.tally.blocked += raw;
-      if (g.ammo === 0) logLine('sys', g.name + ' は弾切れ');
+      if (g.ammo === 0) { logLine('sys', g.name + ' は弾切れ'); tipLog('dry'); }
       return;
     }
 
@@ -1973,7 +2078,10 @@
     if (B.bv.armorPerHit) {
       var before = foeArmor();
       B.armorAdd = Math.min(B.bv.armorMax || 99, B.armorAdd + B.bv.armorPerHit);
-      if (foeArmor() > before) logLine('sys', B.foe.name + ' の装甲が厚くなった（' + foeArmor() + '）');
+      if (foeArmor() > before) {
+        logLine('sys', B.foe.name + ' の装甲が厚くなった（' + foeArmor() + '）');
+        tipLog('behavior');
+      }
     }
 
     var blocked = raw - dealt;
@@ -1987,7 +2095,7 @@
     else window.SFX.subFire();
     flash('foe');
     popDamage('foe', dealt, g.kind === 'special');
-    if (g.ammo === 0) logLine('sys', g.name + ' は弾切れ');
+    if (g.ammo === 0) { logLine('sys', g.name + ' は弾切れ'); tipLog('dry'); }
     checkEnd();
   }
 
@@ -2891,7 +2999,12 @@
 
     $('map-garage').onclick = function () { pending = null; show('garage'); renderGarage(); };
 
-    $('garage-tut-close').onclick = function () { markTutSeen('garage'); $('garage-tut').hidden = true; };
+    $('garage-tut-close').onclick = function () {
+      markTutSeen('garage'); $('garage-tut').hidden = true;
+      renderGarage();   // 最初の案内を閉じた直後から、次の案内が出られるようにする
+    };
+    $('garage-tip-close').onclick = function () { closeTip('garage'); };
+    $('map-tip-close').onclick = function () { closeTip('map'); };
 
     $('garage-done').onclick = function () {
       markTutSeen('garage');
@@ -3164,6 +3277,11 @@
       addItem: addItem,
       useItem: useItem,
       modPreview: modPreview,
+      tips: TIPS,
+      tipOrder: TIP_ORDER,
+      pickTip: pickTip,
+      tipLog: tipLog,
+      renderTip: renderTip,
       checkAchievements: checkAchievements,
       save: save,
       build: build,

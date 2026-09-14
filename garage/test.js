@@ -568,6 +568,99 @@
     var modsCount = document.getElementById('codex-mods').children.length;
     ok('図鑑：改造カード数がデータ件数と一致', modsCount === D.mods.length, 'got=' + modsCount + ' want=' + D.mods.length);
 
+    /* ---------- 遊びの中で教える案内 ----------
+       画面はv5.9まで積み上げたのに、教える場面は初版の2つ（整備・戦闘）のまま
+       だった。足りないぶんを説明文へ逃がした結果、タイトルに5行・あそびかたに
+       22見出し＝1,573字になり、読まない人には何も伝わっていなかった。
+       文面と条件を1か所（TIPS / TIP_ORDER）に集めたので、ここで縛る */
+
+    var tutBak = JSON.parse(JSON.stringify(G.meta().tut || {}));
+    function clearTut() {
+      var t = G.meta().tut;
+      Object.keys(t).forEach(function (k) { if (k.indexOf('tip_') === 0) delete t[k]; });
+    }
+    var tipKeys = Object.keys(G.tips);
+
+    ok('案内：文面が全部そろっている',
+      tipKeys.every(function (k) {
+        var t = G.tips[k];
+        return t && t.text && t.text.length > 10 && /^(garage|map|log)$/.test(t.at);
+      }),
+      tipKeys.join(','));
+
+    /* 順番表から漏れた帯の案内は、条件を満たしても永久に出ない */
+    ok('案内：帯に出るものは全部 TIP_ORDER に載っている',
+      tipKeys.filter(function (k) { return G.tips[k].at !== 'log'; })
+        .every(function (k) { return G.tipOrder.indexOf(k) >= 0; }),
+      G.tipOrder.join(','));
+
+    ok('案内：戦闘中のものはログに出す（画面を止めない）',
+      tipKeys.filter(function (k) { return G.tips[k].at === 'log'; }).length >= 2 &&
+      !document.getElementById('log-tip'));
+
+    clearTut();
+    ok('案内：条件を満たしていないものは出ない',
+      G.pickTip('garage', { heat: false, blocked: false }) === null);
+
+    /* 同時に満たしても1つだけ。並べて出すと読まれない */
+    var first = G.pickTip('garage', { heat: true, blocked: true });
+    ok('案内：同時に条件を満たしても1つしか選ばれない', first === 'heat', 'got=' + first);
+
+    G.meta().tut.tip_heat = true;
+    ok('案内：閉じたものは二度と選ばれない（次の案内に進む）',
+      G.pickTip('garage', { heat: true, blocked: true }) === 'blocked');
+    G.meta().tut.tip_blocked = true;
+    ok('案内：全部見たあとは何も出ない',
+      G.pickTip('garage', { heat: true, blocked: true }) === null);
+
+    /* 最初の案内（ドラッグの説明）と重ねない */
+    clearTut();
+    ok('案内：最初の案内が出ている間は帯を出さない',
+      G.renderTip('garage', null) === null &&
+      document.getElementById('garage-tip').hidden);
+
+    clearTut();
+    ok('案内：マップを開いたら道の見方を出す',
+      G.pickTip('map', { map: true, elite: true }) === 'map');
+    G.meta().tut.tip_map = true;
+    ok('案内：賞金首が見えたら改造のことを出す',
+      G.pickTip('map', { map: true, elite: true }) === 'elite');
+
+    /* ログの案内は1度きり。毎回の弾切れで繰り返されると邪魔になる */
+    clearTut();
+    G.startRun('ch_apc');
+    G.warpTo('battle');
+    ok('案内：ログの案内は1度だけ', G.tipLog('dry') === true && G.tipLog('dry') === false);
+
+    /* 実際に弾切れしたら出ること（呼び出しを消しても気づけるように） */
+    clearTut();
+    G.startRun('ch_apc');
+    ['e_turbo', 'm_105', 's_hmg'].forEach(function (pp) { G.give(pp); });
+    G.warpTo('boss');
+    var seenDry = false, bt2 = 0;
+    while (G.battle() && !G.battle().over && bt2 < 120 && !seenDry) {
+      G.step(0.5); bt2 += 0.5;
+      seenDry = !!G.meta().tut.tip_dry;
+    }
+    ok('案内：主砲が尽きたら弾のことを教える', seenDry, bt2 + '秒まで進めた');
+
+    /* 敵の挙動も、発動した瞬間に1度だけ */
+    clearTut();
+    G.startRun('ch_apc');
+    G.warpTo('battle');
+    G.battle().bv = { armorPerHit: 1, armorMax: 9 };
+    var bt3 = 0;
+    while (G.battle() && !G.battle().over && bt3 < 60 && !G.meta().tut.tip_behavior) {
+      G.step(0.5); bt3 += 0.5;
+    }
+    ok('案内：敵が独自の動きをしたら教える', !!G.meta().tut.tip_behavior, bt3 + '秒まで進めた');
+
+    /* 読ませる側を減らしたことの確認。増やし直すと静かに元へ戻るので縛る */
+    ok('案内：タイトルに読ませる箇条書きを置かない',
+      !document.querySelector('#sc-title .ss-rules'));
+
+    G.meta().tut = tutBak;
+
     /* ---------- 保存・読み込み ---------- */
     G.startRun('ch_apc');
     s = G.state();

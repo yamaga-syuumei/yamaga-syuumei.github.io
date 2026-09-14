@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=5.9">
+<link rel="stylesheet" href="style.css?v=6.0">
 </head>
 <body>
 
@@ -79,14 +79,10 @@
         <button class="ss-btn" id="title-continue" hidden>続きから</button>
         <button class="ss-btn" id="title-codex">図鑑</button>
       </div>
-      <p class="ss-sub" style="text-align:center; margin-top:20px;">覚えておくこと</p>
-      <ul class="ss-rules">
-        <li><b>重さ</b> 積んだ部品の重さ合計が積載量を超えると、全体の速度が落ちる</li>
-        <li><b>隣接</b> 弾薬箱・照準装置は<b>隣のマスに接した武器</b>だけを強化する</li>
-        <li><b>弾</b> 主砲は<b>長い戦いでは尽きる</b>。尽きたあとは弾無限の副砲だけが残る</li>
-        <li><b>熱</b> 強い武器ほど熱い。<b>武器どうしを固めると熱がこもって遅くなる</b>。外周や穴のそばは冷えやすく、冷却器は隣のマスを冷やす</li>
-        <li><b>装甲</b> 敵の装甲は1発ごとに引かれる。副砲だけでは硬い敵を抜けない</li>
-      </ul>
+      <p class="ss-sub" style="text-align:center; margin-top:18px;">
+        細かい仕組みは、必要になったところで案内が出ます。<br>
+        いつでも右上の <b>？</b> で確かめられます。
+      </p>
     </div>
   </section>
 
@@ -111,6 +107,10 @@
         <button class="ss-btn" id="map-garage">整備する</button>
       </div>
       <p class="ss-lead" id="map-hint">光っているノードを選ぶ。上へ進むほど敵は強くなる。</p>
+      <div class="ss-tut ss-tut-tip" id="map-tip" hidden>
+        <p id="map-tip-text"></p>
+        <button class="ss-plain" id="map-tip-close">わかった</button>
+      </div>
       <div class="ss-legend" id="map-legend"></div>
       <div class="ss-map" id="map-body">
         <svg class="ss-map-lines" id="map-lines"></svg>
@@ -136,6 +136,12 @@
           <b>「出発する」</b>へ。
         </p>
         <button class="ss-plain" id="garage-tut-close">わかった</button>
+      </div>
+
+      <!-- 必要になった瞬間に1つだけ出る案内。文面と条件は game.js の TIPS -->
+      <div class="ss-tut ss-tut-tip" id="garage-tip" hidden>
+        <p id="garage-tip-text"></p>
+        <button class="ss-plain" id="garage-tip-close">わかった</button>
       </div>
 
       <div class="ss-garage">
@@ -413,6 +419,8 @@
 
     <!-- ---------- あそびかた ---------- -->
     <div class="ss-modal-body" id="mtab-help" hidden>
+      <p class="ss-lead">遊んでいるうちに、必要になったところで案内が出ます。
+        ここは<b>あとから確かめるための場所</b>です。先に全部読む必要はありません。</p>
       <ol class="ss-flow">
         <li><span class="ss-flow-n">1</span><div><b>車体を選ぶ</b>車体そのものが部品を積むグリッドになる</div></li>
         <li><span class="ss-flow-n">2</span><div><b>部品を積む</b>倉庫の部品をグリッドへ。置き方が強さを決める</div></li>
@@ -472,12 +480,12 @@
 
 <div class="ss-toast" id="toast" hidden></div>
 
-<script src="data.js?v=5.9"></script>
-<script src="sfx.js?v=5.9"></script>
-<script src="art.js?v=5.9"></script>
-<script src="game.js?v=5.9"></script>
+<script src="data.js?v=6.0"></script>
+<script src="sfx.js?v=6.0"></script>
+<script src="art.js?v=6.0"></script>
+<script src="game.js?v=6.0"></script>
 <!-- ?test=1 のときだけ動く回帰テスト。普段の起動には影響しない -->
-<script src="test.js?v=5.9"></script>
+<script src="test.js?v=6.0"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
