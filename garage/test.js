@@ -388,6 +388,55 @@
     ok('マップ：見せた相手がそのまま出てくる', G.battle().foe.id === shown,
       '見せた=' + shown + ' 出た=' + G.battle().foe.id);
 
+    /* ---------- 弾 ----------
+       弾は長いあいだ余りすぎていて、資源として存在していなかった
+       （いちばん長いボス戦でも半分以上余っていた）。
+       そこに乗っている仕組み（弾薬箱・追加弾倉・予備弾倉・弾薬庫）が
+       まとめて死んでいたので、長い戦いでは必ず尽きるようにした */
+
+    /* 長い戦いでは主砲が尽きて、副砲だけの後半になる */
+    G.startRun('ch_apc');
+    ['e_turbo', 'm_105', 's_hmg', 'u_sight', 'u_cool'].forEach(function (p) { G.give(p); });
+    G.state().parts.forEach(function (p) { p.lvl = 3; });
+    G.warpTo('boss');
+    var bt = 0, dryAt = {};
+    while (G.battle() && !G.battle().over && bt < 120) {
+      G.step(0.5); bt += 0.5;
+      G.battle().guns.forEach(function (g) {
+        if (g.ammo === 0 && dryAt[g.name] == null) dryAt[g.name] = bt;
+      });
+    }
+    ok('弾：ボス戦では主砲が尽きる', Object.keys(dryAt).length > 0,
+      Object.keys(dryAt).map(function (k) { return k + '=' + dryAt[k] + '秒'; }).join(' ') || '尽きなかった');
+    ok('弾：尽きても副砲は撃ち続けられる',
+      G.battle().guns.some(function (g) { return g.ammo == null; }));
+
+    /* 短い戦いは変わらない（雑魚戦まで弾切れにすると、ただ長引くだけ） */
+    G.startRun('ch_apc');
+    G.warpTo('battle');
+    var st2 = 0;
+    while (G.battle() && !G.battle().over && st2 < 120) { G.step(0.5); st2 += 0.5; }
+    ok('弾：雑魚戦では尽きない',
+      G.battle().guns.every(function (g) { return g.ammo == null || g.ammo > 0; }),
+      G.battle().guns.map(function (g) { return g.name.slice(0, 6) + ':' + (g.ammo == null ? '∞' : g.ammo); }).join(' '));
+
+    /* 弾薬箱が効くこと。自動配置が熱だけを見ていたころは、
+       照準装置も弾薬箱も武器に接しない場所へ置かれて効果を捨てていた */
+    G.startRun('ch_apc');
+    G.give('m_105');
+    var noBox = weaponIn(G.build(), partName(D, 'm_105')).ammo;
+    G.give('u_ammo');
+    var withBox = weaponIn(G.build(), partName(D, 'm_105')).ammo;
+    ok('弾：弾薬箱を渡すと自動配置が武器の隣に置く', withBox > noBox,
+      noBox + ' → ' + withBox);
+
+    G.startRun('ch_apc');
+    G.give('m_105');
+    G.give('u_sight');
+    var sighted = weaponIn(G.build(), partName(D, 'm_105'));
+    ok('配置：照準装置も自動で武器の隣に置かれる', sighted.aura.list.length > 0,
+      '隣接=' + (sighted.aura.list.join(',') || 'なし'));
+
     /* ---------- 消耗品 ---------- */
     G.startRun('ch_jeep');
     s = G.state();

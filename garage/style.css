@@ -420,6 +420,9 @@ html.no-motion .ss-screen { animation: none; }
 }
 .ss-gun.is-ready .ss-gunbar i { background: #4a7a4f; }
 .ss-gun.is-empty { opacity: .4; }
+/* 残弾わずか。ここから先は副砲だけの戦いになる */
+.ss-gun.is-low b { color: #ffb45a; }
+.ss-gun.is-low .ss-gunbar { border-color: rgba(224,138,40,.55); }
 /* 熱で遅くなっている武器。なぜ止まって見えるのかを戦闘中にも示す */
 .ss-gun.is-warm .ss-gunbar { border-color: rgba(224,138,40,.6); }
 .ss-gun.is-warm .ss-gunbar span { color: #ffb45a; }

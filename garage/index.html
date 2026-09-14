@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=4.5">
+<link rel="stylesheet" href="style.css?v=5.2">
 </head>
 <body>
 
@@ -83,6 +83,7 @@
       <ul class="ss-rules">
         <li><b>重さ</b> 積んだ部品の重さ合計が積載量を超えると、全体の速度が落ちる</li>
         <li><b>隣接</b> 弾薬箱・照準装置は<b>隣のマスに接した武器</b>だけを強化する</li>
+        <li><b>弾</b> 主砲は<b>長い戦いでは尽きる</b>。尽きたあとは弾無限の副砲だけが残る</li>
         <li><b>熱</b> 強い武器ほど熱い。<b>武器どうしを固めると熱がこもって遅くなる</b>。外周や穴のそばは冷えやすく、冷却器は隣のマスを冷やす</li>
         <li><b>装甲</b> 敵の装甲は1発ごとに引かれる。副砲だけでは硬い敵を抜けない</li>
       </ul>
@@ -439,7 +440,7 @@
         <dt>行き先</dt><dd>マップは<b>線でつながった枝分かれ</b>。線をたどると、その先どこへ行けるかが分かる。<b>戦闘ノードには出てくる相手が描いてある</b>ので、固い相手を避ける・手数の多い相手を選ぶ、といった登り方ができる（一度戦った相手は名前も出る）</dd>
         <dt>改造</dt><dd>賞金首に勝つと、車そのものを作り替える<b>改造</b>を3つの中から1つ選べる。走行で最大2つまで。<b>どれにも代償がある</b>ので、いまの車に合うものを選ぶ。カードに「いまの車がどうなるか」が出る（灰色は数値は動くが今は効いていない、という意味）</dd>
         <dt>熱</dt><dd>武器は撃つと熱を出し、<b>隣のマスの武器にも回り込む</b>。捨てきれないとその武器の発射間隔が伸びる（部品に「熱」の印が付く）。車体の外周や、まだ塞がっているマスに面したところは熱がよく逃げる。<b>冷却器</b>は隣のマスの排熱を上げるので、武器と武器の間に挟むと効く</dd>
-        <dt>弾</dt><dd>主砲とスペシャルは弾数有限。副砲は無限。戦闘ごとに補給される</dd>
+        <dt>弾</dt><dd>主砲とスペシャルは弾数有限で、<b>長い戦いでは必ず尽きる</b>（重い武器ほど早い）。尽きたあとは<b>弾無限の副砲だけで削りきる後半</b>になる。戦闘ごとに補給されるので、持ち越しはしない。整備画面の「弾が尽きるまで」で目安が分かる。<b>弾薬箱</b>を武器の隣に置くと後半が延びる</dd>
       </dl>
 
       <h3 class="ss-sub">音について</h3>
@@ -469,12 +470,12 @@
 
 <div class="ss-toast" id="toast" hidden></div>
 
-<script src="data.js?v=4.5"></script>
-<script src="sfx.js?v=4.5"></script>
-<script src="art.js?v=4.5"></script>
-<script src="game.js?v=4.5"></script>
+<script src="data.js?v=5.2"></script>
+<script src="sfx.js?v=5.2"></script>
+<script src="art.js?v=5.2"></script>
+<script src="game.js?v=5.2"></script>
 <!-- ?test=1 のときだけ動く回帰テスト。普段の起動には影響しない -->
-<script src="test.js?v=4.5"></script>
+<script src="test.js?v=5.2"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

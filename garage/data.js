@@ -16,13 +16,14 @@ window.GAME_DATA = (function () {
      def  … 被弾1回ごとに引く固定値
      spd  … 全体速度の補正
      cool … 全マスの排熱の増減。幌付きは風が通り、密閉された重戦車はこもる
+     ammo … 弾数のある武器の弾+。手数の多い車ほど弾を食うので、そのぶん積める
      ========================================================== */
   var chassis = [
     {
       id: 'ch_jeep', name: '幌付きジープ「サソリ」', cols: 4, rows: 3,
-      cap: 28, hp: 88, def: 3, spd: 0.22, cool: 0.8, color: '#b8823a',
+      cap: 28, hp: 88, def: 3, spd: 0.22, cool: 0.8, ammo: 2, color: '#b8823a',
       blocked: ['3,0'],
-      note: '装甲は薄いが手数が多い。幌付きで風が通り、熱がこもりにくい。'
+      note: '装甲は薄いが手数が多い。幌付きで風が通り熱に強く、荷台に弾を多く積める。'
     },
     {
       id: 'ch_apc', name: '装甲車「ハンマー」', cols: 4, rows: 4,
@@ -92,18 +93,18 @@ window.GAME_DATA = (function () {
     /* ---------- 主砲：弾有限・威力中・リロード中 ---------- */
     { id: 'm_76', name: '76mm速射砲', kind: 'main', shape: ['##'],
       weight: 5, price: 80, tier: 1, color: '#9aa3ad',
-      stats: { dmg: 13, ammo: 20, reload: 2.0, pierce: 1, heat: 5 },
-      note: '威力13 / 弾20 / 2.0秒 / 貫通1' },
+      stats: { dmg: 13, ammo: 10, reload: 2.0, pierce: 1, heat: 5 },
+      note: '威力13 / 弾10 / 2.0秒 / 貫通1' },
 
     { id: 'm_105', name: '105mmライフル砲', kind: 'main', shape: ['###'],
       weight: 8, price: 155, tier: 2, color: '#8e9aa6',
-      stats: { dmg: 27, ammo: 14, reload: 3.2, pierce: 2, heat: 9 },
-      note: '威力27 / 弾14 / 3.2秒 / 貫通2' },
+      stats: { dmg: 27, ammo: 5, reload: 3.2, pierce: 2, heat: 9 },
+      note: '威力27 / 弾5 / 3.2秒 / 貫通2' },
 
     { id: 'm_how', name: '155mm榴弾砲', kind: 'main', shape: ['##', '##'],
       weight: 12, price: 215, tier: 3, color: '#7f8a96',
-      stats: { dmg: 42, ammo: 9, reload: 4.6, pierce: 2, heat: 15 },
-      note: '威力42 / 弾9 / 4.6秒 / 貫通2' },
+      stats: { dmg: 42, ammo: 3, reload: 4.6, pierce: 2, heat: 15 },
+      note: '威力42 / 弾3 / 4.6秒 / 貫通2。撃ち切ったら黙る' },
 
     /* ---------- 副砲：弾無限・威力低・リロード速い ---------- */
     { id: 's_mg', name: '7.62mm機関銃', kind: 'sub', shape: ['##'],
@@ -113,8 +114,8 @@ window.GAME_DATA = (function () {
 
     { id: 's_hmg', name: '12.7mm重機関銃', kind: 'sub', shape: ['##'],
       weight: 5, price: 105, tier: 2, color: '#5d6b7c',
-      stats: { dmg: 9, ammo: null, reload: 1.4, heat: 2.5 },
-      note: '威力9 / 弾∞ / 1.4秒' },
+      stats: { dmg: 9, ammo: null, reload: 1.4, pierce: 1, heat: 2.5 },
+      note: '威力9 / 弾∞ / 1.4秒 / 貫通1。主砲が尽きたあとを支える' },
 
     { id: 's_flame', name: '火炎放射器', kind: 'sub', shape: ['#', '#'],
       weight: 4, price: 95, tier: 2, color: '#c2612c',
@@ -124,19 +125,19 @@ window.GAME_DATA = (function () {
     /* ---------- スペシャル：弾少・威力高・リロード遅い ---------- */
     { id: 'sp_missile', name: 'ミサイルポッド', kind: 'special', shape: ['##'],
       weight: 7, price: 195, tier: 2, color: '#a44a4a',
-      stats: { dmg: 48, ammo: 5, reload: 6.0, pierce: 3, heat: 20 },
-      note: '威力48 / 弾5 / 6.0秒 / 貫通3' },
+      stats: { dmg: 48, ammo: 2, reload: 6.0, pierce: 3, heat: 20 },
+      note: '威力48 / 弾2 / 6.0秒 / 貫通3。弾薬箱と組ませたい' },
 
     { id: 'sp_rail', name: 'レールキャノン', kind: 'special', shape: ['###'],
       weight: 11, price: 275, tier: 3, color: '#7a5ec2',
-      stats: { dmg: 88, ammo: 3, reload: 9.0, pierce: 99, heat: 40 },
-      note: '威力88 / 弾3 / 9.0秒 / 装甲を完全に無視' },
+      stats: { dmg: 88, ammo: 1, reload: 9.0, pierce: 99, heat: 40 },
+      note: '威力88 / 弾1 / 9.0秒 / 装甲を完全に無視。弾薬箱が要る' },
 
     /* ---------- 補助：隣に置いた武器へ効く ---------- */
     { id: 'u_ammo', name: '弾薬箱', kind: 'support', shape: ['#'],
       weight: 2, price: 65, tier: 1, color: '#b09030',
       aura: { ammo: 4 },
-      note: '隣接する武器の弾+4' },
+      note: '隣接する武器の弾+4。弾の少ない重い砲ほど化ける' },
 
     { id: 'u_cool', name: '冷却器', kind: 'support', shape: ['#'],
       weight: 2, price: 95, tier: 2, color: '#4a86b8',

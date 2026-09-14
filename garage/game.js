@@ -376,8 +376,8 @@
     return true;
   }
 
-  /* 置ける場所のうち、車全体がいちばん熱くならない場所を選ぶ。
-     同点なら左上から先に埋める（熱が関係ない部品は今までどおりの並びになる） */
+  /* 置ける場所のうち、車がいちばん強くなる場所を選ぶ。
+     同点なら左上から先に埋める（効果が関係ない部品は今までどおりの並びになる） */
   function autoPlace(inst) {
     var ch = chassis(), occ = occupancy(inst.uid);
     var rot0 = inst.rot, best = null;
@@ -387,8 +387,8 @@
         for (var x = 0; x < ch.cols; x++) {
           if (!canPlace(inst, x, y, occ)) continue;
           inst.x = x; inst.y = y;
-          var score = heatPenalty();
-          if (best == null || score < best.score - 0.0001) {
+          var score = placementScore();
+          if (best == null || score > best.score + 0.0001) {
             best = { rot: rot, x: x, y: y, score: score };
           }
         }
@@ -401,13 +401,18 @@
     return true;
   }
 
-  /* 車全体で捨てきれていない熱の合計。小さいほど良い置き方。
-     build() を通すのは、プレイヤーが画面で見る数字と同じもので採点するため
-     （車体速度を見落として内側のマスを安全と誤判定した） */
-  function heatPenalty() {
-    var sum = 0;
-    build().weapons.forEach(function (w) { sum += Math.max(0, w.heatNet); });
-    return sum;
+  /* 置き方の採点。大きいほど良い。
+     熱だけを見ていたころは、照準装置も弾薬箱も武器に接しない場所へ置かれていて、
+     補助部品の効果をまるごと捨てていた。
+     毎秒火力は威力・リロード・熱をまとめて反映するので、これを主に見る。
+     弾は火力に出ないぶん、同点のときの決め手として足す */
+  function placementScore() {
+    var b = build(), dps = 0, ammo = 0;
+    b.weapons.forEach(function (w) {
+      dps += w.dmg / w.reload;
+      if (w.ammo != null) ammo += w.ammo;
+    });
+    return dps * 100 + ammo;
   }
 
   /* ==========================================================
@@ -594,7 +599,7 @@
         dmg: Math.round(e.dmg * (1 + a.dmgPct)),
         /* 弾の改造は弾数のある武器だけ。弾無限の副砲には効かない */
         ammo: e.ammo == null ? null
-          : Math.round((e.ammo + a.ammo + md.ammoFlat) * (1 + md.ammoPct)),
+          : Math.round((e.ammo + a.ammo + md.ammoFlat + (ch.ammo || 0)) * (1 + md.ammoPct)),
         /* 熱で伸びたぶんはここで効く。整備画面の予測と戦闘で同じ数字になる */
         reload: Math.max(0.15, e.reload * (1 + a.reload) / b.spd * h.mult),
         pierce: e.pierce,
@@ -948,6 +953,7 @@
       ['使えるマス', usableCells() + ' / ' + (chassis().cols * chassis().rows)],
       ['武器', b.weapons.length + ' 門'],
       ['熱', hotGuns.length ? hotGuns.length + ' 門が過熱ぎみ' : '問題なし'],
+      ['弾が尽きるまで', dryLabel(b)],
       ['目安 毎秒火力', r1(dps)]
     ].forEach(function (row) {
       var d = el('div');
@@ -975,6 +981,26 @@
     }
 
     renderDetail();
+  }
+
+  /* 弾数のある武器が何秒もつか。長い戦いでは必ず尽きるので、
+     戦う前に分かっていないと構成を組めない（熱を色で見せるのと同じ理由） */
+  function dryTime(w) {
+    return w.ammo == null ? null : w.ammo * w.reload;
+  }
+  function firstDry(b) {
+    var min = null;
+    b.weapons.forEach(function (w) {
+      var t = dryTime(w);
+      if (t == null) return;
+      if (min == null || t < min.t) min = { t: t, name: w.name };
+    });
+    return min;
+  }
+  function dryLabel(b) {
+    var d = firstDry(b);
+    if (!d) return '弾切れなし';
+    return '約' + Math.round(d.t) + '秒（' + d.name + '）';
   }
 
   function makeItemNode(inst, cell, heat) {
@@ -1030,7 +1056,13 @@
       var b = build();
       var dmgNow = Math.round(e.dmg * (1 + a.dmgPct));
       li('威力 ' + dmgNow + (a.dmgPct ? '（+' + Math.round(a.dmgPct * 100) + '%）' : ''));
-      li('弾 ' + (e.ammo == null ? '∞' : (e.ammo + a.ammo) + (a.ammo ? '（+' + a.ammo + '）' : '')));
+      if (e.ammo == null) {
+        li('弾 ∞（尽きない。主砲が黙ったあとを支える）');
+      } else {
+        var mine = b.weapons.filter(function (w) { return w.uid === inst.uid; })[0];
+        li('弾 ' + (e.ammo + a.ammo) + (a.ammo ? '（弾薬箱で+' + a.ammo + '）' : '') +
+          (mine ? '　＝ 撃ち続けて約' + Math.round(dryTime(mine)) + '秒ぶん' : ''));
+      }
       var h = inst.x != null ? weaponHeat(inst, b.heat) : null;
       li('発射間隔 ' + r1(e.reload * (1 + a.reload)) + ' 秒' +
         (inst.x != null ? '（車体速度と熱こみ ' +
@@ -1750,6 +1782,8 @@
       row.querySelector('i').style.width = pct + '%';
       row.classList.toggle('is-ready', pct >= 100);
       row.classList.toggle('is-empty', g.ammo === 0);
+      /* 残りが少ない武器は戦闘中に分かるようにする。尽きる瞬間が山場になる */
+      row.classList.toggle('is-low', g.ammo != null && g.ammo > 0 && g.ammo <= 2);
       row.querySelector('b').textContent = g.ammo == null ? '∞' : String(g.ammo);
     }
   }
