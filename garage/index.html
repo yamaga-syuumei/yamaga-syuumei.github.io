@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=6.0">
+<link rel="stylesheet" href="style.css?v=6.1">
 </head>
 <body>
 
@@ -350,6 +350,20 @@
      設定・あそびかた・記録
      どの画面からでも開ける。走行中に開いても状態は壊さない
      ========================================================== -->
+<!-- 手に入れた部品が入らないとき、その場で入れ替えを聞く。
+     黙って倉庫へ落とすと、いちばん見たかった部品がそのまま眠るため -->
+<div class="ss-modal" id="swap-ask" hidden>
+  <div class="ss-modal-box ss-swapbox" role="dialog" aria-modal="true" aria-labelledby="swap-ask-title">
+    <h3 id="swap-ask-title"></h3>
+    <p class="ss-lead" id="swap-ask-body"></p>
+    <p class="ss-swapdelta" id="swap-ask-delta"></p>
+    <div class="ss-btns">
+      <button class="ss-btn ss-btn-main" id="swap-ask-yes">入れ替える</button>
+      <button class="ss-btn" id="swap-ask-no">倉庫に置いておく</button>
+    </div>
+  </div>
+</div>
+
 <div class="ss-modal" id="modal" hidden>
   <div class="ss-modal-box" role="dialog" aria-modal="true" aria-label="設定">
     <div class="ss-modal-head">
@@ -480,12 +494,12 @@
 
 <div class="ss-toast" id="toast" hidden></div>
 
-<script src="data.js?v=6.0"></script>
-<script src="sfx.js?v=6.0"></script>
-<script src="art.js?v=6.0"></script>
-<script src="game.js?v=6.0"></script>
+<script src="data.js?v=6.1"></script>
+<script src="sfx.js?v=6.1"></script>
+<script src="art.js?v=6.1"></script>
+<script src="game.js?v=6.1"></script>
 <!-- ?test=1 のときだけ動く回帰テスト。普段の起動には影響しない -->
-<script src="test.js?v=6.0"></script>
+<script src="test.js?v=6.1"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

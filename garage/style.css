@@ -254,6 +254,8 @@ html.no-motion .ss-screen { animation: none; }
 /* 配置ヒントは熱より手前に出す（今つかんでいるものの可否が優先） */
 .ss-gridcell.is-hint { background: rgba(63,184,122,.34); }
 .ss-gridcell.is-bad  { background: rgba(224,57,25,.40); }
+/* 1個降ろせば置ける。「置ける／置けない」の2色では積み替えられることが見えなかった */
+.ss-gridcell.is-swap { background: rgba(232,179,85,.34); }
 /* まだ開いていないマス */
 .ss-gridcell.is-blocked { box-shadow: none; }
 .ss-gridcell.is-blocked canvas { display: block; width: 100%; height: 100%; }
@@ -296,6 +298,15 @@ html.no-motion .ss-screen { animation: none; }
   position: absolute; left: 2px; top: 1px; font-size: 9px; font-weight: 800;
   color: #9fd8ff; text-shadow: 1px 1px 0 #000; line-height: 1;
 }
+/* 倉庫にあって、盤の1個と入れ替えれば載る部品 */
+.ss-item.is-swappable { box-shadow: 0 0 0 2px rgba(232,179,85,.75); }
+.ss-item .ss-swapmark {
+  position: absolute; right: 1px; top: 1px; font-size: 9px; font-weight: 800;
+  color: #241c08; background: var(--amber); border-radius: 2px; padding: 0 2px; line-height: 1.4;
+}
+/* いま落とすと倉庫へ降りる相手 */
+.ss-item.is-victim { box-shadow: 0 0 0 2px var(--red); filter: brightness(.6) saturate(.5); }
+
 .ss-item.is-warm { box-shadow: 0 0 0 2px rgba(224,138,40,.85); }
 .ss-item.is-hot { box-shadow: 0 0 0 2px rgba(255,90,74,.95); }
 .ss-item .ss-heatmark {
@@ -348,6 +359,7 @@ html.no-motion .ss-screen { animation: none; }
 }
 .ss-stash .ss-item { position: relative; }
 .ss-stash-empty { color: var(--ink-2); font-size: 12.5px; padding: 6px; }
+#stash-count.is-swap { color: var(--amber); font-weight: 800; }
 
 .ss-tip { font-size: 12px; color: var(--ink-2); margin: 10px 0 0; line-height: 1.7; }
 .ss-tip b { color: var(--ink); }
@@ -473,6 +485,47 @@ html.no-motion .ss-screen { animation: none; }
 .ss-goods .ss-price.is-poor { color: var(--ink-3); }
 .ss-goods .ss-w { font-size: 12px; color: var(--ink-2); }
 /* いま積んでいるものとの差 */
+/* 買う・もらう前に「いまの車にどう載るか」を出す行 */
+.ss-fit {
+  border-top: 1px dotted #33404a; padding-top: 6px; margin-top: 1px;
+  font-size: 11.5px; line-height: 1.6;
+}
+.ss-fit b { display: block; font-size: 12px; }
+.ss-fit span { display: block; color: var(--ink-3); margin-top: 3px; }
+.ss-fit.is-fit b { color: var(--green); }
+.ss-fit.is-swap b { color: var(--amber); }
+.ss-fit.is-swapdown b { color: var(--ink-2); }
+.ss-fit.is-no b { color: var(--red); }
+
+/* 倉庫の部品を選んだときの入れ替え案内 */
+.ss-swaptip {
+  margin: 8px 0 0; padding: 8px 10px; font-size: 12px; line-height: 1.7;
+  background: #241f16; border-left: 3px solid #6b5227; border-radius: 0 4px 4px 0;
+}
+.ss-swaptip b { display: block; color: var(--amber); }
+.ss-swaptip span { display: block; margin-top: 4px; }
+
+/* 入れ替えを聞くダイアログ */
+.ss-swapbox { max-width: 460px; text-align: center; }
+.ss-swapbox h3 { font-family: var(--serif); font-size: 17px; margin: 0 0 10px; letter-spacing: .04em; }
+.ss-swapbox .ss-lead { margin-bottom: 10px; }
+.ss-swapdelta { margin: 0; }
+
+/* 増減の札。部品カードの比較（.ss-cmp em）と同じ見た目にそろえる */
+.ss-fit em, .ss-swaptip em, .ss-swapdelta em {
+  display: inline-block; font-style: normal; font-size: 11px; font-weight: 700;
+  border-radius: 3px; padding: 1px 6px; margin: 2px 4px 0 0;
+}
+.ss-fit em.is-up, .ss-swaptip em.is-up, .ss-swapdelta em.is-up {
+  background: rgba(79,211,147,.16); color: var(--green);
+}
+.ss-fit em.is-down, .ss-swaptip em.is-down, .ss-swapdelta em.is-down {
+  background: rgba(255,90,60,.16); color: var(--red);
+}
+.ss-fit em.is-flat, .ss-swaptip em.is-flat, .ss-swapdelta em.is-flat {
+  background: rgba(255,255,255,.06); color: var(--ink-3);
+}
+
 .ss-cmp { border-top: 1px dotted #33404a; padding-top: 6px; margin-top: 1px; }
 .ss-cmp i { font-style: normal; display: block; font-size: 11px; color: var(--ink-3); margin-bottom: 3px; }
 .ss-cmp em {

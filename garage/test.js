@@ -568,6 +568,151 @@
     var modsCount = document.getElementById('codex-mods').children.length;
     ok('図鑑：改造カード数がデータ件数と一致', modsCount === D.mods.length, 'got=' + modsCount + ' want=' + D.mods.length);
 
+    /* ---------- 倉庫で眠る部品を起こす（入れ替え） ----------
+       走行75本を測ったところ、戦利品の22〜51%が倉庫行きになり、その多くは
+       「盤の1個を降ろせば載る」ものだった。入れ替えると毎秒火力が2〜3割伸びるのに、
+       画面には何も出ていなかった。ここで「見えていること」を縛る */
+
+    /* --- 置ける・置けない・1個降ろせば置ける、の3通りを見分ける --- */
+    G.startRun('ch_apc');
+    var st0 = G.state();
+    var occ0 = G.occupancy(null);
+    var some = st0.parts.filter(function (p) { return p.x != null; })[0];
+    ok('入替：盤からはみ出す場所は null（どうやっても置けない）',
+      G.blockersAt(some, -5, -5, occ0) === null);
+    var onCell = G.blockersAt(some, some.x, some.y, G.occupancy(some.uid));
+    ok('入替：自分をどけた自分の場所は空き扱い', !!onCell && onCell.length === 0);
+    var overlapped = G.blockersAt(some, some.x, some.y, G.occupancy(null));
+    ok('入替：埋まっているマスは邪魔者を返す',
+      !!overlapped && overlapped.length === 1 && overlapped[0].uid === some.uid);
+
+    /* --- 空きがあるうちは「そのまま載る」 --- */
+    G.startRun('ch_ogre');
+    G.give('u_ammo');
+    var fresh = G.state().parts[G.state().parts.length - 1];
+    fresh.x = null; fresh.y = null;
+    ok('入替：空きがあれば そのまま載る', G.fitsAsIs(fresh) === true);
+
+    /* --- 盤を埋めると、そのままでは載らないが入れ替えなら載る --- */
+    G.startRun('ch_jeep');
+    ['m_105', 's_hmg', 'u_sight', 'u_ammo', 'c_takumi'].forEach(function (p) { G.give(p); });
+    var sj = G.state();
+    var sleeping = sj.parts.filter(function (p) { return p.x == null; });
+    ok('入替：盤が埋まると倉庫に部品が残る', sleeping.length > 0,
+      sleeping.map(function (p) { return p.pid; }).join(','));
+    var target = sleeping.filter(function (p) { return G.canSwapIn(p); })[0];
+    ok('入替：1個降ろせば載る部品がある', !!target,
+      sleeping.map(function (p) { return p.pid + ':' + G.canSwapIn(p); }).join(' '));
+
+    if (target) {
+      ok('入替：そのままでは載らない', G.fitsAsIs(target) === false);
+      var plan = G.swapPlan(target);
+      ok('入替：降ろす相手と、前後の性能が出る',
+        !!plan && !!plan.drop && plan.before.dps > 0 && plan.after.dps > 0,
+        plan ? plan.drop.pid + ' ' + r2(plan.before.dps) + '→' + r2(plan.after.dps) : 'なし');
+
+      /* 実際に入れ替わること。降ろしたほうは倉庫へ */
+      var dropUid = plan.drop.uid;
+      G.applySwap(target, plan);
+      ok('入替：選んだ部品が盤に載る', target.x != null);
+      ok('入替：降ろした部品は倉庫へ行く',
+        sj.parts.filter(function (p) { return p.uid === dropUid; })[0].x == null);
+    }
+
+    /* --- 降ろす相手を選ぶ基準に装甲が入っていること ---
+       毎秒火力だけで順位を付けていたころは、火力を持たないエンジンばかり
+       降ろす提案になり、実測で 火力 30.6→38.4 の裏で 装甲 128→88 まで落ちていた */
+    G.startRun('ch_apc');
+    var before = G.carScore();
+    var eng = G.state().parts.filter(function (p) { return p.pid === 'e_v6'; })[0];
+    var ex = eng.x, ey = eng.y;
+    eng.x = null; eng.y = null;
+    var after = G.carScore();
+    eng.x = ex; eng.y = ey;
+    ok('入替：エンジンを降ろすと車の評価は下がる（装甲を見ている）', after < before,
+      r2(before) + ' → ' + r2(after));
+
+    /* --- カードに「いまの車にどう載るか」が出る --- */
+    G.startRun('ch_ogre');
+    var fi1 = G.fitInfo('u_ammo');
+    ok('入替：空きがあるときは「そのまま載る」', fi1 && fi1.kind === 'fit', fi1 && fi1.kind);
+
+    G.startRun('ch_jeep');
+    ['m_105', 's_hmg', 'u_sight', 'u_ammo', 'c_takumi'].forEach(function (p) { G.give(p); });
+    var fi2 = G.fitInfo('s_flame');
+    ok('入替：埋まっているときは入れ替えの案内になる',
+      fi2 && (fi2.kind === 'swap' || fi2.kind === 'swapdown') && fi2.deltas && fi2.deltas.length > 0,
+      fi2 && fi2.kind + ' / ' + fi2.text);
+    /* 同じ部品を持っていると「自分と入れ替える」案が出る。
+       それを「降ろせば載る」と書くと、勧めているように読めてしまう */
+    var dup = G.fitInfo('u_ammo');
+    ok('入替：強くならない案は勧める書き方をしない',
+      dup && dup.kind === 'swapdown' && dup.text.indexOf('降ろせば載る') < 0,
+      dup && dup.kind + ' / ' + dup.text);
+    var fi3 = G.fitInfo('m_how');
+    ok('入替：1個降ろしても入らない大きさは、そう書く', fi3 && fi3.kind === 'no',
+      fi3 && fi3.kind + ' / ' + fi3.text);
+
+    /* --- 整備画面に、倉庫の中身が何個載せられるか出る --- */
+    G.state().map.cur = null;
+    G.renderGarage();
+    var sct = document.getElementById('stash-count').textContent;
+    ok('入替：倉庫の見出しに「入れ替えれば載る」件数が出る',
+      /入れ替えれば載る/.test(sct), sct);
+    ok('入替：倉庫の部品に印が付く',
+      document.querySelectorAll('#stash .ss-item.is-swappable').length > 0);
+
+    /* --- 埋まったマスへ落とすと入れ替わる（以前は拒否音が鳴るだけだった） --- */
+    var si = document.querySelector('#stash .ss-item');
+    var gi = document.querySelector('#grid .ss-item');
+    if (si && gi && si.getBoundingClientRect().width > 0) {
+      var sr = si.getBoundingClientRect(), gr = gi.getBoundingClientRect();
+      var heldPid = G.state().parts.filter(function (p) {
+        return String(p.uid) === si.dataset.uid;
+      })[0].pid;
+      var victimUid = gi.dataset.uid;
+      function pe(type, node, x, y) {
+        node.dispatchEvent(new PointerEvent(type, {
+          bubbles: true, cancelable: true, clientX: x, clientY: y,
+          pointerId: 1, isPrimary: true, button: 0, buttons: type === 'pointerup' ? 0 : 1
+        }));
+      }
+      var sx = sr.left + sr.width / 2, sy = sr.top + sr.height / 2;
+      var gx = gr.left + gr.width / 2, gy = gr.top + gr.height / 2;
+      pe('pointerdown', si, sx, sy);
+      pe('pointermove', document, gx, gy);
+      pe('pointerup', document, gx, gy);
+      var victim = G.state().parts.filter(function (p) { return String(p.uid) === victimUid; })[0];
+      var moved = G.state().parts.filter(function (p) {
+        return p.pid === heldPid && p.x != null;
+      }).length > 0;
+      ok('入替：埋まったマスへ落とすと入れ替わる', moved && victim.x == null,
+        '載った=' + moved + ' 降りた=' + (victim.x == null));
+    }
+
+    /* --- 受け取った部品が入らないときは、その場で聞く --- */
+    G.startRun('ch_jeep');
+    ['m_105', 's_hmg', 'u_sight', 'u_ammo'].forEach(function (p) { G.give(p); });
+    var n0 = G.state().parts.length;
+    G.takePart('c_takumi', function () { });
+    var asked = !document.getElementById('swap-ask').hidden;
+    ok('入替：入らない部品を取ると、その場で入れ替えを聞く', asked);
+    if (asked) {
+      G.closeSwapAsk(false);
+      var got = G.state().parts[G.state().parts.length - 1];
+      ok('入替：「倉庫に置いておく」を選べば倉庫に残る（押しつけない）',
+        got.pid === 'c_takumi' && got.x == null);
+      ok('入替：聞いたあとダイアログは閉じる', document.getElementById('swap-ask').hidden);
+    }
+    ok('入替：取った部品はちゃんと増えている', G.state().parts.length === n0 + 1);
+
+    /* そのまま載るときは聞かない（毎回止められると邪魔になる） */
+    G.startRun('ch_ogre');
+    G.takePart('u_ammo', function () { });
+    ok('入替：そのまま載るときは聞かずに積む',
+      document.getElementById('swap-ask').hidden &&
+      G.state().parts[G.state().parts.length - 1].x != null);
+
     /* ---------- 遊びの中で教える案内 ----------
        画面はv5.9まで積み上げたのに、教える場面は初版の2つ（整備・戦闘）のまま
        だった。足りないぶんを説明文へ逃がした結果、タイトルに5行・あそびかたに

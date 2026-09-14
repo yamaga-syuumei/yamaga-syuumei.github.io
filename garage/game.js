@@ -456,6 +456,21 @@
     return true;
   }
 
+  /* 落とした先で邪魔をしている部品を全部返す。
+     盤からはみ出す・塞がったマスに掛かる場合は null（どうやっても置けない）。
+     空配列なら canPlace と同じ意味＝そのまま置ける */
+  function blockersAt(inst, gx, gy, occ) {
+    var ch = chassis(), cells = instCells(inst), seen = {}, list = [];
+    for (var i = 0; i < cells.length; i++) {
+      var x = gx + cells[i][0], y = gy + cells[i][1];
+      if (x < 0 || y < 0 || x >= ch.cols || y >= ch.rows) return null;
+      if (isBlocked(x, y)) return null;
+      var o = occ[x + ',' + y];
+      if (o && !seen[o.uid]) { seen[o.uid] = true; list.push(o); }
+    }
+    return list;
+  }
+
   /* 置ける場所のうち、車がいちばん強くなる場所を選ぶ。
      同点なら左上から先に埋める（効果が関係ない部品は今までどおりの並びになる） */
   function autoPlace(inst) {
@@ -493,6 +508,165 @@
       if (w.ammo != null) ammo += w.ammo;
     });
     return dps * 100 + ammo;
+  }
+
+  /* ==========================================================
+     積み替えの提案
+
+     走行を75本（車体3種×25本）測ったところ、戦利品の22〜51%が倉庫行きになり、
+     その多くは「盤の1個を降ろせば載る」ものだった。降ろす相手はたいてい
+     初期装備で、積み替えると毎秒火力が2〜3割伸びる。
+     それが一度も画面に出ていなかったので、ここで計算して見せる。
+
+     **自動では積み替えない。** できることと、どう変わるかを出すだけ。
+     置き方を決めるのがこのゲームの中身なので、そこは奪わない。
+     ========================================================== */
+
+  /* そのまま空きマスに入るか。autoPlace と違って盤を動かさない */
+  function fitsAsIs(inst) {
+    var ch = chassis(), occ = occupancy(inst.uid), rot0 = inst.rot, hit = false;
+    for (var rot = 0; rot < 4 && !hit; rot++) {
+      inst.rot = rot;
+      for (var y = 0; y < ch.rows && !hit; y++) {
+        for (var x = 0; x < ch.cols; x++) {
+          var bl = blockersAt(inst, x, y, occ);
+          if (bl && !bl.length) { hit = true; break; }
+        }
+      }
+    }
+    inst.rot = rot0;
+    return hit;
+  }
+
+  /* 盤から1個だけ降ろせば載るか。**形だけ**を見る（強さは測らない）。
+     倉庫の全部に対して毎回走るので、build() を呼ぶ重い計算は入れない */
+  function canSwapIn(inst) {
+    var ch = chassis(), occ = occupancy(inst.uid), rot0 = inst.rot, hit = false;
+    for (var rot = 0; rot < 4 && !hit; rot++) {
+      inst.rot = rot;
+      for (var y = 0; y < ch.rows && !hit; y++) {
+        for (var x = 0; x < ch.cols; x++) {
+          var bl = blockersAt(inst, x, y, occ);
+          if (bl && bl.length === 1) { hit = true; break; }
+        }
+      }
+    }
+    inst.rot = rot0;
+    return hit;
+  }
+
+  /* いまの車の要点。積み替えの前後を比べて見せるために使う */
+  function snapshot() {
+    var b = build(), dps = 0;
+    b.weapons.forEach(function (w) { dps += w.dmg / w.reload; });
+    return { dps: dps, hp: b.maxHp, over: b.over, guns: b.weapons.length };
+  }
+
+  /* 「どれを降ろすか」を選ぶための、車ぜんたいの良さ。
+
+     placementScore（毎秒火力＋弾）は "同じ部品をどこへ置くか" の基準で、
+     装甲を見ていない。降ろす相手を選ぶのにそのまま使うと、火力を持たない
+     エンジンばかり降ろす提案になる（実測で 火力 30.6→38.4 の裏で 装甲 128→88）。
+     ここでは装甲も込みで測る。
+
+     火力と装甲は単位が違うので、戦闘の長さを物差しにする。
+     実測は雑魚 7〜12秒・賞金首 18〜22秒・ボス 25秒なので、20秒を使う。
+     「毎秒火力1」＝「20秒で通す20ダメージ」と「装甲20点」を釣り合わせる */
+  function carScore() {
+    var b = build(), dps = 0, ammo = 0;
+    b.weapons.forEach(function (w) {
+      dps += w.dmg / w.reload;
+      if (w.ammo != null) ammo += w.ammo;
+    });
+    return dps * 20 + b.maxHp + ammo * 0.25;
+  }
+
+  /* 盤の1個と引き換えに載せる。いちばん車が強くなる組み合わせを返す。
+     計算量は 盤の部品数 × マス数 × 回転4 × build()。重いので、
+     倉庫ぜんぶに対してではなく「1個について聞かれたとき」だけ呼ぶ
+     （形だけ見る canSwapIn のほうは倉庫ぜんぶに回してよい） */
+  function swapPlan(inst) {
+    if (inst.x != null) return null;
+    var before = snapshot(), base = carScore();
+    var onBoard = placed(), rot0 = inst.rot, best = null;
+    for (var i = 0; i < onBoard.length; i++) {
+      var a = onBoard[i], ax = a.x, ay = a.y;
+      a.x = null; a.y = null;
+      if (autoPlace(inst)) {
+        var sc = carScore();
+        if (best == null || sc > best.score) {
+          best = { drop: a, score: sc, after: snapshot(), x: inst.x, y: inst.y, rot: inst.rot };
+        }
+      }
+      inst.x = null; inst.y = null; inst.rot = rot0;
+      a.x = ax; a.y = ay;
+    }
+    if (!best) return null;
+    return {
+      drop: best.drop, at: { x: best.x, y: best.y, rot: best.rot },
+      before: before, after: best.after, gain: best.score - base
+    };
+  }
+
+  /* 提案を実際に行う。降ろした部品は倉庫へ */
+  function applySwap(inst, plan) {
+    plan.drop.x = null; plan.drop.y = null;
+    inst.rot = plan.at.rot; inst.x = plan.at.x; inst.y = plan.at.y;
+  }
+
+  /* 入れ替えると何がどう動くか。火力が上がって装甲が落ちる形が多いので、
+     ひとまとめの文字列にせず、項目ごとに良し悪しを付けて出す */
+  function swapDeltas(plan) {
+    var out = [];
+    function add(label, a, b, upIsGood) {
+      if (a === b) return;
+      out.push({ t: label + ' ' + a + ' → ' + b, good: upIsGood ? b > a : b < a });
+    }
+    add('毎秒火力', r1(plan.before.dps), r1(plan.after.dps), true);
+    add('装甲', plan.before.hp, plan.after.hp, true);
+    if (plan.after.over > 0 && !plan.before.over) out.push({ t: '過積載になる', good: false });
+    if (!out.length) out.push({ t: '性能は変わらない', good: null });
+    return out;
+  }
+  /* 増減の札。good が null のときは「良くも悪くもない」 */
+  function deltaChip(d) {
+    return el('em', d.good == null ? 'is-flat' : d.good ? 'is-up' : 'is-down', d.t);
+  }
+
+  /* まだ S.parts に入っていない部品（戦利品のカードなど）を調べる。
+     build() は S.parts を見るので、混ぜずに測ると効果が反映されない */
+  function withTempPart(pid, fn) {
+    var tmp = { uid: 'tmp', pid: pid, lvl: 1, wcut: 0, rot: 0, x: null, y: null };
+    S.parts.push(tmp);
+    try { return fn(tmp); }
+    finally {
+      var i = S.parts.indexOf(tmp);
+      if (i >= 0) S.parts.splice(i, 1);
+    }
+  }
+
+  /* 買う・もらう前に「いまの車にどう載るか」を出すための一行 */
+  function fitInfo(pid) {
+    if (!S || !S.chassis) return null;
+    return withTempPart(pid, function (tmp) {
+      if (fitsAsIs(tmp)) return { kind: 'fit', text: 'いまの車にそのまま載る' };
+      var plan = swapPlan(tmp);
+      if (!plan) return { kind: 'no', text: 'いまの車には載らない（1個降ろしても入らない）' };
+      /* 同じ部品を持っているときなど、入れ替えても何も変わらない案が出る。
+         それを「○○を降ろせば載る」と書くと勧めているように読めるので分ける */
+      if (plan.gain <= 0) {
+        return {
+          kind: 'swapdown',
+          text: '空きが無い。' + PART_BY_ID[plan.drop.pid].name + ' と入れ替えられるが、強くはならない',
+          deltas: swapDeltas(plan)
+        };
+      }
+      return {
+        kind: 'swap',
+        text: PART_BY_ID[plan.drop.pid].name + ' を降ろせば載る',
+        deltas: swapDeltas(plan)
+      };
+    });
   }
 
   /* ==========================================================
@@ -1015,7 +1189,13 @@
     var stash = $('stash');
     clear(stash);
     var st = stashed();
-    $('stash-count').textContent = st.length + ' 個';
+    /* 倉庫は画面の下のほうにあって「N 個」としか出ていなかった。
+       走行の後半、そこに眠っている部品と入れ替えるだけで毎秒火力が2〜3割伸びる。
+       何個が載せられるのかを見出しに出す */
+    var swapNum = st.filter(function (i) { return canSwapIn(i); }).length;
+    var sc = $('stash-count');
+    sc.textContent = st.length + ' 個' + (swapNum ? '（うち ' + swapNum + ' 個は入れ替えれば載る）' : '');
+    sc.classList.toggle('is-swap', swapNum > 0);
     if (!st.length) stash.appendChild(el('p', 'ss-stash-empty', '空。戦利品はここに入る。'));
     st.forEach(function (inst) { stash.appendChild(makeItemNode(inst, STASH_CELL)); });
 
@@ -1118,6 +1298,12 @@
         }
       }
     }
+    /* 倉庫で眠っているが、盤の1個と入れ替えれば載るもの。
+       印が無いと、下までスクロールしても「置けない部品の山」にしか見えない */
+    if (inst.x == null && canSwapIn(inst)) {
+      node.classList.add('is-swappable');
+      node.appendChild(el('span', 'ss-swapmark', '替'));
+    }
     node.title = PART_BY_ID[inst.pid].name;
     return node;
   }
@@ -1202,10 +1388,39 @@
       off.onclick = function () { inst.x = null; inst.y = null; window.SFX.place(); save(); renderGarage(); };
       btns.appendChild(off);
     } else {
-      var on = el('button', 'ss-btn', '車体へ');
+      /* 倉庫の部品。そのまま載るなら「車体へ」、載らないなら
+         「どれを降ろせば載って、どう変わるか」まで出す。
+         ここが出ていなかったので、終盤の目玉部品が倉庫で眠ったままだった */
+      var canFit = fitsAsIs(inst);
+      var plan = canFit ? null : swapPlan(inst);
+      if (!canFit) {
+        var pl = el('p', 'ss-swaptip');
+        if (plan) {
+          pl.appendChild(el('b', null, plan.gain > 0
+            ? PART_BY_ID[plan.drop.pid].name + ' を降ろせば載ります'
+            : PART_BY_ID[plan.drop.pid].name + ' と入れ替えられますが、強くはなりません'));
+          var row = el('span');
+          swapDeltas(plan).forEach(function (d) { row.appendChild(deltaChip(d)); });
+          pl.appendChild(row);
+        } else {
+          pl.appendChild(el('b', null, '空きマスが足りません'));
+          pl.appendChild(el('span', null, '1個降ろしても入らない大きさです。増設で使えるマスを増やすか、売ることもできます'));
+        }
+        box.appendChild(pl);
+      }
+      var on = el('button', 'ss-btn', canFit ? '車体へ' : '入れ替える');
+      if (!canFit && plan && plan.gain > 0) on.className = 'ss-btn ss-btn-main';
+      on.disabled = !canFit && !plan;
       on.onclick = function () {
-        if (autoPlace(inst)) { window.SFX.place(); save(); renderGarage(); }
-        else { window.SFX.deny(); toast('空きマスが足りない'); }
+        if (canFit) {
+          if (autoPlace(inst)) { window.SFX.place(); save(); renderGarage(); }
+          else { window.SFX.deny(); toast('空きマスが足りない'); }
+          return;
+        }
+        applySwap(inst, plan);
+        window.SFX.place();
+        toast(PART_BY_ID[plan.drop.pid].name + ' を倉庫へ降ろして入れ替えた');
+        save(); renderGarage();
       };
       btns.appendChild(on);
       var sell = el('button', 'ss-btn', '売る（' + sellPrice(inst) + ' G）');
@@ -1346,8 +1561,10 @@
   function hintClear() {
     var cells = $('grid').querySelectorAll('.ss-gridcell');
     for (var i = 0; i < cells.length; i++) {
-      cells[i].classList.remove('is-hint', 'is-bad');
+      cells[i].classList.remove('is-hint', 'is-bad', 'is-swap');
     }
+    var items = $('grid').querySelectorAll('.ss-item.is-victim');
+    for (var j = 0; j < items.length; j++) items[j].classList.remove('is-victim');
   }
 
   function targetCell(px, py) {
@@ -1366,14 +1583,22 @@
     if (!held) return;
     var t = targetCell(px, py);
     if (!t.inside) return;
-    var ok = canPlace(held, t.x, t.y, occupancy(held.uid));
+    /* 3通りある。そのまま置ける／1個降ろせば置ける／どうやっても置けない。
+       以前は「置ける／置けない」の2色で、積み替えられることが見えなかった */
+    var bl = blockersAt(held, t.x, t.y, occupancy(held.uid));
+    var cls = !bl ? 'is-bad' : bl.length === 0 ? 'is-hint' : bl.length === 1 ? 'is-swap' : 'is-bad';
     var ch = chassis();
     instCells(held).forEach(function (c) {
       var x = t.x + c[0], y = t.y + c[1];
       if (x < 0 || y < 0 || x >= ch.cols || y >= ch.rows) return;
       var node = $('grid').querySelector('.ss-gridcell[data-gx="' + x + '"][data-gy="' + y + '"]');
-      if (node) node.classList.add(ok ? 'is-hint' : 'is-bad');
+      if (node) node.classList.add(cls);
     });
+    /* 降ろされる相手も光らせる。どれが倉庫へ行くのか分からないまま落とさせない */
+    if (bl && bl.length === 1) {
+      var victim = $('grid').querySelector('.ss-item[data-uid="' + bl[0].uid + '"]');
+      if (victim) victim.classList.add('is-victim');
+    }
   }
 
   function tryDrop(px, py) {
@@ -1385,9 +1610,22 @@
 
     if (inGrid) {
       var t = targetCell(px, py);
-      if (canPlace(held, t.x, t.y, occupancy(held.uid))) {
+      var bl = blockersAt(held, t.x, t.y, occupancy(held.uid));
+      if (bl && !bl.length) {
         held.x = t.x; held.y = t.y;
         window.SFX.place();
+        releaseGhost(); save(); renderGarage();
+        return true;
+      }
+      /* 埋まったマスへ落としたとき、下にいるのが1個だけなら入れ替える。
+         以前は拒否音が鳴るだけで、積み替えに4手（倉庫を見る→降ろす相手を決める
+         →ドラッグで倉庫へ→新しいのをドラッグ）かかっていた */
+      if (bl && bl.length === 1) {
+        var out = bl[0];
+        out.x = null; out.y = null;
+        held.x = t.x; held.y = t.y;
+        window.SFX.place();
+        toast(PART_BY_ID[out.pid].name + ' を倉庫へ降ろして入れ替えた');
         releaseGhost(); save(); renderGarage();
         return true;
       }
@@ -1469,6 +1707,7 @@
 
     document.addEventListener('keydown', function (ev) {
       /* ダイアログが開いているときは、そちらを先に閉じる */
+      if (ev.key === 'Escape' && !$('swap-ask').hidden) { closeSwapAsk(false); return; }
       if (ev.key === 'Escape' && modalOpen()) { closeModal(); return; }
       if (ev.key === 'r' || ev.key === 'R') rotateHeld();
       if (ev.key === 'Escape' && held) {
@@ -2173,6 +2412,60 @@
 
   /* 品揃え。まだ持っていない部品を先に出す。
      同じものばかり並ぶと、選ぶ意味がなくなる */
+  /* 手に入れた部品を積む。入らなければ、その場で入れ替えを聞く。
+     黙って倉庫へ落としていたころは、終盤の目玉部品ほど倉庫で眠っていた */
+  function takePart(pid, after) {
+    var inst = newInst(pid);
+    S.parts.push(inst);
+    var name = PART_BY_ID[pid].name;
+    window.SFX.coin();
+    if (autoPlace(inst)) {
+      toast(name + ' を積んだ');
+      syncHp(); save(); refreshStatus();
+      after();
+      return;
+    }
+    var plan = swapPlan(inst);
+    syncHp(); save(); refreshStatus();
+    /* 強くならない入れ替えでわざわざ手を止めさせない。
+       倉庫に入れておけば、整備画面でいつでも入れ替えられる */
+    if (!plan || plan.gain <= 0) {
+      toast(name + ' を倉庫に入れた');
+      after();
+      return;
+    }
+    askSwap(inst, plan, after);
+  }
+
+  var swapAsk = null;
+  function askSwap(inst, plan, after) {
+    swapAsk = { inst: inst, plan: plan, after: after };
+    $('swap-ask-title').textContent = PART_BY_ID[inst.pid].name + ' は、いまの車に空きがない';
+    $('swap-ask-body').textContent =
+      PART_BY_ID[plan.drop.pid].name + ' を降ろせば載る。降ろしたほうは倉庫に入る。';
+    var d = $('swap-ask-delta');
+    clear(d);
+    swapDeltas(plan).forEach(function (x) { d.appendChild(deltaChip(x)); });
+    $('swap-ask').hidden = false;
+    $('swap-ask-yes').focus();
+  }
+  /* 押しつけない。「倉庫に置いておく」も Esc も、それまでどおり倉庫行きにする */
+  function closeSwapAsk(doIt) {
+    var a = swapAsk;
+    swapAsk = null;
+    $('swap-ask').hidden = true;
+    if (!a) return;
+    if (doIt) {
+      applySwap(a.inst, a.plan);
+      window.SFX.place();
+      toast(PART_BY_ID[a.plan.drop.pid].name + ' を倉庫へ降ろして入れ替えた');
+    } else {
+      toast(PART_BY_ID[a.inst.pid].name + ' を倉庫に入れた');
+    }
+    syncHp(); save(); refreshStatus();
+    a.after();
+  }
+
   function offerParts(floor, n) {
     var owned = {};
     S.parts.forEach(function (i) { owned[i.pid] = (owned[i.pid] || 0) + 1; });
@@ -2202,13 +2495,7 @@
     }
     pool.forEach(function (p) {
       box.appendChild(goodsButton(p, null, function () {
-        var inst = newInst(p.id);
-        S.parts.push(inst);
-        if (!autoPlace(inst)) toast(p.name + ' を倉庫に入れた');
-        else toast(p.name + ' を積んだ');
-        window.SFX.coin();
-        syncHp(); save(); refreshStatus();
-        afterNode();
+        takePart(p.id, afterNode);
       }));
     });
     refreshStatus(); save();
@@ -2265,6 +2552,21 @@
     b.appendChild(el('div', 'ss-note', part.note));
     b.appendChild(el('div', 'ss-w', '重さ ' + part.weight + '　' +
       part.shape[0].length + '×' + part.shape.length + 'マス'));
+
+    /* 「いまの車にどう載るか」を選ぶ前に出す。
+       これが無かったので、終盤の目玉部品を取っても倉庫へ落ちるだけで、
+       プレイヤーには何が起きたのか分からなかった */
+    var fi = fitInfo(part.id);
+    if (fi) {
+      var f = el('div', 'ss-fit is-' + fi.kind);
+      f.appendChild(el('b', null, fi.text));
+      if (fi.deltas) {
+        var dr = el('span');
+        fi.deltas.forEach(function (d) { dr.appendChild(deltaChip(d)); });
+        f.appendChild(dr);
+      }
+      b.appendChild(f);
+    }
 
     var cmp = compareLine(part);
     if (cmp) {
@@ -2459,13 +2761,8 @@
       box.appendChild(goodsButton(p, p.price, function () {
         if (S.gold < p.price) return;
         S.gold -= p.price;
-        var inst = newInst(p.id);
-        S.parts.push(inst);
-        if (!autoPlace(inst)) toast(p.name + ' を倉庫に入れた');
-        else toast(p.name + ' を積んだ');
         S.shopStock[idx] = null;
-        window.SFX.coin();
-        syncHp(); save(); refreshStatus(); renderShop();
+        takePart(p.id, renderShop);
       }));
     });
     if (!box.children.length) box.appendChild(el('p', 'ss-lead', '売り物は残っていない。'));
@@ -3003,6 +3300,8 @@
       markTutSeen('garage'); $('garage-tut').hidden = true;
       renderGarage();   // 最初の案内を閉じた直後から、次の案内が出られるようにする
     };
+    $('swap-ask-yes').onclick = function () { closeSwapAsk(true); };
+    $('swap-ask-no').onclick = function () { closeSwapAsk(false); };
     $('garage-tip-close').onclick = function () { closeTip('garage'); };
     $('map-tip-close').onclick = function () { closeTip('map'); };
 
@@ -3277,6 +3576,19 @@
       addItem: addItem,
       useItem: useItem,
       modPreview: modPreview,
+      fitsAsIs: fitsAsIs,
+      canSwapIn: canSwapIn,
+      swapPlan: swapPlan,
+      swapDeltas: swapDeltas,
+      carScore: carScore,
+      applySwap: applySwap,
+      fitInfo: fitInfo,
+      takePart: takePart,
+      closeSwapAsk: closeSwapAsk,
+      autoPlace: autoPlace,
+      blockersAt: blockersAt,
+      occupancy: occupancy,
+      snapshot: snapshot,
       tips: TIPS,
       tipOrder: TIP_ORDER,
       pickTip: pickTip,
