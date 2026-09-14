@@ -35,6 +35,8 @@
   (D.items || []).forEach(function (i) { ITEM_BY_ID[i.id] = i; });
   var MOD_BY_ID = {};
   (D.mods || []).forEach(function (m) { MOD_BY_ID[m.id] = m; });
+  var ENEMY_BY_ID = {};
+  D.enemies.forEach(function (e) { ENEMY_BY_ID[e.id] = e; });
   var ITEM_CAP = 5;                 // 持ち物の上限
 
   var KIND_LABEL = {
@@ -45,7 +47,7 @@
     battle: '戦闘', elite: '賞金首', boss: 'ボス', rest: '焚き火', shop: '行商', event: '？'
   };
   var NODE_DESC = {
-    battle: '雑魚と自動で戦う', elite: '手強い中ボス。戦利品が良い',
+    battle: '出てくる相手はマップに出ている', elite: '手強い中ボス。勝てば改造を1つ選べる',
     boss: '最上階。倒せばクリア', rest: '装甲を回復か、部品を強化',
     shop: '部品の購入・強化・修理', event: '何が起きるかは入るまで分からない'
   };
@@ -618,6 +620,14 @@
   /* ==========================================================
      マップ生成
      ========================================================== */
+  function rollNodeType() {
+    var r = Math.random();
+    if (r < 0.16) return 'shop';
+    if (r < 0.34) return 'rest';
+    if (r < 0.52) return 'event';
+    return 'battle';
+  }
+
   function genMap() {
     var N = D.run.floors;
     var floors = [];
@@ -632,14 +642,8 @@
     floors[N - 1][0].type = 'boss';
     floors[N - 2].forEach(function (n) { n.type = 'rest'; });   // ボス前は必ず休める
 
-    for (var f2 = 2; f2 < N - 2; f2++) {
-      floors[f2].forEach(function (n) {
-        var r = Math.random();
-        if (r < 0.16) n.type = 'shop';
-        else if (r < 0.34) n.type = 'rest';
-        else if (r < 0.52) n.type = 'event';
-        else n.type = 'battle';
-      });
+    for (var f2 = 2; f2 <= N - 3; f2++) {
+      floors[f2].forEach(function (n) { n.type = rollNodeType(); });
     }
     /* 中ボスを置く階 */
     D.run.eliteFloors.forEach(function (fl) {
@@ -648,17 +652,28 @@
       floors[f3][rint(floors[f3].length)].type = 'elite';
     });
 
-    /* 枝。近い位置どうしをつなぐ */
+    /* 枝。近い位置どうしをつなぐ。
+       **行き先が複数ある階では、必ず2つ以上へ分岐させる。**
+       一本道は「選んでいる」ように見えて選択ではないため */
     var edges = [];
     for (var f4 = 0; f4 < N - 1; f4++) {
       var a = floors[f4].length, b = floors[f4 + 1].length;
       var e = [];
       for (var i2 = 0; i2 < a; i2++) {
-        var j = a === 1 ? 0 : Math.round(i2 * (b - 1) / (a - 1));
         var set = {};
-        set[j] = true;
-        if (Math.random() < 0.55 && j + 1 < b) set[j + 1] = true;
-        if (Math.random() < 0.55 && j - 1 >= 0) set[j - 1] = true;
+        if (b === 1) {
+          set[0] = true;                       // 最上階（ボス）へは1本しかない
+        } else {
+          var j = a === 1 ? Math.floor(b / 2) : Math.round(i2 * (b - 1) / (a - 1));
+          set[j] = true;
+          var cands = [];
+          if (j - 1 >= 0) cands.push(j - 1);
+          if (j + 1 < b) cands.push(j + 1);
+          set[pick(cands)] = true;             // 2本目は必ず作る
+          if (cands.length > 1 && Math.random() < 0.3) {
+            cands.forEach(function (c) { set[c] = true; });
+          }
+        }
         e.push(Object.keys(set).map(Number));
       }
       /* 行き止まりの受け側をなくす */
@@ -671,7 +686,48 @@
       }
       edges.push(e);
     }
+
+    /* 戦う相手をここで決めておく。マップ上で先に見せるため
+       （入ってから抽選すると「見えていたもの」と違う敵が出る）。
+
+       **種類の入れ替えはしない。** 一度は「分岐の行き先が全部同じ種類なら
+       片方を別の種類に変える」ようにしたが、そうすると
+       **どの分岐にも必ず戦闘以外の逃げ道ができて、戦闘を避けて登れてしまった**
+       （欲張りに避ける進み方で 1走行の戦闘が 4.2回 → 1.0回）。
+       敵をマップに出すようにした以上、「戦闘か戦闘か」はもう同じ選択ではない。
+       固い相手と手数の多い相手のどちらを受けるか、という中身のある分岐になる。
+       なので同じ階の敵だけ、なるべく違う相手にする */
+    floors.forEach(function (row, f6) {
+      var used = {};
+      row.forEach(function (n) {
+        if (n.type !== 'battle' && n.type !== 'elite' && n.type !== 'boss') return;
+        var id = pickEnemy(n.type, f6).id;
+        for (var k = 0; k < 6 && used[id]; k++) id = pickEnemy(n.type, f6).id;
+        used[id] = true;
+        n.foe = id;
+      });
+    });
+
     return { floors: floors, edges: edges, cur: null, floor: 0, cleared: [] };
+  }
+
+  /* いま居るところから、まだ辿り着ける場所 */
+  function reachable(m) {
+    var seen = {}, stack = [];
+    if (!m.cur) m.floors[0].forEach(function (_, i) { stack.push({ f: 0, i: i }); });
+    else stack.push({ f: m.cur.f, i: m.cur.i });
+    stack.forEach(function (n) { seen[n.f + ':' + n.i] = true; });
+    while (stack.length) {
+      var n = stack.pop();
+      if (n.f >= m.edges.length) continue;
+      (m.edges[n.f][n.i] || []).forEach(function (j) {
+        var k = (n.f + 1) + ':' + j;
+        if (seen[k]) return;
+        seen[k] = true;
+        stack.push({ f: n.f + 1, i: j });
+      });
+    }
+    return seen;
   }
 
   function openNodes() {
@@ -1314,6 +1370,8 @@
 
     window.addEventListener('resize', function () {
       if (!$('sc-garage').hidden) renderGarage();
+      /* 線はピクセルで引いているので、幅が変わったら引き直さないとずれる */
+      if (!$('sc-map').hidden) drawMapLines();
     });
   }
 
@@ -1405,6 +1463,43 @@
     });
   }
 
+  /* ノードの見た目。戦う相手が決まっているものは、その敵を出す。
+     「何が待っているか」が見えないと、道を選ぶ理由が作れない */
+  function nodeIcon(n) {
+    var cv = document.createElement('canvas');
+    var g = cv.getContext('2d');
+    var foe = n.foe && ENEMY_BY_ID[n.foe];
+    if (foe) {
+      var sp = window.ART.enemy(foe.art);
+      cv.width = 32; cv.height = Math.round(32 * sp.height / sp.width);
+      g.imageSmoothingEnabled = false;
+      g.drawImage(sp, 0, 0, cv.width, cv.height);
+    } else {
+      var ns = window.ART.node(n.type);
+      cv.width = 16; cv.height = 16;
+      g.drawImage(ns, 0, 0);
+    }
+    return cv;
+  }
+
+  /* 名前を出すのは図鑑で見たことのある敵だけ。初見は種別のまま
+     （絵は出るので「丸いやつは固い」は覚えられる） */
+  function nodeLabel(n) {
+    var foe = n.foe && ENEMY_BY_ID[n.foe];
+    if (foe && META.seenEnemies[foe.id]) return foe.name.replace(/^賞金首「(.+)」$/, '$1');
+    return NODE_LABEL[n.type];
+  }
+
+  function nodeDetail(n, f) {
+    var foe = n.foe && ENEMY_BY_ID[n.foe];
+    if (!foe) return NODE_DESC[n.type];
+    if (!META.seenEnemies[foe.id]) return NODE_DESC[n.type] + '（まだ見たことのない相手）';
+    var s = scaleEnemy(foe, f);
+    return foe.name + '\n装甲 ' + s.armor + '　攻撃 ' + s.atk + '　体力 ' + s.hp +
+      (foe.trait ? '\n' + foe.trait : '') +
+      (n.type === 'elite' ? '\n勝てば改造を1つ選べる' : '');
+  }
+
   function renderMap() {
     renderMapLegend();
     var m = S.map;
@@ -1413,6 +1508,7 @@
     var open = openNodes();
     var openKey = {};
     open.forEach(function (o) { openKey[o.f + ':' + o.i] = true; });
+    var reach = reachable(m);
 
     for (var f = m.floors.length - 1; f >= 0; f--) {
       var row = el('div', 'ss-mapfloor');
@@ -1420,12 +1516,9 @@
       m.floors[f].forEach(function (n, i) {
         var b = el('button', 'ss-node');
         b.dataset.f = f; b.dataset.i = i;
-        var cv = document.createElement('canvas');
-        var sp = window.ART.node(n.type);
-        cv.width = 16; cv.height = 16;
-        cv.getContext('2d').drawImage(sp, 0, 0);
-        b.appendChild(cv);
-        b.appendChild(el('span', 'ss-nodetag', NODE_LABEL[n.type]));
+        b.appendChild(nodeIcon(n));
+        b.appendChild(el('span', 'ss-nodetag', nodeLabel(n)));
+        b.title = nodeDetail(n, f);
         var isHere = m.cur && m.cur.f === f && m.cur.i === i;
         if (isHere) b.classList.add('is-here');
         else if (openKey[f + ':' + i]) {
@@ -1435,13 +1528,15 @@
             enterNode(parseInt(this.dataset.f, 10), parseInt(this.dataset.i, 10));
           };
         } else if (m.cleared.indexOf(f + ':' + i) >= 0) b.classList.add('is-done');
+        /* もう辿り着けない枝は沈める。どこへ行けるかが一目で分かるように */
+        else if (!reach[f + ':' + i]) b.classList.add('is-far');
         row.appendChild(b);
       });
       wrap.appendChild(row);
     }
     $('map-hint').textContent = m.cur
-      ? '次に進める行き先が光っている。'
-      : '好きなところから走り出せる。';
+      ? '光っている行き先から選ぶ。線をたどれば、その先どこへ行けるかが分かる。'
+      : '好きなところから走り出せる。線をたどって、どこを通って登るか決める。';
     /* 12階ぶんの縦長になるので、選べるところが画面に入るまで送る */
     setTimeout(function () {
       drawMapLines();
@@ -1450,10 +1545,16 @@
     }, 0);
   }
 
-  function drawMapLines() {
+  function drawMapLines(tries) {
     var svg = $('map-lines');
     var box = $('map-body');
     var br = box.getBoundingClientRect();
+    /* レイアウトが決まる前に測ると幅0の viewBox ができて、線が1本も見えなくなる。
+       実際それで長いあいだ「道が見えないマップ」になっていた */
+    if (br.width < 1) {
+      if ((tries || 0) < 10) setTimeout(function () { drawMapLines((tries || 0) + 1); }, 30);
+      return;
+    }
     svg.setAttribute('viewBox', '0 0 ' + br.width + ' ' + br.height);
     clear(svg);
     var m = S.map;
@@ -1463,6 +1564,10 @@
       var r = n.getBoundingClientRect();
       return { x: r.left - br.left + r.width / 2, y: r.top - br.top + r.height / 2 };
     }
+    /* 線は3段階。いま選べる道／この先まだ通れる道／もう通れない道。
+       以前は現在地から出る線以外が地色と同化していて、走り出す前は
+       1本も見えなかった（＝どこへ繋がるか分からないまま選んでいた） */
+    var reach = reachable(m);
     for (var f = 0; f < m.edges.length; f++) {
       for (var i = 0; i < m.edges[f].length; i++) {
         m.edges[f][i].forEach(function (j) {
@@ -1472,9 +1577,10 @@
           line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
           line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
           var live = m.cur && m.cur.f === f && m.cur.i === i;
-          line.setAttribute('stroke', live ? '#d9a441' : '#2c353d');
-          line.setAttribute('stroke-width', live ? 2 : 1.5);
-          if (!live) line.setAttribute('stroke-dasharray', '3 4');
+          var open = reach[f + ':' + i];
+          line.setAttribute('stroke', live ? '#d9a441' : (open ? '#5c6b7a' : '#232a31'));
+          line.setAttribute('stroke-width', live ? 2.5 : (open ? 1.8 : 1));
+          if (!live && !open) line.setAttribute('stroke-dasharray', '3 4');
           svg.appendChild(line);
         });
       }
@@ -1496,7 +1602,7 @@
     }
     else if (type === 'rest') { show('rest'); renderRest(); }
     else if (type === 'event') { startEvent(); }
-    else startBattle(type, f);
+    else startBattle(type, f, S.map.floors[f][i].foe);
   }
 
   function afterNode() {
@@ -1536,12 +1642,16 @@
     return scaleEnemy(pick(pool), floor);
   }
 
-  function startBattle(type, floor) {
+  function startBattle(type, floor, foeId) {
     var b = syncHp();
-    var foe = pickEnemy(type, floor);
+    /* マップで見せていた相手をそのまま出す。見えていたものと違う敵が出ると、
+       経路を選んだ意味が無くなる */
+    var foe = (foeId && ENEMY_BY_ID[foeId])
+      ? scaleEnemy(ENEMY_BY_ID[foeId], floor)
+      : pickEnemy(type, floor);
     markEnemySeen(foe.id);
     /* 途中で閉じても、再開したときに同じ戦闘からやり直せるようにする */
-    S.inBattle = { type: type, floor: floor };
+    S.inBattle = { type: type, floor: floor, foe: foe.id };
     save();
 
     B = {
@@ -2681,7 +2791,7 @@
     $('title-continue').onclick = function () {
       window.SFX.unlock();
       syncHp(); refreshStatus();
-      if (S.inBattle) { startBattle(S.inBattle.type, S.inBattle.floor); return; }
+      if (S.inBattle) { startBattle(S.inBattle.type, S.inBattle.floor, S.inBattle.foe); return; }
       show('map'); renderMap();
     };
 

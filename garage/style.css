@@ -204,7 +204,7 @@ html.no-motion .ss-screen { animation: none; }
   display: flex; align-items: center; justify-content: center;
   cursor: default; padding: 0; transition: transform .12s, border-color .12s, box-shadow .12s;
 }
-.ss-node canvas { width: 32px; height: 32px; opacity: .34; }
+.ss-node canvas { width: 32px; height: auto; opacity: .34; image-rendering: pixelated; }
 .ss-node.is-open {
   border-color: var(--amber); cursor: pointer; box-shadow: 0 0 0 4px rgba(217,164,65,.12);
   animation: pulseNode 2s ease-in-out infinite;
@@ -219,6 +219,10 @@ html.no-motion .ss-screen { animation: none; }
 .ss-node.is-done canvas { opacity: .6; }
 .ss-node.is-here { border-color: var(--green); box-shadow: 0 0 0 4px rgba(63,184,122,.14); }
 .ss-node.is-here canvas { opacity: 1; }
+/* もう辿り着けない枝。選べないことが一目で分かるように沈める */
+.ss-node.is-far { opacity: .3; border-color: #232a31; }
+.ss-node.is-far canvas { opacity: .25; }
+.ss-node.is-far .ss-nodetag { color: var(--ink-3); }
 .ss-node .ss-nodetag {
   position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
   font-size: 11px; font-weight: 700; color: var(--ink-2); white-space: nowrap; letter-spacing: .04em;
@@ -676,7 +680,7 @@ html.no-motion .ss-node.is-open:hover { transform: none; }
   .ss-stat-hp .ss-bar { width: 70px; }
   .ss-log { height: 150px; }
   .ss-node { width: 46px; height: 46px; }
-  .ss-node canvas { width: 26px; height: 26px; }
+  .ss-node canvas { width: 26px; height: auto; }
   .ss-mapfloor { height: 64px; gap: 8%; }
   .ss-bounty { flex-direction: column; text-align: center; }
   .ss-bounty canvas { width: 120px; height: 75px; }

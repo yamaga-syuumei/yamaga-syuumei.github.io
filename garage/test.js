@@ -328,6 +328,66 @@
       document.getElementById('sc-mod').hidden === true &&
       document.getElementById('sc-reward').hidden === false);
 
+    /* ---------- マップ ----------
+       一本道は「選んでいる」ように見えて選択ではない。
+       種別の比率を保ったまま、分岐だけを増やしたことを押さえる */
+
+    var oneWay = 0, steps = 0, typeTotal = {}, runs = 60, orphan = 0;
+    for (var mt = 0; mt < runs; mt++) {
+      G.startRun('ch_apc');
+      var mm = G.state().map;
+      var last = mm.floors.length - 1;
+      for (var mf = 0; mf < mm.edges.length; mf++) {
+        for (var mi = 0; mi < mm.edges[mf].length; mi++) {
+          steps++;
+          /* 最上階はボス1つなので1本で正しい */
+          if (mm.edges[mf][mi].length < 2 && mf + 1 !== last) oneWay++;
+        }
+      }
+      /* 生成した時点で、どのノードも0階から辿り着けること */
+      var seen = {};
+      mm.floors[0].forEach(function (_, i) { seen['0:' + i] = true; });
+      for (var rf = 0; rf < mm.edges.length; rf++) {
+        for (var ri = 0; ri < mm.edges[rf].length; ri++) {
+          if (!seen[rf + ':' + ri]) continue;
+          mm.edges[rf][ri].forEach(function (j) { seen[(rf + 1) + ':' + j] = true; });
+        }
+      }
+      mm.floors.forEach(function (row, f) {
+        row.forEach(function (_, i) { if (!seen[f + ':' + i]) orphan++; });
+      });
+      mm.floors.forEach(function (row) {
+        row.forEach(function (n) { typeTotal[n.type] = (typeTotal[n.type] || 0) + 1; });
+      });
+    }
+    ok('マップ：最上階以外は必ず2つ以上へ分岐する', oneWay === 0,
+      '一本道 ' + oneWay + ' / ' + steps);
+    ok('マップ：辿り着けないノードが生成されない', orphan === 0, 'orphan=' + orphan);
+
+    var perRun = {};
+    Object.keys(typeTotal).forEach(function (k) { perRun[k] = typeTotal[k] / runs; });
+    /* 分岐を増やすと戦闘を避けて登れてしまうので、種別の比率は動かさない。
+       戦闘が減ると走行が一気に楽になる（実測で欲張りに避けると 4.2戦→1.0戦 になった） */
+    ok('マップ：戦闘の数が以前の水準から動いていない',
+      perRun.battle > 11.5 && perRun.battle < 15,
+      Object.keys(perRun).map(function (k) { return k + '=' + r2(perRun[k]); }).join(' '));
+    ok('マップ：賞金首は必ず2つ', Math.abs(perRun.elite - 2) < 0.001, 'elite=' + r2(perRun.elite));
+
+    /* マップで見せた敵と、実際に出てくる敵が同じであること。
+       違う敵が出るなら、道を選んだ意味が無くなる */
+    G.startRun('ch_apc');
+    var mp = G.state().map;
+    var shown = null, spot = null;
+    for (var sf = 0; sf < mp.floors.length && !shown; sf++) {
+      for (var si = 0; si < mp.floors[sf].length; si++) {
+        if (mp.floors[sf][si].type === 'battle') { shown = mp.floors[sf][si].foe; spot = { f: sf, i: si }; break; }
+      }
+    }
+    ok('マップ：戦闘ノードに相手が決めてある', !!shown, 'foe=' + shown);
+    G.enterNode(spot.f, spot.i);
+    ok('マップ：見せた相手がそのまま出てくる', G.battle().foe.id === shown,
+      '見せた=' + shown + ' 出た=' + G.battle().foe.id);
+
     /* ---------- 消耗品 ---------- */
     G.startRun('ch_jeep');
     s = G.state();
