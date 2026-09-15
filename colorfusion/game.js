@@ -93,7 +93,8 @@
     chainMul: 1.0,     // 連鎖1つあたり倍率がどれだけ伸びるか。0 で倍率なし
     stages: 1,         // 段階進行。切ると下の値をそのまま使える（調整用）
     colors: 4,         // 使う色数。段階進行が入っていると STAGES に上書きされる
-    preview: 1
+    preview: 1,
+    glow: 1            // 火花の発光。切ると shadowBlur を使わなくなる（重さの切り分け用）
   };
 
   /* 進行の段。at は融合回数。
@@ -171,6 +172,11 @@
   var runs = 0;                       // 何回遊んだか。最初の数回はルールを順に見せる
   try { runs = parseInt(localStorage.getItem('cf_runs') || '0', 10) || 0; } catch (e) { runs = 0; }
   var stat = { fuse: 0, lost: 0, biggest: 1, chain: 0, fps: 60, mass: 0 };
+  /* 1フレームの内訳（?tune=1 のときだけ表示）。
+     全画面で重くなる原因を、実機で切り分けるためのもの。
+     キャンバスの描画はGPUに積むだけなので CPU 側の時間は下限でしかないが、
+     どこかが突出していれば見える */
+  var prof = { up: 0, low: 0, top: 0 };
   var texts = [];                     // 得点をその場に浮かせる
   /* 連鎖は「盤面のどこかで融合が続いている間」を1本と数える。
      塊ごとに数えると画面に小さい数字が散らばって連鎖に見えない（落ち物の数え方に寄せる） */
@@ -899,7 +905,7 @@
   /* 火花：中まで色が付いた点。小さくても見えるように下限を置く */
   function drawSpark(s) {
     var c = COLORS[s.ci], r = Math.max(FRAG_MIN_R, radius(s.size));
-    ctx.shadowBlur = 12 + r;
+    ctx.shadowBlur = P.glow ? 12 + r : 0;
     ctx.shadowColor = col(c.hue, 66, 0.95);
     var g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, r);
     g.addColorStop(0, col(c.hue, 95, 1));
@@ -1151,6 +1157,7 @@
   }
 
   function render() {
+    var _t0 = performance.now();
     /* 下の層：消さずに黒を薄く重ねる。動いたものが尾を引く */
     /* 下の層は消さずに黒を薄く重ねる。動いたものが光の帯を引く。
        加算合成にすると同じ場所に足し続けて尾が白く飽和するので使わない */
@@ -1167,6 +1174,7 @@
     ctx.globalCompositeOperation = 'lighter';
     drawParts();
     ctx.restore();
+    var _t1 = performance.now();
 
     /* 上の層：毎フレーム消す */
     ctx2.save();
@@ -1225,6 +1233,9 @@
     else if (state === 'over') drawOver();
     if (overUI) overUI.hidden = (state !== 'over') || (tNow - overT < 0.45);
 
+    prof.low += (_t1 - _t0 - prof.low) * 0.05;
+    prof.top += (performance.now() - _t1 - prof.top) * 0.05;
+
     var el = document.getElementById('stat');
     if (el) {
       el.textContent = 'SCORE ' + Math.round(score) + ' ／ BEST ' + Math.round(high) +
@@ -1234,7 +1245,11 @@
         ' ／ 最長連鎖 x' + stat.chain +
         ' ／ ' + (lap + 1) + '周' + (stage + 1) + '段' +
         (drag ? (' ／ 長さ ' + Math.round(drag.len) +
-                 (drag.ok ? ' 強さ ' + Math.round(drag.pow * 100) + '%' : ' 短すぎ')) : '');
+                 (drag.ok ? ' 強さ ' + Math.round(drag.pow * 100) + '%' : ' 短すぎ')) : '') +
+        ' ／ ' + (cv.width * cv.height / 1e6).toFixed(1) + 'Mpx' +
+        ' ／ 更新 ' + prof.up.toFixed(1) +
+        ' 下層 ' + prof.low.toFixed(1) +
+        ' 上層 ' + prof.top.toFixed(1) + 'ms';
     }
   }
 
@@ -1494,6 +1509,12 @@
     stg.addEventListener('change', function () { P.stages = stg.checked ? 1 : 0; });
   }
 
+  var glw = document.getElementById('p-glow');
+  if (glw) {
+    glw.checked = !!P.glow;
+    glw.addEventListener('change', function () { P.glow = glw.checked ? 1 : 0; });
+  }
+
   var prev = document.getElementById('p-prev');
   if (prev) {
     prev.checked = !!P.preview;
@@ -1584,14 +1605,16 @@
     tPrev = now;
     tNow += dt;
     if (dt > 0) stat.fps += (1 / dt - stat.fps) * 0.06;
+    var _u0 = performance.now();
     if (state === 'play' || state === 'title') update(dt);
     else { core.t += dt; for (var q = parts.length - 1; q >= 0; q--) { var pp = parts[q]; pp.life -= dt; pp.x += pp.vx * dt; pp.y += pp.vy * dt; pp.vx *= Math.exp(-2.6 * dt); pp.vy *= Math.exp(-2.6 * dt); if (pp.life <= 0) parts.splice(q, 1); } }
+    prof.up += (performance.now() - _u0 - prof.up) * 0.05;
     render();
     requestAnimationFrame(frame);
   }
 
   window.CF = { P: P, shapes: shapes, arrows: arrows, parts: parts, view: view,
-                stat: stat, turn: turn, powerOf: powerOf, shapeArrow: shapeArrow,
+                stat: stat, prof: prof, turn: turn, powerOf: powerOf, shapeArrow: shapeArrow,
                 chain: chain, STAGES: STAGES, PALETTES: PALETTES, COLORS: COLORS,
                 shards: shards, pending: pending,
                 stage: function () { return { lap: lap, stage: stage, colors: P.colors, spawn: P.spawnEvery, drain: P.drain, speed: P.speed, hues: COLORS.map(function (c) { return c.hue; }) }; },
