@@ -191,43 +191,121 @@ window.GAME_DATA = (function () {
        regen       毎秒この量だけ回復する → 削り続けても追いつかない。瞬発力を要求
      bnote … その挙動の一言説明。マップ・戦闘・図鑑にそのまま出す
      ========================================================== */
+  /* ==========================================================
+     敵
+
+     behavior … その敵がずっとやっていること（⑤で入れた。先に見せてよい）
+     trumps   … 切り札。**戦闘ごとに1枚だけ引く**（⑨で入れた）
+
+     切り札を入れた理由：戦闘に乱数が一つも無く、同じ構成で同じ敵と戦うと
+     ボス戦10回が 27.75秒・残装甲0% で完全に同一だった。
+     ノードを押した瞬間に結果が決まっていて、二度と変わらなかった。
+
+     装甲が半分を切ったときに1回だけ発動する（短い戦闘でも必ず起きる）。
+     **何を引いたかは事前に見せない。** 出してしまうと予想外でなくなる。
+
+     effect で使えるもの（game.js の fireTrump が解釈する）
+       heal      いまの最大HPに対する割合を回復
+       hasten    攻撃間隔の倍率（小さいほど速い）
+       atkMult   攻撃力の倍率
+       armorAdd  装甲を足す
+       missFor   この秒数だけ、こちらの弾が当たらない
+       selfCut   自分の残りHPをこの割合だけ捨てる（特攻用）
+       bigHit    その場で即座に この倍率の一撃を入れる
+     ========================================================== */
   var enemies = [
     { id: 'en_drone', name: '野良ドローン', tier: 'mob',
-      hp: 76, armor: 0, atk: 7, interval: 2.4, gold: 24, art: 'drone', minFloor: 0,
+      hp: 86, armor: 0, atk: 6, interval: 2.4, gold: 26, art: 'drone', minFloor: 0,
       behavior: { speedUp: 0.035 },
-      bnote: '放っておくと加速する。長引くほど手がつけられない' },
+      bnote: '放っておくと加速する。長引くほど手がつけられない',
+      trumps: [
+        { id: 'tr_boost', name: '過給', log: 'ローターを回し切った。動きが跳ね上がる',
+          effect: { hasten: 0.78 } },
+        { id: 'tr_dive', name: '自爆突進', log: '機体ごと突っ込んできた',
+          effect: { selfCut: 0.35, bigHit: 1.8 } },
+        { id: 'tr_wing', name: '僚機を呼ぶ', log: '砂の向こうから僚機が降りてきた',
+          effect: { heal: 0.18, hasten: 0.85 } }
+      ] },
 
     { id: 'en_buggy', name: '砂賊のバギー', tier: 'mob',
-      hp: 115, armor: 1, atk: 12, interval: 3.2, gold: 28, art: 'buggy', minFloor: 0,
+      hp: 116, armor: 1, atk: 10, interval: 3.2, gold: 30, art: 'buggy', minFloor: 0,
       behavior: { dodgeEvery: 4 },
-      bnote: '4発に1発を避ける。重い一撃ほど損をする' },
+      bnote: '4発に1発を避ける。重い一撃ほど損をする',
+      trumps: [
+        { id: 'tr_smoke', name: '煙幕', log: '煙幕を焚いた。しばらく弾が通らない',
+          effect: { missFor: 2.6 } },
+        { id: 'tr_gang', name: '増援', log: '仲間のバギーが土煙を上げて合流した',
+          effect: { heal: 0.18, hasten: 0.82 } },
+        { id: 'tr_ram', name: '特攻', log: '車体をこちらへ向けて突っ込んできた',
+          effect: { selfCut: 0.3, bigHit: 1.7 } }
+      ] },
 
     { id: 'en_golem', name: '廃車ゴーレム', tier: 'mob',
-      hp: 185, armor: 4, atk: 17, interval: 4.2, gold: 36, art: 'golem', minFloor: 3,
-      behavior: { armorPerHit: 1, armorMax: 7 },
-      bnote: '撃たれるたびに鉄屑を寄せて硬くなる。手数では固まるだけ' },
+      hp: 190, armor: 4, atk: 15, interval: 4.2, gold: 40, art: 'golem', minFloor: 3,
+      behavior: { armorPerHit: 1, armorMax: 6 },
+      bnote: '撃たれるたびに鉄屑を寄せて硬くなる。手数では固まるだけ',
+      trumps: [
+        { id: 'tr_plate', name: '装甲板を展開', log: '廃車の扉をかき集めて前面に貼りつけた',
+          effect: { armorAdd: 6 } },
+        { id: 'tr_eat', name: '鉄屑を取り込む', log: '足元の鉄屑を巻き込んで膨れ上がった',
+          effect: { heal: 0.2 } },
+        { id: 'tr_crush', name: '圧壊', log: '腕を振り上げた。一撃が重くなる',
+          effect: { atkMult: 1.35 } }
+      ] },
 
     { id: 'en_sniper', name: '自走砲スナイプ', tier: 'mob',
-      hp: 130, armor: 2, atk: 26, interval: 5.5, gold: 38, art: 'sniper', minFloor: 2,
-      bnote: '一撃が重い。次の攻撃までのゲージを見て、その前に倒す' },
+      hp: 172, armor: 2, atk: 22, interval: 5.5, gold: 42, art: 'sniper', minFloor: 2,
+      bnote: '一撃が重い。次の攻撃までのゲージを見て、その前に倒す',
+      trumps: [
+        { id: 'tr_rapid', name: '速射モード', log: '砲身を下げた。連射に切り替えてきた',
+          effect: { hasten: 0.6, atkMult: 0.75 } },
+        { id: 'tr_he', name: '曳火弾', log: '曳火弾を装填した。次から当たりが重い',
+          effect: { atkMult: 1.3 } },
+        { id: 'tr_move', name: '陣地転換', log: '砂丘の陰へ下がって撃ち直してきた',
+          effect: { heal: 0.16, armorAdd: 3 } }
+      ] },
 
     { id: 'en_stag', name: '賞金首「鉄クワガタ」', tier: 'elite',
       hp: 380, armor: 4, atk: 17, interval: 3.4, gold: 110, art: 'stag',
       behavior: { armorPerSec: 0.3, armorMax: 12 },
       bnote: '時間とともに殻が厚くなる。長引くほど通らなくなる',
-      trait: '装甲が厚い。貫通か、重い一発が要る' },
+      trait: '装甲が厚い。貫通か、重い一発が要る',
+      trumps: [
+        { id: 'tr_harden', name: '甲殻硬化', log: '殻を鳴らして締め上げた',
+          effect: { armorAdd: 7 } },
+        { id: 'tr_molt', name: '脱皮', log: '古い殻を割って、下から新しい体が出てきた',
+          effect: { heal: 0.22 } },
+        { id: 'tr_charge', name: '大顎突撃', log: '大顎を広げて突っ込んできた',
+          effect: { selfCut: 0.2, bigHit: 2.2 } }
+      ] },
 
     { id: 'en_leech', name: '賞金首「砂ヒル」', tier: 'elite',
       hp: 460, armor: 1, atk: 11, interval: 1.7, gold: 120, art: 'leech',
       behavior: { regen: 4 },
       bnote: '傷がふさがる（毎秒4回復）。削り続けても追いつかない',
-      trait: '手数で削ってくる。短期決戦を狙いたい' },
+      trait: '手数で削ってくる。短期決戦を狙いたい',
+      trumps: [
+        { id: 'tr_split', name: '分裂', log: '胴が裂けて、二匹が絡まりながら立ち上がった',
+          effect: { heal: 0.28 } },
+        { id: 'tr_slime', name: '粘液', log: '粘液を吹きつけてきた。照準が滑る',
+          effect: { missFor: 2.8 } },
+        { id: 'tr_drain', name: '吸血', log: 'こちらの装甲に噛みついた',
+          effect: { atkMult: 1.5, heal: 0.12 } }
+      ] },
 
     { id: 'en_golgoda', name: '大型戦車「ゴルゴダ」', tier: 'boss',
       hp: 780, armor: 6, atk: 19, interval: 4.6, gold: 240, art: 'golgoda',
       salvo: { every: 15, mult: 2.3 },
       bnote: '15秒ごとに一斉射撃',
-      trait: '15秒ごとに一斉射撃。装甲6' }
+      trait: '15秒ごとに一斉射撃。装甲6',
+      trumps: [
+        { id: 'tr_reserve', name: '予備弾倉', log: '砲塔の後ろが開いた。一斉射撃が早まる',
+          effect: { salvoFaster: 0.55 } },
+        { id: 'tr_skirt', name: '増加装甲', log: '側面に増加装甲を降ろした',
+          effect: { armorAdd: 6 } },
+        { id: 'tr_swap', name: '主砲換装', log: '主砲を換装した。一撃が別物になる',
+          effect: { atkMult: 1.55 } }
+      ] }
   ];
 
   /* ==========================================================
@@ -374,7 +452,7 @@ window.GAME_DATA = (function () {
     startGold: 90,
     /* 階が上がるごとに敵を強くする係数 */
     /* 雑魚だけ階層で強くする。中ボスとボスは固定（もともとその階向けの数値） */
-    scaleHp: 0.07,
+    scaleHp: 0.085,
     scaleAtk: 0.03,
     /* 中ボスは5階の数値を土台にして、そこから上でだけ強くする */
     eliteBaseFloor: 4,

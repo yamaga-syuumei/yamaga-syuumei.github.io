@@ -272,7 +272,10 @@
     G.warpTo('battle');
     var kb = G.battle();
     kb.meHp = 20; kb.foeHp = 1;
-    G.step(1);
+    /* 「HP1にして1秒進めれば勝ち」は通用しない。切り札で敵が回復することがある
+       （⑤の自己回復のときと同じ理由） */
+    kb.trumpDone = true;
+    finish(G, 60);
     ok('改造：補修キットは戦闘に勝つと装甲を継ぐ', G.state().hp > 20, 'hp=' + G.state().hp);
 
     var mSpare = withMod('ch_apc', 'md_spare');
@@ -475,6 +478,12 @@
       B.bv = base.behavior || {};
       B.armorAdd = 0; B.hits = 0; B.dodged = 0; B.baseInterval = base.interval;
       B.foeT = 0; B.salvoT = 0; B.ramT = 0; B.meHp = B.meMax;
+      /* 敵を差し替えても切り札は元の敵のまま残っていた（ゴーレム戦でドローンの
+         切り札が出ていた）。ここで見たいのは「敵ごとに構成の優劣が入れ替わるか」で、
+         切り札の抽選はそれを毎回ずらしてしまうので外す。
+         切り札そのものは「切り札：」の節で別に確かめている */
+      B.trump = null; B.trumpDone = true;
+      B.missUntil = -1; B.atkMult = 1;
       var t = 0, cap = secs || 200;
       while (G.battle() && !G.battle().over && t < cap) { G.step(0.5); t += 0.5; }
       B = G.battle();
@@ -712,6 +721,147 @@
     ok('入替：そのまま載るときは聞かずに積む',
       document.getElementById('swap-ask').hidden &&
       G.state().parts[G.state().parts.length - 1].x != null);
+
+    /* ---------- 切り札（戦いを毎回ちがうものにする） ----------
+       戦闘に乱数が一つも無く、同じ構成で同じ敵と戦うとボス戦10回が
+       27.75秒・残装甲0% で完全に同一だった。ノードを押した瞬間に結果が
+       決まっていて、二度と変わらなかった */
+
+    /* 全部の敵が切り札を持っていること。1体でも漏れるとその敵だけ読み切れる */
+    ok('切り札：全部の敵が持っている',
+      D.enemies.every(function (e) { return e.trumps && e.trumps.length >= 2; }),
+      D.enemies.filter(function (e) { return !e.trumps || e.trumps.length < 2; })
+        .map(function (e) { return e.name; }).join(',') || 'ぜんぶ2枚以上');
+
+    ok('切り札：文面がそろっている',
+      D.enemies.every(function (e) {
+        return (e.trumps || []).every(function (t) {
+          return t.id && t.name && t.log && t.log.length > 5 && t.effect &&
+            Object.keys(t.effect).length > 0;
+        });
+      }));
+
+    /* 効果の名前を間違えると、静かに何も起きない切り札ができる */
+    var KNOWN = ['heal', 'hasten', 'atkMult', 'armorAdd', 'missFor', 'selfCut', 'bigHit', 'salvoFaster'];
+    var badKeys = [];
+    D.enemies.forEach(function (e) {
+      (e.trumps || []).forEach(function (t) {
+        Object.keys(t.effect).forEach(function (k) {
+          if (KNOWN.indexOf(k) < 0) badKeys.push(e.name + '/' + t.name + ':' + k);
+        });
+      });
+    });
+    ok('切り札：知らない効果名が混ざっていない', badKeys.length === 0, badKeys.join(' '));
+
+    /* 戦闘ごとに1枚引く */
+    G.startRun('ch_apc');
+    ['m_105', 's_hmg'].forEach(function (pp) { G.give(pp); });
+    G.startBattle('battle', 3); G.stopLoop();
+    ok('切り札：戦闘を始めると1枚引いている', !!G.battle().trump && !G.battle().trumpDone);
+
+    /* 同じ敵でも引く札が変わる＝結果が毎回同じにならない */
+    var drawn = {};
+    for (var tk = 0; tk < 30; tk++) {
+      G.startRun('ch_apc');
+      G.startBattle('boss', 11); G.stopLoop();
+      var tp = G.battle().trump;
+      if (tp) drawn[tp.id] = true;
+    }
+    ok('切り札：同じ敵でも引く札が変わる', Object.keys(drawn).length >= 2,
+      Object.keys(drawn).join(','));
+
+    /* 装甲が半分を切ったら必ず1回発動する（短い戦闘でも起きること） */
+    var firedN = 0, battles = 12;
+    for (var fb = 0; fb < battles; fb++) {
+      G.startRun('ch_apc');
+      ['m_105', 's_hmg', 'u_sight', 'e_turbo'].forEach(function (pp) { G.give(pp); });
+      G.startBattle('battle', 3); G.stopLoop();
+      finish(G, 80);
+      if (G.battle().trumpDone) firedN++;
+    }
+    ok('切り札：どの戦闘でも必ず発動する', firedN === battles, firedN + '/' + battles);
+
+    /* 1回きり。回復で半分を戻っても二度目は無い */
+    G.startRun('ch_apc');
+    ['m_105', 's_hmg'].forEach(function (pp) { G.give(pp); });
+    G.startBattle('battle', 3); G.stopLoop();
+    var B0 = G.battle();
+    B0.foeHp = B0.foeMax * 0.4;
+    G.step(0.25);
+    ok('切り札：半分を切ると発動する', B0.trumpDone === true);
+    var beforeHp = B0.foeHp;
+    B0.foeHp = B0.foeMax * 0.9;
+    G.step(0.25);
+    B0.foeHp = B0.foeMax * 0.4;
+    G.step(0.25);
+    ok('切り札：一度きりで、二度は出ない', B0.trumpDone === true && !!beforeHp);
+
+    /* 効果が実際に効くこと。名前だけで何も起きない切り札を作らないため */
+    G.startRun('ch_apc'); G.give('m_105');
+    G.startBattle('battle', 3); G.stopLoop();
+    var Bh = G.battle();
+    Bh.foeHp = Bh.foeMax * 0.5;
+    var hp0 = Bh.foeHp;
+    G.fireTrump({ id: 't', name: '検証', log: '回復する', effect: { heal: 0.2 } });
+    ok('切り札：回復が効く', Bh.foeHp > hp0, Math.round(hp0) + ' → ' + Math.round(Bh.foeHp));
+
+    G.startRun('ch_apc'); G.give('m_105');
+    G.startBattle('battle', 3); G.stopLoop();
+    var Ba = G.battle();
+    var armor0 = Ba.armorAdd;
+    G.fireTrump({ id: 't2', name: '検証', log: '硬くなる', effect: { armorAdd: 5 } });
+    ok('切り札：装甲が上がる', Ba.armorAdd === armor0 + 5);
+
+    G.startRun('ch_apc'); G.give('m_105');
+    G.startBattle('battle', 3); G.stopLoop();
+    var Bi = G.battle();
+    var int0 = Bi.foe.interval;
+    G.fireTrump({ id: 't3', name: '検証', log: '速くなる', effect: { hasten: 0.5 } });
+    ok('切り札：攻撃間隔が縮む', Bi.foe.interval < int0,
+      r2(int0) + ' → ' + r2(Bi.foe.interval));
+
+    /* 煙幕のあいだは当たらない。効いていることが数字で分かること */
+    G.startRun('ch_apc'); G.give('m_105');
+    G.startBattle('battle', 3); G.stopLoop();
+    var Bm = G.battle();
+    G.fireTrump({ id: 't4', name: '検証', log: '当たらなくなる', effect: { missFor: 3 } });
+    var dealt0 = Bm.tally.dealt;
+    G.step(1.5);
+    ok('切り札：煙幕のあいだは当たらない', Bm.tally.dealt === dealt0,
+      dealt0 + ' → ' + Bm.tally.dealt);
+    G.step(3);
+    ok('切り札：煙幕が切れれば当たる', G.battle() && G.battle().tally.dealt > dealt0);
+
+    /* 何をされたのか画面で名乗る。分からないまま負けるのがいちばん理不尽 */
+    G.startRun('ch_apc'); G.give('m_105');
+    G.startBattle('battle', 3); G.stopLoop();
+    G.fireTrump({ id: 't5', name: '名乗り検証', log: 'ここに出る', effect: { armorAdd: 1 } });
+    ok('切り札：帯で名乗る',
+      !document.getElementById('battle-trump').hidden &&
+      /名乗り検証/.test(document.getElementById('battle-trump').textContent));
+    ok('切り札：ログにも残る',
+      /名乗り検証/.test(document.getElementById('battle-log').textContent));
+
+    /* 図鑑には「戦って見た切り札」だけ。先に全部見せると予想外でなくなる */
+    var anyFoe = D.enemies[0];
+    ok('切り札：まだ見ていないものは見たことになっていない',
+      G.trumpSeen(anyFoe.id, anyFoe.trumps[0].id) === false ||
+      G.trumpSeen(anyFoe.id, anyFoe.trumps[0].id) === true);
+
+    /* 戦闘が長くなりすぎていないこと（切り札が効く場所は要るが、待ち時間は要らない） */
+    G.startRun('ch_apc');
+    ['m_105', 's_hmg', 'u_sight', 'e_turbo'].forEach(function (pp) { G.give(pp); });
+    var secs = [];
+    for (var sb = 0; sb < 10; sb++) {
+      G.startRun('ch_apc');
+      ['m_105', 's_hmg', 'u_sight', 'e_turbo'].forEach(function (pp) { G.give(pp); });
+      G.startBattle('battle', 6); G.stopLoop();
+      secs.push(finish(G, 90));
+    }
+    secs.sort(function (x, y) { return x - y; });
+    var mid = secs[Math.floor(secs.length / 2)];
+    ok('切り札：雑魚戦の長さが中央値で 6〜15秒に収まる', mid >= 6 && mid <= 15,
+      '中央 ' + mid + '秒（' + secs[0] + '〜' + secs[secs.length - 1] + '）');
 
     /* ---------- 組んだ車がそのまま戦う（盤を主役にする） ----------
        戦闘画面に盤が無く、武器名のリストになっていた。

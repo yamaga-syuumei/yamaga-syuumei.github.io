@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=6.9">
+<link rel="stylesheet" href="style.css?v=8.4">
 </head>
 <body>
 
@@ -189,6 +189,9 @@
           <button class="ss-plain" id="battle-speed">速度 x1</button>
         </span>
       </div>
+
+      <!-- 切り札が出た瞬間に名乗る帯。何をされたか分からないまま負けるのを避ける -->
+      <div class="ss-trumpbar" id="battle-trump" hidden></div>
 
       <div class="ss-field">
         <div class="ss-side ss-side-me">
@@ -497,12 +500,12 @@
 
 <div class="ss-toast" id="toast" hidden></div>
 
-<script src="data.js?v=6.9"></script>
-<script src="sfx.js?v=6.9"></script>
-<script src="art.js?v=6.9"></script>
-<script src="game.js?v=6.9"></script>
+<script src="data.js?v=8.4"></script>
+<script src="sfx.js?v=8.4"></script>
+<script src="art.js?v=8.4"></script>
+<script src="game.js?v=8.4"></script>
 <!-- ?test=1 のときだけ動く回帰テスト。普段の起動には影響しない -->
-<script src="test.js?v=6.9"></script>
+<script src="test.js?v=8.4"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

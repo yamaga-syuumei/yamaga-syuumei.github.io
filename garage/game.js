@@ -162,6 +162,18 @@
     META.seenEnemies[id] = true;
     saveMeta(); checkAchievements();
   }
+  /* 切り札は「戦って見たものだけ」図鑑に出す。先に全部見せると予想外でなくなる */
+  function markTrumpSeen(enemyId, trumpId) {
+    if (!META.seenTrumps) META.seenTrumps = {};
+    var k = enemyId + ':' + trumpId;
+    if (META.seenTrumps[k]) return;
+    META.seenTrumps[k] = true;
+    saveMeta();
+  }
+  function trumpSeen(enemyId, trumpId) {
+    return !!(META.seenTrumps && META.seenTrumps[enemyId + ':' + trumpId]);
+  }
+
   function markModSeen(id) {
     if (!META.seenMods) META.seenMods = {};
     if (META.seenMods[id]) return;
@@ -1913,8 +1925,15 @@
     if (!foe) return NODE_DESC[n.type];
     if (!META.seenEnemies[foe.id]) return NODE_DESC[n.type] + '（まだ見たことのない相手）';
     var s = scaleEnemy(foe, f);
+    /* 切り札は「持っている」ことだけ出す。中身を書くと予想外でなくなる。
+       戦って見たものだけ、何枚めくったかを出す */
+    var tr = '';
+    if (foe.trumps && foe.trumps.length) {
+      var seen = foe.trumps.filter(function (t) { return trumpSeen(foe.id, t.id); }).length;
+      tr = '\n切り札を隠している（見たことがあるのは ' + seen + ' / ' + foe.trumps.length + '）';
+    }
     return foe.name + '\n装甲 ' + s.armor + '　攻撃 ' + s.atk + '　体力 ' + s.hp +
-      (foe.trait ? '\n' + foe.trait : '') +
+      (foe.trait ? '\n' + foe.trait : '') + tr +
       (n.type === 'elite' ? '\n勝てば改造を1つ選べる' : '');
   }
 
@@ -2101,6 +2120,10 @@
       ramT: 0, over: false, speed: OPT.speed, last: 0,
       /* 敵の挙動で動く値。素の数値は foe に残したまま、ここに差分を持つ */
       bv: foe.behavior || {}, armorAdd: 0, hits: 0, baseInterval: foe.interval, dodged: 0,
+      /* 切り札。戦闘ごとに1枚だけ引く。何を引いたかは戦ってみるまで分からない。
+         これが戦闘に入った唯一の乱数（以前は戦闘中に乱数が一つも無かった） */
+      trump: (foe.trumps && foe.trumps.length) ? pick(foe.trumps) : null,
+      trumpDone: false, missUntil: -1, atkMult: 1,
       /* 負けたときに何が足りなかったか言うための記録 */
       tally: { dealt: 0, blocked: 0, taken: 0, shots: 0, dryT: 0, elapsed: 0 }
     };
@@ -2109,6 +2132,7 @@
     window.SFX.bgmMood(type === 'boss' ? 'boss' : type === 'elite' ? 'elite' : 'fight');
     $('battle-title').textContent = type === 'boss' ? 'ボス戦' : (type === 'elite' ? '賞金首' : '遭遇');
     $('battle-end').hidden = true;
+    $('battle-trump').hidden = true;
     $('battle-speed').textContent = '速度 x' + B.speed;
 
     renderBattleBoard();
@@ -2121,7 +2145,8 @@
     $('battle-foename').textContent = foe.name;
     /* 素の数値は上の行（battle-foestate）が毎秒出すので、ここは
        「何をしてくる相手か」だけにする */
-    $('battle-foeinfo').textContent = foe.bnote || foe.trait || '';
+    $('battle-foeinfo').textContent = (foe.bnote || foe.trait || '') +
+      (foe.trumps && foe.trumps.length ? '／切り札を隠している' : '');
 
     clear($('battle-log'));
     if (!tutSeen('battle')) {
@@ -2358,6 +2383,10 @@
   function advance(dt) {
     B.tally.elapsed += dt;
     foeBehavior(dt);
+    /* 切り札は装甲が半分を切ったら発動。撃って削った経路でも、
+       回復で戻ったあと再び切った経路でも拾えるよう、毎回ここで見る */
+    checkTrump();
+    if (B.over) return;
     var anyUsable = false;
 
     B.guns.forEach(function (g) {
@@ -2406,6 +2435,52 @@
   }
 
   /* 時間の経過で変わる敵の挙動。毎フレーム呼ぶ */
+  /* 切り札の発動。装甲が半分を切った瞬間に1回だけ。
+     短い戦闘でも必ず1回は起きるよう、時間ではなくHPで引く */
+  function checkTrump() {
+    if (!B.trump || B.trumpDone || B.over) return;
+    if (B.foeHp > B.foeMax * 0.5) return;
+    B.trumpDone = true;
+    fireTrump(B.trump);
+  }
+
+  function fireTrump(t) {
+    var e = t.effect || {};
+    if (e.heal) B.foeHp = Math.min(B.foeMax, B.foeHp + B.foeMax * e.heal);
+    if (e.hasten) { B.baseInterval *= e.hasten; B.foe.interval *= e.hasten; }
+    if (e.atkMult) B.atkMult *= e.atkMult;
+    if (e.armorAdd) B.armorAdd += e.armorAdd;
+    if (e.missFor) B.missUntil = B.tally.elapsed + e.missFor;
+    if (e.salvoFaster && B.foe.salvo) B.foe.salvo.every *= e.salvoFaster;
+    if (e.selfCut) B.foeHp = Math.max(1, B.foeHp * (1 - e.selfCut));
+
+    markTrumpSeen(B.foe.id, t.id);
+    announceTrump(t);
+    /* 特攻はその場で殴ってくる。宣言してから当てる（何をされたか分かるように） */
+    if (e.bigHit) foeAttack(e.bigHit, false, t.name);
+    updateIntent();
+    checkEnd();
+  }
+
+  /* 何をされたのかが分からないまま負けるのが、いちばん理不尽に感じる。
+     ログ・盤・帯の3つで名乗る */
+  function announceTrump(t) {
+    logLine('trump', '★ ' + B.foe.name + ' の切り札「' + t.name + '」　' + t.log);
+    var bar = $('battle-trump');
+    if (bar) {
+      clear(bar);
+      bar.appendChild(el('b', null, '切り札「' + t.name + '」'));
+      bar.appendChild(el('span', null, t.log));
+      bar.hidden = false;
+      bar.classList.remove('is-in');
+      void bar.offsetWidth;
+      bar.classList.add('is-in');
+    }
+    flash('foe');
+    impact(true);
+    window.SFX.special();
+  }
+
   function foeBehavior(dt) {
     var bv = B.bv;
     /* 加速・自己修復・じわじわ硬くなる相手はログに出ないまま効く。
@@ -2429,6 +2504,16 @@
     if (g.ammo != null) g.ammo--;
 
     markFire(g.uid);
+
+    /* 煙幕・粘液のあいだは当たらない。切り札の効き目が目に見えるように、
+       回避と同じ書き方でログに出す */
+    if (B.tally.elapsed < B.missUntil) {
+      B.tally.blocked += raw;
+      logLine('sys', g.name + ' は煙に阻まれた');
+      impact(false, true);
+      if (g.ammo === 0) logLine('sys', g.name + ' は弾切れ');
+      return;
+    }
 
     /* 回避する敵。重い一撃ほど損をするので、手数の構成が有利になる */
     B.hits++;
@@ -2472,12 +2557,13 @@
     checkEnd();
   }
 
-  function foeAttack(mult, salvo) {
-    var raw = Math.round(B.foe.atk * mult);
+  function foeAttack(mult, salvo, why) {
+    var raw = Math.round(B.foe.atk * mult * (B.atkMult || 1));
     var dealt = Math.max(1, raw - B.me.def);
     B.meHp -= dealt;
     B.tally.taken += dealt;
-    logLine('foe', (salvo ? '★一斉射撃！　' : '') + B.foe.name + 'の攻撃　' + dealt + ' ダメージ' +
+    logLine('foe', (salvo ? '★一斉射撃！　' : why ? '★' + why + '！　' : '') +
+      B.foe.name + 'の攻撃　' + dealt + ' ダメージ' +
       (B.me.def > 0 ? '（装甲が ' + Math.min(B.me.def, raw - 1) + ' 受けた）' : ''));
     window.SFX.damage();
     flash('me');
@@ -3035,6 +3121,18 @@
       bn.appendChild(el('em', 'is-down', e.bnote));
       b.appendChild(bn);
     }
+    /* 切り札は「戦って見たもの」だけ載せる。
+       全部先に載せると、次に戦うときの予想外が消える */
+    if (seen && e.trumps && e.trumps.length) {
+      var got = e.trumps.filter(function (t) { return trumpSeen(e.id, t.id); });
+      var tb = el('div', 'ss-trumplist');
+      tb.appendChild(el('i', null, '切り札　' + got.length + ' / ' + e.trumps.length + ' 枚を見た'));
+      e.trumps.forEach(function (t) {
+        tb.appendChild(el('em', trumpSeen(e.id, t.id) ? 'is-got' : '', 
+          trumpSeen(e.id, t.id) ? t.name : '？'));
+      });
+      b.appendChild(tb);
+    }
     return b;
   }
 
@@ -3208,7 +3306,7 @@
     /* 焚き火でできることは一つだけ。満タンで「修理する」を選ぶと、
        その1回を何も起きずに捨てることになるので選べなくする（店と同じ扱い） */
     var missing = S.maxHp - S.hp;
-    var heal = Math.min(missing, Math.ceil(S.maxHp * 0.55));
+    var heal = Math.min(missing, Math.ceil(S.maxHp * 0.65));
     box.appendChild(serviceButton0('修理する',
       missing > 0 ? '装甲を ' + heal + ' 回復（最大 ' + S.maxHp + '）' : '装甲は満タン。回復するものがない',
       function () {
@@ -3722,7 +3820,7 @@
       state: function () { return S; },
       meta: function () { return META; },
       resetMeta: function () {
-        META = { seenParts: {}, seenEnemies: {}, unlocked: {}, tut: {}, stats: { battlesWon: 0, clears: 0, bestFloor: 0, maxGold: 0, shoplessClears: 0, clearedChassis: {} } };
+        META = { seenParts: {}, seenEnemies: {}, seenTrumps: {}, unlocked: {}, tut: {}, stats: { battlesWon: 0, clears: 0, bestFloor: 0, maxGold: 0, shoplessClears: 0, clearedChassis: {} } };
         saveMeta();
       },
       openCodex: openCodex,
@@ -3749,6 +3847,8 @@
       pickTip: pickTip,
       tipLog: tipLog,
       renderTip: renderTip,
+      trumpSeen: trumpSeen,
+      fireTrump: fireTrump,
       checkAchievements: checkAchievements,
       save: save,
       build: build,
@@ -3775,6 +3875,10 @@
         return { win: wins + '/' + times, avgHpLeft: Math.round(hpLeft / Math.max(1, wins)), avgSec: r1(secs / times) };
       },
       startRun: startRun,
+      /* 階を指定して戦闘を始める。warpTo はマップ上の最初のノードしか取れず、
+         階層別のバランスが測れなかった */
+      startBattle: startBattle,
+      stopLoop: stopLoop,
       enterNode: enterNode,
       renderMap: renderMap,
       renderPick: renderPick,
