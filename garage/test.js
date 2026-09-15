@@ -30,6 +30,10 @@
     var hit = D.parts.filter(function (p) { return p.id === id; })[0];
     return hit ? hit.name : null;
   }
+  function isWeaponKind(D, pid) {
+    var p = D.parts.filter(function (x) { return x.id === pid; })[0];
+    return !!p && ['main', 'sub', 'special'].indexOf(p.kind) >= 0;
+  }
   function weaponIn(build, name) {
     return build.weapons.filter(function (w) { return w.name === name; })[0] || null;
   }
@@ -722,6 +726,99 @@
       document.getElementById('swap-ask').hidden &&
       G.state().parts[G.state().parts.length - 1].x != null);
 
+    /* ---------- 効いている隣接を盤に描く ----------
+       熱はマスの色で盤に描いてあるのに、隣接は一本も描かれていなかった。
+       出ていたのは武器に付く ★2 だけで、どの補助が効いているかも、
+       補助の側が効いているかも分からなかった。
+       自動配置（最良の場合）でも補助部品の29〜40%がどの武器にも効いていない */
+
+    /* 効いている組み合わせを盤に線で出す */
+    G.startRun('ch_apc');
+    ['m_105', 's_hmg', 'u_sight', 'u_ammo'].forEach(function (pp) { G.give(pp); });
+    G.state().map.cur = null;
+    G.renderGarage();
+    var links = G.auraLinks();
+    ok('隣接：効いている組み合わせがある', links.length > 0, String(links.length));
+    ok('隣接：組み合わせの数だけ盤に線が引かれる',
+      document.querySelectorAll('#grid .ss-link').length === links.length,
+      document.querySelectorAll('#grid .ss-link').length + ' / ' + links.length);
+    ok('隣接：線は補助から武器へ向いている',
+      links.every(function (L) {
+        return isWeaponKind(D, L.to.pid) && !isWeaponKind(D, L.from.pid);
+      }));
+
+    /* 武器の ★ が「何が効いているか」まで持つ。数字だけでは動かす理由にならない */
+    var starred = [].slice.call(document.querySelectorAll('#grid .ss-linked'));
+    ok('隣接：★に効いている補助の名前が入る',
+      starred.length > 0 && starred.every(function (n) { return /効いている補助：.+/.test(n.title); }),
+      starred.map(function (n) { return n.title; }).join(' / '));
+
+    /* 部品の役割が絵で分かる（色つきの四角が並ぶだけでは何なのか分からなかった） */
+    var kinded = document.querySelectorAll('#grid .ss-item[class*="is-kind-"]');
+    ok('隣接：盤の部品に役割の印が付く',
+      kinded.length === G.state().parts.filter(function (pp) { return pp.x != null; }).length,
+      kinded.length + ' 個');
+
+    /* 効いていない補助部品に印が出る。いままで無言で死んでいた */
+    G.startRun('ch_ogre');
+    var sp = G.state();
+    sp.parts.forEach(function (pp) { pp.x = null; pp.y = null; });
+    G.give('m_105'); G.give('u_sight');
+    var sight = sp.parts.filter(function (pp) { return pp.pid === 'u_sight'; })[0];
+    var gun = sp.parts.filter(function (pp) { return pp.pid === 'm_105'; })[0];
+    gun.x = 0; gun.y = 0; sight.x = 4; sight.y = 3;
+    sp.map.cur = null;
+    G.renderGarage();
+    ok('隣接：どの武器にも届いていない補助が数えられる', G.helperWorking(sight) === 0);
+    ok('隣接：効いていない補助に印が出る',
+      document.querySelectorAll('#grid .ss-item.is-idle').length === 1,
+      String(document.querySelectorAll('#grid .ss-item.is-idle').length));
+    ok('隣接：効いていないときは線が引かれない',
+      document.querySelectorAll('#grid .ss-link').length === 0);
+
+    /* 隣に動かせば効く。印が消えて線が出る */
+    sight.x = 3; sight.y = 0;
+    G.renderGarage();
+    ok('隣接：隣へ動かすと効くようになる', G.helperWorking(sight) > 0,
+      '効いている武器 ' + G.helperWorking(sight) + ' 門');
+    ok('隣接：効くようになると印が消えて線が出る',
+      document.querySelectorAll('#grid .ss-item.is-idle').length === 0 &&
+      document.querySelectorAll('#grid .ss-link').length > 0);
+
+    /* つかんでいる間、置いたら効く武器が光る。置く前に分かるようにする */
+    sight.x = 4; sight.y = 3;
+    G.renderGarage();
+    var sNode = [].slice.call(document.querySelectorAll('#grid .ss-item'))
+      .filter(function (n) { return String(n.dataset.uid) === String(sight.uid); })[0];
+    var gridBox = document.getElementById('grid').getBoundingClientRect();
+    if (sNode && gridBox.width > 0) {
+      function pev(type, node, x, y) {
+        node.dispatchEvent(new PointerEvent(type, {
+          bubbles: true, cancelable: true, clientX: x, clientY: y,
+          pointerId: 1, isPrimary: true, button: 0, buttons: type === 'pointerup' ? 0 : 1
+        }));
+      }
+      var sb = sNode.getBoundingClientRect();
+      var cw = gridBox.width / 5;
+      pev('pointerdown', sNode, sb.left + sb.width / 2, sb.top + sb.height / 2);
+      pev('pointermove', document, gridBox.left + cw * 3 + cw / 2, gridBox.top + cw / 2);
+      var reach = document.querySelectorAll('#grid .ss-item.is-reach').length;
+      pev('pointerup', document, gridBox.left + cw * 3 + cw / 2, gridBox.top + cw / 2);
+      ok('隣接：補助をつかむと、置いたら効く武器が光る', reach > 0, String(reach));
+    }
+
+    /* 冷却器も「届いているか」で数える（熱の色だけでは自分が効いているか分からない） */
+    G.startRun('ch_ogre');
+    var sc = G.state();
+    sc.parts.forEach(function (pp) { pp.x = null; pp.y = null; });
+    G.give('m_105'); G.give('u_cool');
+    var cool = sc.parts.filter(function (pp) { return pp.pid === 'u_cool'; })[0];
+    var gun2 = sc.parts.filter(function (pp) { return pp.pid === 'm_105'; })[0];
+    gun2.x = 0; gun2.y = 0; cool.x = 4; cool.y = 3;
+    ok('隣接：冷却器も届いていなければ 0', G.helperWorking(cool) === 0);
+    cool.x = 3; cool.y = 0;
+    ok('隣接：冷却器を隣へ動かせば届く', G.helperWorking(cool) > 0);
+
     /* ---------- 切り札（戦いを毎回ちがうものにする） ----------
        戦闘に乱数が一つも無く、同じ構成で同じ敵と戦うとボス戦10回が
        27.75秒・残装甲0% で完全に同一だった。ノードを押した瞬間に結果が
@@ -848,20 +945,34 @@
       G.trumpSeen(anyFoe.id, anyFoe.trumps[0].id) === false ||
       G.trumpSeen(anyFoe.id, anyFoe.trumps[0].id) === true);
 
-    /* 戦闘が長くなりすぎていないこと（切り札が効く場所は要るが、待ち時間は要らない） */
-    G.startRun('ch_apc');
-    ['m_105', 's_hmg', 'u_sight', 'e_turbo'].forEach(function (pp) { G.give(pp); });
-    var secs = [];
-    for (var sb = 0; sb < 10; sb++) {
+    /* 戦闘が長くなりすぎていないこと（切り札が効く場所は要るが、待ち時間は要らない）。
+
+       最初はランダムな相手で中央値を見ていたが、**相手によって4秒と32秒に割れる**ため
+       テストが日によって落ちた。相手を固定して、速い相手と遅い相手の両端を縛る。
+       平均に均すと、いちばん見たい「特定の相手だけ作業になる」が隠れてしまう */
+    function ttkVs(foeId, floor) {
       G.startRun('ch_apc');
       ['m_105', 's_hmg', 'u_sight', 'e_turbo'].forEach(function (pp) { G.give(pp); });
-      G.startBattle('battle', 6); G.stopLoop();
-      secs.push(finish(G, 90));
+      G.startBattle('battle', floor); G.stopLoop();
+      var B = G.battle();
+      var foe = D.enemies.filter(function (e) { return e.id === foeId; })[0];
+      var sc = Math.pow(1 + D.run.scaleHp, floor);
+      B.foe = JSON.parse(JSON.stringify(foe));
+      B.foe.hp = Math.round(foe.hp * sc); B.foeHp = B.foe.hp; B.foeMax = B.foe.hp;
+      B.bv = foe.behavior || {}; B.baseInterval = foe.interval;
+      B.armorAdd = 0; B.hits = 0; B.dodged = 0;
+      B.trump = foe.trumps[0]; B.trumpDone = false;   // 抽選を外して測る
+      B.missUntil = -1; B.atkMult = 1;
+      B.tally = { dealt: 0, blocked: 0, taken: 0, shots: 0, dryT: 0, elapsed: 0 };
+      return finish(G, 120);
     }
-    secs.sort(function (x, y) { return x - y; });
-    var mid = secs[Math.floor(secs.length / 2)];
-    ok('切り札：雑魚戦の長さが中央値で 6〜15秒に収まる', mid >= 6 && mid <= 15,
-      '中央 ' + mid + '秒（' + secs[0] + '〜' + secs[secs.length - 1] + '）');
+    var tFast = ttkVs('en_drone', 6);
+    var tSlow = ttkVs('en_golem', 6);
+    ok('切り札：いちばん速い相手でも3秒では終わらない（敵が1回しか殴らない非・戦闘に戻さない）',
+      tFast >= 4, tFast + '秒');
+    ok('切り札：いちばん遅い相手でも作業にならない（20秒以内）', tSlow <= 20, tSlow + '秒');
+    ok('切り札：速い相手と遅い相手の差が3倍を超えない',
+      tSlow <= tFast * 3, '速い' + tFast + '秒 / 遅い' + tSlow + '秒');
 
     /* ---------- 組んだ車がそのまま戦う（盤を主役にする） ----------
        戦闘画面に盤が無く、武器名のリストになっていた。

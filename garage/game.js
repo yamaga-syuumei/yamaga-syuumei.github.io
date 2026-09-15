@@ -713,6 +713,73 @@
     return sum;
   }
 
+  /* ----------------------------------------------------------
+     効いている組み合わせ
+
+     熱はマスの色で盤に描いてある（①）のに、隣接は描かれていなかった。
+     盤に出ていたのは武器に付く ★2 というバッジだけで、
+     **どの補助が効いているかも、補助の側が効いているかも分からなかった。**
+
+     自動配置（⑦で隣接を見るようにした＝最良の場合）で測ると、
+     補助部品の 29〜40% がどの武器にも効いていない。
+     2門に効いている補助と、1門にも効いていない補助が、盤の上で同じ見た目だった。
+     ---------------------------------------------------------- */
+
+  /* 補助部品が効く相手になりうるか（弾薬箱・照準装置＝武器を強化するもの） */
+  function isHelper(inst) { return !!eff(inst).aura; }
+
+  /* [{ from: 補助, to: 武器 }] を全部返す。auraFor は武器1つぶんの合計しか持たず、
+     「どの補助が、どの武器に」までは分からないので、ここで組み合わせを作る */
+  function auraLinks() {
+    var out = [];
+    var ps = placed();
+    var weapons = ps.filter(function (i) { return isWeapon(PART_BY_ID[i.pid].kind); });
+    var helpers = ps.filter(isHelper);
+    weapons.forEach(function (w) {
+      helpers.forEach(function (h) {
+        if (h.uid !== w.uid && touching(w, h)) out.push({ from: h, to: w });
+      });
+    });
+    return out;
+  }
+
+  /* 補助部品（冷却器を含む）が、隣の武器に届いているか。
+     届いていないものは盤の上で無言のまま死んでいた */
+  function helperWorking(inst) {
+    var e = eff(inst);
+    if (!e.aura && !e.cool) return null;   // 補助ではない
+    var n = 0;
+    placed().forEach(function (i) {
+      if (i.uid === inst.uid) return;
+      if (!isWeapon(PART_BY_ID[i.pid].kind)) return;
+      if (touching(i, inst)) n++;
+    });
+    return n;
+  }
+
+  /* 接している辺を1つ見つけて、そこを跨ぐ短い線の両端を返す。
+     部品の中心どうしを結ぶと盤が線だらけになるので、
+     「触れている辺に留め具を打つ」形にする */
+  function linkMark(h, w, cell) {
+    var hc = {};
+    instCells(h).forEach(function (c) { hc[(h.x + c[0]) + ',' + (h.y + c[1])] = true; });
+    var hit = null;
+    instCells(w).forEach(function (c) {
+      if (hit) return;
+      var x = w.x + c[0], y = w.y + c[1];
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
+        if (hit) return;
+        if (hc[(x + d[0]) + ',' + (y + d[1])]) hit = { x: x, y: y, d: d };
+      });
+    });
+    if (!hit) return null;
+    var ex = (hit.x + 0.5 + hit.d[0] * 0.5) * cell;
+    var ey = (hit.y + 0.5 + hit.d[1] * 0.5) * cell;
+    var len = cell * 0.26;
+    return { x1: ex - hit.d[0] * len, y1: ey - hit.d[1] * len,
+             x2: ex + hit.d[0] * len, y2: ey + hit.d[1] * len, cx: ex, cy: ey };
+  }
+
   /* 補助部品が今いくつの武器に効いているか（UIの表示用） */
   function auraTargets(supportInst) {
     var n = 0;
@@ -1193,6 +1260,9 @@
         grid.appendChild(c);
       }
     }
+    /* 効いている隣接を盤に描く。部品より下に敷いて、絵を隠さない */
+    grid.appendChild(auraLayer(cell));
+
     placed().forEach(function (inst) {
       var node = makeItemNode(inst, cell, b.heat);
       node.style.left = (inst.x * cell) + 'px';
@@ -1299,9 +1369,18 @@
     paintPart(cv, inst, cell);
     node.appendChild(cv);
     if ((inst.lvl || 1) > 1) node.appendChild(el('span', 'ss-lvl', '+' + (inst.lvl - 1)));
+    /* 武器／補助／機関を絵で見分けられるようにする。
+       色つきの四角が並んでいるだけでは、どれが何なのか分からなかった */
+    node.classList.add('is-kind-' + PART_BY_ID[inst.pid].kind);
+
     if (inst.x != null && isWeapon(PART_BY_ID[inst.pid].kind)) {
       var a = auraFor(inst);
-      if (a.list.length) node.appendChild(el('span', 'ss-linked', '★' + a.list.length));
+      if (a.list.length) {
+        /* ★の数だけでは「何が効いているか」が分からない。中身を持たせる */
+        var lk = el('span', 'ss-linked', '★' + a.list.length);
+        lk.title = '効いている補助：' + a.list.join('・');
+        node.appendChild(lk);
+      }
       /* 過熱している武器は盤の上で一目で分かるようにする */
       if (heat) {
         var hw = weaponHeat(inst, heat);
@@ -1312,6 +1391,20 @@
         }
       }
     }
+    /* 補助部品が隣の武器に届いているか。届いていないものは、
+       いままで盤の上で無言のまま死んでいた（自動配置でも3〜4割） */
+    if (inst.x != null) {
+      var hw = helperWorking(inst);
+      if (hw === 0) {
+        node.classList.add('is-idle');
+        var idle = el('span', 'ss-idle', '効いていない');
+        idle.title = '隣に武器がないので、この部品は何も強化していない';
+        node.appendChild(idle);
+      } else if (hw > 0) {
+        node.classList.add('is-helping');
+      }
+    }
+
     /* 倉庫で眠っているが、盤の1個と入れ替えれば載るもの。
        印が無いと、下までスクロールしても「置けない部品の山」にしか見えない */
     if (inst.x == null && canSwapIn(inst)) {
@@ -1372,6 +1465,34 @@
     return function (x, y) {
       return !!(ch.blocked && ch.blocked.indexOf(x + ',' + y) >= 0);
     };
+  }
+
+  /* 触れている辺に留め具を打つ。線が部品の絵を横切らないので、
+     熱の色（①）と喧嘩しない */
+  function auraLayer(cell) {
+    var ch = chassis();
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'ss-links');
+    svg.setAttribute('viewBox', '0 0 ' + (ch.cols * cell) + ' ' + (ch.rows * cell));
+    svg.setAttribute('width', ch.cols * cell);
+    svg.setAttribute('height', ch.rows * cell);
+    auraLinks().forEach(function (L) {
+      var m = linkMark(L.from, L.to, cell);
+      if (!m) return;
+      var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', m.x1); line.setAttribute('y1', m.y1);
+      line.setAttribute('x2', m.x2); line.setAttribute('y2', m.y2);
+      line.setAttribute('class', 'ss-link');
+      line.dataset.from = L.from.uid; line.dataset.to = L.to.uid;
+      svg.appendChild(line);
+      var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', m.cx); dot.setAttribute('cy', m.cy);
+      dot.setAttribute('r', Math.max(2, cell * 0.055));
+      dot.setAttribute('class', 'ss-linkdot');
+      dot.dataset.from = L.from.uid; dot.dataset.to = L.to.uid;
+      svg.appendChild(dot);
+    });
+    return svg;
   }
 
   function renderDetail() {
@@ -1631,8 +1752,8 @@
     for (var i = 0; i < cells.length; i++) {
       cells[i].classList.remove('is-hint', 'is-bad', 'is-swap');
     }
-    var items = $('grid').querySelectorAll('.ss-item.is-victim');
-    for (var j = 0; j < items.length; j++) items[j].classList.remove('is-victim');
+    var items = $('grid').querySelectorAll('.ss-item.is-victim, .ss-item.is-reach');
+    for (var j = 0; j < items.length; j++) items[j].classList.remove('is-victim', 'is-reach');
   }
 
   function targetCell(px, py) {
@@ -1662,6 +1783,20 @@
       var node = $('grid').querySelector('.ss-gridcell[data-gx="' + x + '"][data-gy="' + y + '"]');
       if (node) node.classList.add(cls);
     });
+    /* 補助部品をつかんでいる間、そこへ置いたら効く武器を光らせる。
+       置いたあとに ★ の数字が変わるだけでは、動かす理由が生まれない */
+    var he = eff(held);
+    if (he.aura || he.cool) {
+      var probe = { uid: held.uid, pid: held.pid, lvl: held.lvl, wcut: held.wcut,
+                    rot: held.rot, x: t.x, y: t.y };
+      placed().forEach(function (i) {
+        if (i.uid === held.uid || !isWeapon(PART_BY_ID[i.pid].kind)) return;
+        if (!touching(i, probe)) return;
+        var n = $('grid').querySelector('.ss-item[data-uid="' + i.uid + '"]');
+        if (n) n.classList.add('is-reach');
+      });
+    }
+
     /* 降ろされる相手も光らせる。どれが倉庫へ行くのか分からないまま落とさせない */
     if (bl && bl.length === 1) {
       var victim = $('grid').querySelector('.ss-item[data-uid="' + bl[0].uid + '"]');
@@ -3836,6 +3971,8 @@
       carScore: carScore,
       applySwap: applySwap,
       fitInfo: fitInfo,
+      auraLinks: auraLinks,
+      helperWorking: helperWorking,
       takePart: takePart,
       closeSwapAsk: closeSwapAsk,
       autoPlace: autoPlace,

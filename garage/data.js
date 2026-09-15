@@ -241,8 +241,8 @@ window.GAME_DATA = (function () {
       ] },
 
     { id: 'en_golem', name: '廃車ゴーレム', tier: 'mob',
-      hp: 190, armor: 4, atk: 15, interval: 4.2, gold: 40, art: 'golem', minFloor: 3,
-      behavior: { armorPerHit: 1, armorMax: 6 },
+      hp: 150, armor: 4, atk: 15, interval: 4.2, gold: 40, art: 'golem', minFloor: 3,
+      behavior: { armorPerHit: 1, armorMax: 4 },
       bnote: '撃たれるたびに鉄屑を寄せて硬くなる。手数では固まるだけ',
       trumps: [
         { id: 'tr_plate', name: '装甲板を展開', log: '廃車の扉をかき集めて前面に貼りつけた',

@@ -200,6 +200,43 @@ html.no-motion .ss-screen { animation: none; }
 .ss-pick .ss-picknums b { color: var(--amber); font-variant-numeric: tabular-nums; }
 .ss-pick .ss-picknote { color: var(--ink-2); font-size: 12.5px; }
 
+/* ---------- 効いている隣接 ----------
+   熱はマスの色で描いてあるのに、隣接は盤に一本も描かれていなかった。
+   部品の中心どうしを結ぶと線だらけになるので、触れている辺に留め具を打つ */
+.ss-links { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 1; }
+.ss-link { stroke: var(--amber); stroke-width: 3; stroke-linecap: round; opacity: .9; }
+.ss-linkdot { fill: #ffe9a0; opacity: .95; }
+html.no-motion .ss-link { opacity: .9; }
+
+/* 補助部品が隣の武器に届いていない。いままで無言で死んでいた */
+.ss-item.is-idle { box-shadow: 0 0 0 2px rgba(255,90,60,.8); }
+.ss-item .ss-idle {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 2px;
+  font-size: 9px; font-weight: 800; white-space: nowrap;
+  color: #ffd9cf; background: rgba(160,40,20,.9); border-radius: 3px; padding: 0 4px; line-height: 1.5;
+}
+/* 届いている補助は静かに下線だけ（線と印で二重に主張しない） */
+.ss-item.is-helping { box-shadow: inset 0 -3px 0 rgba(232,179,85,.75); }
+
+/* つかんでいる間、置いたら効く武器 */
+.ss-item.is-reach { box-shadow: 0 0 0 3px var(--amber); z-index: 3; }
+
+/* 部品の役割を絵で分ける。色つきの四角が並ぶだけでは何なのか分からなかった */
+.ss-item.is-kind-main::before, .ss-item.is-kind-sub::before,
+.ss-item.is-kind-special::before, .ss-item.is-kind-support::before,
+.ss-item.is-kind-engine::before, .ss-item.is-kind-cunit::before {
+  content: ''; position: absolute; left: 0; top: 0; width: 0; height: 0;
+  border-style: solid; border-width: 9px 9px 0 0; pointer-events: none;
+}
+.ss-item.is-kind-main::before,
+.ss-item.is-kind-sub::before,
+.ss-item.is-kind-special::before { border-color: rgba(255,90,60,.9) transparent transparent transparent; }
+.ss-item.is-kind-support::before { border-color: rgba(232,179,85,.95) transparent transparent transparent; }
+.ss-item.is-kind-engine::before,
+.ss-item.is-kind-cunit::before { border-color: rgba(61,139,224,.9) transparent transparent transparent; }
+/* 倉庫の小さい表示では邪魔なので出さない */
+.ss-stash .ss-item::before { display: none; }
+
 /* ---------- 盤（読むだけ。戦闘・車体選択で使う） ---------- */
 .ss-sgrid {
   position: relative; background: #10151a;
