@@ -155,6 +155,72 @@
   var ctx = cv.getContext('2d');
   var ctx2 = cv2.getContext('2d');
 
+  /* ---------- 光の切り取り ----------
+
+     ぼかし（shadowBlur）を加算合成（lighter）のまま描くと、Chrome は速い経路を使えず、
+     描画1回ごとに「キャンバス全面ぶん」の作業レイヤを確保してぼかして合成する。
+     ぼかす図形がどれだけ小さくても全面ぶん。だから画面が広いほど重くなる。
+
+     直し方は「ぼかすのはこの範囲だけ」と切り取ってから描くだけ。絵は変わらない。
+     実測（1920x1080・上の層）：95.7ms → 36.5ms。
+     違う画素は 200万中 817個（切り取りの端。目では見えない）。
+
+     切り取る範囲は描画のたびに変わるので、呼び出し側に書かせると漏れる。
+     ここで包んで、描く側は何も知らなくていいようにする。 */
+  function clipGlow(g) {
+    if (typeof Path2D === 'undefined' || !g.getTransform) return;   // 古い実装では何もしない
+
+    /* いま組み立てている図形が、どこからどこまでを占めるか */
+    var bb = null;
+    function add(x, y) {
+      if (!bb) { bb = { x0: x, y0: y, x1: x, y1: y }; return; }
+      if (x < bb.x0) bb.x0 = x;
+      if (x > bb.x1) bb.x1 = x;
+      if (y < bb.y0) bb.y0 = y;
+      if (y > bb.y1) bb.y1 = y;
+    }
+    var oBegin = g.beginPath, oArc = g.arc, oMove = g.moveTo, oLine = g.lineTo, oRect = g.rect;
+    g.beginPath = function () { bb = null; return oBegin.apply(this, arguments); };
+    g.arc = function (x, y, r) { add(x - r, y - r); add(x + r, y + r); return oArc.apply(this, arguments); };
+    g.moveTo = function (x, y) { add(x, y); return oMove.apply(this, arguments); };
+    g.lineTo = function (x, y) { add(x, y); return oLine.apply(this, arguments); };
+    g.rect = function (x, y, w, h) { add(x, y); add(x + w, y + h); return oRect.apply(this, arguments); };
+
+    function wrap(name, boxOf) {
+      var orig = g[name];
+      g[name] = function () {
+        /* 重いのは「ぼかし × 加算合成」の組み合わせだけ。それ以外は素通しでいい */
+        if (!DBG.clip || !(this.shadowBlur > 0) || this.globalCompositeOperation !== 'lighter')
+          return orig.apply(this, arguments);
+        var b = boxOf.call(this, arguments);
+        if (!b) return orig.apply(this, arguments);
+        /* にじみは外へ広がる。ぼかし幅と線の太さぶん余裕を取る。
+           足りないと光の裾が切れる。多すぎても遅くなるだけで絵は正しい */
+        var t = this.getTransform(), s = Math.hypot(t.a, t.b) || 1;
+        var pad = this.shadowBlur / s + (this.lineWidth || 0) + 4;
+        var p = new Path2D();
+        p.rect(b.x0 - pad, b.y0 - pad, (b.x1 - b.x0) + pad * 2, (b.y1 - b.y0) + pad * 2);
+        this.save();
+        this.clip(p);
+        var r = orig.apply(this, arguments);
+        this.restore();
+        return r;
+      };
+    }
+    wrap('stroke', function () { return bb; });
+    wrap('fill', function () { return bb; });
+    wrap('fillRect', function (a) { return { x0: a[0], y0: a[1], x1: a[0] + a[2], y1: a[1] + a[3] }; });
+    wrap('fillText', function (a) {
+      /* 文字は図形を組み立てないので、幅を測って範囲を出す */
+      var w = this.measureText(a[0]).width, h = (parseFloat(this.font) || 20) * 1.5;
+      var x = a[1], y = a[2];
+      if (this.textAlign === 'center') x -= w / 2;
+      else if (this.textAlign === 'right' || this.textAlign === 'end') x -= w;
+      return { x0: x, y0: y - h, x1: x + w, y1: y + h * 0.4 };
+    });
+  }
+  clipGlow(ctx2);
+
   var view = { scale: 1, ox: 0, oy: 0, w: 0, h: 0 };
   var shapes = [], arrows = [], parts = [], seq = 0;
   var shards = [];                    // 縁を越えて砕けた欠片
@@ -182,7 +248,7 @@
   /* 計測用の切り替え。?tune=1 の「計測」ボタンが順に切り替えて fps を測る。
      JS側が 0.4ms しかかかっていないのに 21fps だったので、
      遅いのは描画命令を実際に塗る工程にある。どの塗りが重いのかを機械的に潰す */
-  var DBG = { low: 1, top: 1, lighter: 1, res: 1 };
+  var DBG = { low: 1, top: 1, lighter: 1, res: 1, clip: 1 };
   var texts = [];                     // 得点をその場に浮かせる
   /* 連鎖は「盤面のどこかで融合が続いている間」を1本と数える。
      塊ごとに数えると画面に小さい数字が散らばって連鎖に見えない（落ち物の数え方に寄せる） */
@@ -1654,7 +1720,9 @@
       { n: '軌跡の層を描かない',  f: function () { DBG.low = 0; } },
       { n: '上の層を描かない',    f: function () { DBG.top = 0; } },
       { n: '加算合成なし',       f: function () { DBG.lighter = 0; } },
-      { n: '解像度を半分',       f: function () { DBG.res = 0.5; resize(); } }
+      { n: '解像度を半分',       f: function () { DBG.res = 0.5; resize(); } },
+      /* 光の切り取りを外すと直す前に戻る。効きが落ちていないか見るための行 */
+      { n: '範囲を切らない',     f: function () { DBG.clip = 0; } }
     ];
     var REPS = 8;                  // 1フレームあたりの描画回数。vsync の上限を外すため
     var ROUNDS = 6;                // 各設定を何フレーム分測るか
@@ -1662,7 +1730,7 @@
 
     function reset() {
       P.glow = snap.glow; P.preview = snap.preview;
-      DBG.low = 1; DBG.top = 1; DBG.lighter = 1;
+      DBG.low = 1; DBG.top = 1; DBG.lighter = 1; DBG.clip = 1;
       if (DBG.res !== 1) { DBG.res = 1; resize(); }
     }
     function show(t) { if (box) { box.hidden = false; box.innerHTML = t; } }
