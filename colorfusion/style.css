@@ -121,3 +121,22 @@ html, body {
 .credits a { color: #8fd8ff; }
 .ver { margin-top: 8px; color: rgba(140,180,220,.5); font-size: 11px; text-align: right; }
 .hud.bare { justify-content: flex-end; }
+
+/* 計測結果。クリックで閉じる */
+.bench {
+  position: fixed; z-index: 6;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  min-width: 260px;
+  background: rgba(8,16,28,.96);
+  border: 1px solid rgba(120,180,255,.4);
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-size: 13px; color: #cfe6ff;
+  cursor: pointer;
+}
+.bench table { border-collapse: collapse; margin-top: 8px; width: 100%; }
+.bench th, .bench td { padding: 3px 10px 3px 0; text-align: left; }
+.bench th { color: rgba(160,200,240,.6); font-weight: 400; font-size: 11px; }
+.bench td:nth-child(2), .bench td:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
+.bench p { margin-top: 8px; color: rgba(160,200,240,.6); font-size: 11px; }
+.bench .cl { color: rgba(140,180,220,.45); }

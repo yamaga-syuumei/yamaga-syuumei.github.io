@@ -179,6 +179,10 @@
      キャンバスの描画はGPUに積むだけなので CPU 側の時間は下限でしかないが、
      どこかが突出していれば見える */
   var prof = { up: 0, low: 0, top: 0 };
+  /* 計測用の切り替え。?tune=1 の「計測」ボタンが順に切り替えて fps を測る。
+     JS側が 0.4ms しかかかっていないのに 21fps だったので、
+     遅いのは描画命令を実際に塗る工程にある。どの塗りが重いのかを機械的に潰す */
+  var DBG = { low: 1, top: 1, lighter: 1, res: 1 };
   var texts = [];                     // 得点をその場に浮かせる
   /* 連鎖は「盤面のどこかで融合が続いている間」を1本と数える。
      塊ごとに数えると画面に小さい数字が散らばって連鎖に見えない（落ち物の数え方に寄せる） */
@@ -283,7 +287,7 @@
   var FIELD_PX_CAP = 1500;
 
   function dprFor(w, h) {
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var dpr = Math.min(window.devicePixelRatio || 1, 2) * DBG.res;
     var fieldPx = Math.min(w, h) * dpr;        // 仮想1000ぶんのデバイスピクセル
     if (fieldPx > FIELD_PX_CAP) dpr *= FIELD_PX_CAP / fieldPx;
     return dpr;
@@ -1163,6 +1167,7 @@
     /* 下の層：消さずに黒を薄く重ねる。動いたものが尾を引く */
     /* 下の層は消さずに黒を薄く重ねる。動いたものが光の帯を引く。
        加算合成にすると同じ場所に足し続けて尾が白く飽和するので使わない */
+    if (DBG.low) {
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = 'rgba(5,7,13,' + P.trail + ')';
@@ -1173,18 +1178,22 @@
       if (shapes[i].frag) drawSpark(shapes[i]); else drawEnergy(shapes[i]);
     }
     drawShards();
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = DBG.lighter ? 'lighter' : 'source-over';
     drawParts();
     ctx.restore();
+    }
     var _t1 = performance.now();
 
     /* 上の層：毎フレーム消す */
     ctx2.save();
     ctx2.clearRect(0, 0, view.w, view.h);
+    if (!DBG.top) { ctx2.restore(); prof.low += (_t1 - _t0 - prof.low) * 0.05;
+                    prof.top += (performance.now() - _t1 - prof.top) * 0.05;
+                    showStat(); return; }
     ctx2.translate(view.ox, view.oy);
     ctx2.scale(view.scale, view.scale);
     drawVignette();
-    ctx2.globalCompositeOperation = 'lighter';
+    ctx2.globalCompositeOperation = DBG.lighter ? 'lighter' : 'source-over';
 
     if (heat > 0.01) {
       var hg = ctx2.createRadialGradient(CX, CY, 0, CX, CY, VW * 0.75);
@@ -1238,6 +1247,10 @@
     prof.low += (_t1 - _t0 - prof.low) * 0.05;
     prof.top += (performance.now() - _t1 - prof.top) * 0.05;
 
+    showStat();
+  }
+
+  function showStat() {
     var el = document.getElementById('stat');
     if (el) {
       el.textContent = 'SCORE ' + Math.round(score) + ' ／ BEST ' + Math.round(high) +
@@ -1550,12 +1563,18 @@
   }
 
   /* 調整パネルは開発用。URL に ?tune=1 を付けたときだけ出す */
+  var benchBox = document.getElementById('bench');
+  if (benchBox) benchBox.addEventListener('click', function () { benchBox.hidden = true; });
+  var benchBtn = document.getElementById('bench-btn');
+
   var panel = document.getElementById('panel');
   var tuneBtn = document.getElementById('tune');
   if (/[?&]tune=1/.test(location.search)) {
     tuneBtn.addEventListener('click', function () { panel.hidden = !panel.hidden; });
+    if (benchBtn) benchBtn.addEventListener('click', function () { runBench(); });
   } else {
     tuneBtn.hidden = true;
+    if (benchBtn) benchBtn.hidden = true;
     document.getElementById('stat').hidden = true;
     document.querySelector('.hud').classList.add('bare');
   }
@@ -1596,6 +1615,77 @@
     SFX.unlock(); startRun();
   });
 
+  /* ---------- 計測 ----------
+     JS側の時間ではなく、実際に出たフレーム数を測る。
+     描画の設定を1つずつ落としながら fps を比べて、どの塗りが重いのかを特定する */
+
+  function runBench(done) {
+    var box = document.getElementById('bench');
+    var snap = { glow: P.glow, preview: P.preview, stages: P.stages,
+                 drain: P.drain, colors: P.colors, spawn: P.spawnEvery };
+    var cfgs = [
+      { n: 'いまのまま',        f: function () {} },
+      { n: '発光なし',          f: function () { P.glow = 0; } },
+      { n: '先読みなし',        f: function () { P.preview = 0; } },
+      { n: '軌跡の層を描かない', f: function () { DBG.low = 0; } },
+      { n: '上の層を描かない',   f: function () { DBG.top = 0; } },
+      { n: '加算合成なし',      f: function () { DBG.lighter = 0; } },
+      { n: '解像度を半分',      f: function () { DBG.res = 0.5; resize(); } }
+    ];
+    var res = [];
+    var i = 0;
+
+    function reset() {
+      P.glow = snap.glow; P.preview = snap.preview;
+      DBG.low = 1; DBG.top = 1; DBG.lighter = 1;
+      if (DBG.res !== 1) { DBG.res = 1; resize(); }
+    }
+
+    /* 盤面を毎回そろえる */
+    P.stages = 0; P.drain = 0; P.colors = 4; P.spawnEvery = 0.35;
+    restart();
+    P.stages = 0; P.drain = 0; P.colors = 4; P.spawnEvery = 0.35;
+    for (var w0 = 0; w0 < 120; w0++) { tNow += 1 / 60; update(1 / 60); }
+
+    function show(txt) { if (box) { box.hidden = false; box.innerHTML = txt; } }
+    show('計測中…');
+
+    function step() {
+      if (i >= cfgs.length) {
+        reset();
+        P.stages = snap.stages; P.drain = snap.drain;
+        P.colors = snap.colors; P.spawnEvery = snap.spawn;
+        syncPanel();
+        var base = res[0].fps || 1;
+        show('<b>1フレームの犯人さがし</b>' +
+          '<table><tr><th>設定</th><th>fps</th><th>差</th></tr>' +
+          res.map(function (r) {
+            var d = r.fps - base;
+            return '<tr><td>' + r.n + '</td><td>' + r.fps.toFixed(0) + '</td><td>' +
+              (r === res[0] ? '基準' : (d >= 0 ? '+' : '') + d.toFixed(0)) + '</td></tr>';
+          }).join('') + '</table>' +
+          '<p>' + (cv.width * cv.height / 1e6).toFixed(1) + 'Mpx ／ 数 ' + shapes.length + '</p>' +
+          '<p class="cl">クリックで閉じる</p>');
+        CF.benchResult = res;
+        if (done) done(res);
+        return;
+      }
+      reset();
+      cfgs[i].f();
+      var frames = 0, t0 = 0;
+      requestAnimationFrame(function tick(ts) {
+        if (!t0) { t0 = ts; requestAnimationFrame(tick); return; }
+        frames++;
+        if (ts - t0 < 900) { requestAnimationFrame(tick); return; }
+        res.push({ n: cfgs[i].n, fps: frames * 1000 / (ts - t0) });
+        i++;
+        show('計測中… ' + i + '/' + cfgs.length);
+        requestAnimationFrame(step);
+      });
+    }
+    requestAnimationFrame(step);
+  }
+
   /* ---------- ループ ---------- */
 
   function frame(ts) {
@@ -1628,6 +1718,7 @@
                 runs: function () { return runs; },
                 setRuns: function (n) { runs = n; try { localStorage.setItem('cf_runs', String(n)); } catch (e) {} },
                 info: function () { return { state: state, score: +score.toFixed(0), high: +high.toFixed(0), light: +core.light.toFixed(1) }; },
+                bench: runBench, DBG: DBG,
                 sim: function (sec, step) {
                   step = step || 1 / 60;
                   var n = Math.round(sec / step);
