@@ -222,13 +222,13 @@ window.GAME_DATA = (function () {
         { id: 'tr_boost', name: '過給', log: 'ローターを回し切った。動きが跳ね上がる',
           effect: { hasten: 0.78 } },
         { id: 'tr_dive', name: '自爆突進', log: '機体ごと突っ込んできた',
-          effect: { selfCut: 0.35, bigHit: 1.8 } },
+          effect: { selfCut: 0.35, bigHit: 1.5 } },
         { id: 'tr_wing', name: '僚機を呼ぶ', log: '砂の向こうから僚機が降りてきた',
           effect: { heal: 0.18, hasten: 0.85 } }
       ] },
 
     { id: 'en_buggy', name: '砂賊のバギー', tier: 'mob',
-      hp: 116, armor: 1, atk: 10, interval: 3.2, gold: 30, art: 'buggy', minFloor: 0,
+      hp: 116, armor: 1, atk: 9, interval: 3.2, gold: 30, art: 'buggy', minFloor: 0,
       behavior: { dodgeEvery: 4 },
       bnote: '4発に1発を避ける。重い一撃ほど損をする',
       trumps: [
@@ -237,12 +237,12 @@ window.GAME_DATA = (function () {
         { id: 'tr_gang', name: '増援', log: '仲間のバギーが土煙を上げて合流した',
           effect: { heal: 0.18, hasten: 0.82 } },
         { id: 'tr_ram', name: '特攻', log: '車体をこちらへ向けて突っ込んできた',
-          effect: { selfCut: 0.3, bigHit: 1.7 } }
+          effect: { selfCut: 0.3, bigHit: 1.45 } }
       ] },
 
     { id: 'en_golem', name: '廃車ゴーレム', tier: 'mob',
-      hp: 150, armor: 4, atk: 15, interval: 4.2, gold: 40, art: 'golem', minFloor: 3,
-      behavior: { armorPerHit: 1, armorMax: 4 },
+      hp: 150, armor: 3, atk: 13, interval: 4.2, gold: 40, art: 'golem', minFloor: 4,
+      behavior: { armorPerHit: 1, armorMax: 2 },
       bnote: '撃たれるたびに鉄屑を寄せて硬くなる。手数では固まるだけ',
       trumps: [
         { id: 'tr_plate', name: '装甲板を展開', log: '廃車の扉をかき集めて前面に貼りつけた',
@@ -254,7 +254,7 @@ window.GAME_DATA = (function () {
       ] },
 
     { id: 'en_sniper', name: '自走砲スナイプ', tier: 'mob',
-      hp: 172, armor: 2, atk: 22, interval: 5.5, gold: 42, art: 'sniper', minFloor: 2,
+      hp: 172, armor: 2, atk: 17, interval: 5.5, gold: 42, art: 'sniper', minFloor: 2,
       bnote: '一撃が重い。次の攻撃までのゲージを見て、その前に倒す',
       trumps: [
         { id: 'tr_rapid', name: '速射モード', log: '砲身を下げた。連射に切り替えてきた',
@@ -266,7 +266,7 @@ window.GAME_DATA = (function () {
       ] },
 
     { id: 'en_stag', name: '賞金首「鉄クワガタ」', tier: 'elite',
-      hp: 380, armor: 4, atk: 17, interval: 3.4, gold: 110, art: 'stag',
+      hp: 275, armor: 4, atk: 15, interval: 3.4, gold: 110, art: 'stag',
       behavior: { armorPerSec: 0.3, armorMax: 12 },
       bnote: '時間とともに殻が厚くなる。長引くほど通らなくなる',
       trait: '装甲が厚い。貫通か、重い一発が要る',
@@ -280,7 +280,7 @@ window.GAME_DATA = (function () {
       ] },
 
     { id: 'en_leech', name: '賞金首「砂ヒル」', tier: 'elite',
-      hp: 460, armor: 1, atk: 11, interval: 1.7, gold: 120, art: 'leech',
+      hp: 335, armor: 1, atk: 10, interval: 1.7, gold: 120, art: 'leech',
       behavior: { regen: 4 },
       bnote: '傷がふさがる（毎秒4回復）。削り続けても追いつかない',
       trait: '手数で削ってくる。短期決戦を狙いたい',
@@ -294,8 +294,8 @@ window.GAME_DATA = (function () {
       ] },
 
     { id: 'en_golgoda', name: '大型戦車「ゴルゴダ」', tier: 'boss',
-      hp: 780, armor: 6, atk: 19, interval: 4.6, gold: 240, art: 'golgoda',
-      salvo: { every: 15, mult: 2.3 },
+      hp: 780, armor: 5, atk: 14, interval: 4.6, gold: 240, art: 'golgoda',
+      salvo: { every: 15, mult: 1.9 },
       bnote: '15秒ごとに一斉射撃',
       trait: '15秒ごとに一斉射撃。装甲6',
       trumps: [
@@ -456,8 +456,8 @@ window.GAME_DATA = (function () {
     scaleAtk: 0.03,
     /* 中ボスは5階の数値を土台にして、そこから上でだけ強くする */
     eliteBaseFloor: 4,
-    eliteScaleHp: 0.09,
-    eliteScaleAtk: 0.04
+    eliteScaleHp: 0.10,
+    eliteScaleAtk: 0.05
   };
 
   /* ==========================================================

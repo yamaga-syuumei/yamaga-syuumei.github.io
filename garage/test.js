@@ -427,6 +427,10 @@
     ['e_turbo', 'm_105', 's_hmg', 'u_sight', 'u_cool'].forEach(function (p) { G.give(p); });
     G.state().parts.forEach(function (p) { p.lvl = 3; });
     G.warpTo('boss');
+    /* 切り札（⑨）で敵が回復したり自分を削ったりすると、ボス戦の長さが毎回変わり、
+       短く終わった回は主砲が尽きない。ここで見たいのは「長い戦いでは尽きる」という
+       ④のルールなので、抽選を外して測る */
+    G.battle().trump = null; G.battle().trumpDone = true;
     var bt = 0, dryAt = {};
     while (G.battle() && !G.battle().over && bt < 120) {
       G.step(0.5); bt += 0.5;
@@ -725,6 +729,75 @@
     ok('入替：そのまま載るときは聞かずに積む',
       document.getElementById('swap-ask').hidden &&
       G.state().parts[G.state().parts.length - 1].x != null);
+
+    /* ---------- 登り切れること ----------
+       ⑩で startBattle(type, floor) を開発用APIに出して、はじめて階層込みで
+       走行を通せた。測ると **20走行やって1回もクリアできなかった**。
+       5階の賞金首がその階で組める構成では 0/8、ボスは全部品レベル3を要求していた。
+       ここは壁を作らないための下限を縛る（バランスを触るたびに確かめる） */
+
+    function build(st) {
+      G.startRun('ch_apc');
+      if (st >= 1) ['m_105', 's_hmg'].forEach(function (pp) { G.give(pp); });
+      if (st >= 2) ['u_sight', 'e_turbo', 'u_ammo'].forEach(function (pp) { G.give(pp); });
+      if (st >= 3) {
+        ['m_how', 'u_cool', 'c_takumi'].forEach(function (pp) { G.give(pp); });
+        G.state().parts.forEach(function (pp) { pp.lvl = 2; });
+      }
+      if (st >= 4) G.state().parts.forEach(function (pp) { pp.lvl = 3; });
+      return G.build().maxHp;
+    }
+    function winOf(st, fl, ty, n) {
+      build(st);
+      return parseInt(G.simulate(ty, fl, n).win.split('/')[0], 10);
+    }
+
+    /* 雑魚は満タンから入れば必ず勝てる。1戦ごとの負け率が積み上がると走行が終わる */
+    var mobW = winOf(0, 1, 'battle', 8) + winOf(1, 3, 'battle', 8) + winOf(2, 6, 'battle', 8);
+    ok('登坂：雑魚戦は満タンから入れば落とさない', mobW >= 23, mobW + ' / 24');
+
+    /* 雑魚の消耗は残す（⑨の起伏）。ただし1戦で3割も削られると連戦がもたない */
+    build(2);
+    var mr = G.simulate('battle', 6, 10);
+    var mpct = Math.round(mr.avgHpLeft / G.build().maxHp * 100);
+    ok('登坂：雑魚戦の消耗が 10〜30% に収まる', mpct <= 90 && mpct >= 70, '残 ' + mpct + '%');
+
+    /* 5階の賞金首は、その階で組める構成で勝てること。ここが 0/8 の壁だった */
+    var e5 = winOf(2, 5, 'elite', 10);
+    ok('登坂：5階の賞金首はその階の構成で勝てる', e5 >= 7, e5 + ' / 10');
+
+    /* 9階の賞金首は、育った構成で勝てること */
+    var e9 = winOf(3, 9, 'elite', 10);
+    ok('登坂：9階の賞金首は育った構成で勝てる', e9 >= 7, e9 + ' / 10');
+
+    /* ボスは「育った構成でぎりぎり／さらに育てば確実」。
+       レベル3前提（stage4しか勝てない）に戻さないための縛り */
+    var b3 = winOf(3, 11, 'boss', 10);
+    var b4 = winOf(4, 11, 'boss', 10);
+    /* ボス戦は「削り切れるか」の競争なので、HPを少し動かすだけで 0/10 と 10/10 が
+       入れ替わる。狭い勝率帯を縛るとテストが不安定になるので、
+       **順序**（育つほど勝てる）と**下限**（育てば勝てる）だけを縛る */
+    ok('登坂：さらに育てばボスに勝てる', b4 >= 8, b4 + ' / 10');
+    ok('登坂：育つほどボスに勝てる（逆転しない）', b4 >= b3, b3 + ' → ' + b4);
+
+    /* 硬い相手が「詰み」にならないこと。
+       ⑩で廃車ゴーレムを14秒と判断したが、それは武器の育った構成での数字で、
+       武器の弱い構成では54秒かけて負けていた */
+    G.startRun('ch_apc');
+    G.give('m_105');
+    G.startBattle('battle', 5); G.stopLoop();
+    var Bg = G.battle();
+    var golem = D.enemies.filter(function (e) { return e.id === 'en_golem'; })[0];
+    var gsc = Math.pow(1 + D.run.scaleHp, 5);
+    Bg.foe = JSON.parse(JSON.stringify(golem));
+    Bg.foe.hp = Math.round(golem.hp * gsc); Bg.foeHp = Bg.foe.hp; Bg.foeMax = Bg.foe.hp;
+    Bg.bv = golem.behavior || {}; Bg.baseInterval = golem.interval;
+    Bg.armorAdd = 0; Bg.hits = 0; Bg.trump = golem.trumps[0]; Bg.trumpDone = false;
+    Bg.missUntil = -1; Bg.atkMult = 1;
+    Bg.tally = { dealt: 0, blocked: 0, taken: 0, shots: 0, dryT: 0, elapsed: 0 };
+    var gt = finish(G, 120);
+    ok('登坂：硬い相手も主砲1門あれば抜ける', G.battle().win === true, gt + '秒');
+    ok('登坂：硬い相手が作業にならない（25秒以内）', gt <= 25, gt + '秒');
 
     /* ---------- 効いている隣接を盤に描く ----------
        熱はマスの色で盤に描いてあるのに、隣接は一本も描かれていなかった。
