@@ -1,0 +1,55 @@
+#!/bin/sh
+# HTML が読み込む css/js の ?v= を、その中身のハッシュに合わせる。
+#
+# 中身が変われば番号が変わり、変わらなければ変わらない。手で上げなくていい。
+# 上げ忘れると、直してもブラウザが古いコードを掴み続ける（実際に起きた）。
+#
+# 配信は GitHub Pages で、Cache-Control をこちら側から設定できない。
+# だから URL を変える以外に、更新を届ける方法が無い。
+#
+# ビルド工程ではない。生成物は作らず、HTML の数字を書き換えるだけ。
+# file:// で開く動きには影響しない。
+
+root=$(git rev-parse --show-toplevel) || exit 0
+cd "$root" || exit 0
+
+changed=""
+
+for html in $(git ls-files '*.html'); do
+  [ -f "$html" ] || continue
+  dir=$(dirname "$html")
+  before=$(cat "$html")
+
+  # href="…?v=…" / src="…?v=…" を拾う
+  refs=$(grep -o '\(href\|src\)="[^"]*?v=[^"]*"' "$html" 2>/dev/null | sed 's/^[a-z]*="//; s/"$//')
+  if [ -z "$refs" ]; then continue; fi
+
+  for ref in $refs; do
+    path=${ref%%\?*}
+    case "$path" in
+      /*) target=".$path" ;;
+      *)  target="$dir/$path" ;;
+    esac
+    # 外部URLや存在しない参照は触らない
+    if [ ! -f "$target" ]; then continue; fi
+
+    new=$(git hash-object "$target" | cut -c1-8)
+    old=${ref#*\?v=}
+    if [ "$old" = "$new" ]; then continue; fi
+
+    esc_path=$(printf '%s' "$path" | sed 's/[.[\*^$/]/\\&/g')
+    esc_old=$(printf '%s' "$old" | sed 's/[.[\*^$/]/\\&/g')
+    sed -i "s|${esc_path}?v=${esc_old}|${path}?v=${new}|g" "$html"
+  done
+
+  if [ "$(cat "$html")" != "$before" ]; then
+    git add "$html"
+    changed="$changed $html"
+  fi
+done
+
+if [ -n "$changed" ]; then
+  echo "?v= を更新しました:$changed"
+fi
+
+exit 0
