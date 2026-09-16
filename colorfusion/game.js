@@ -1616,38 +1616,59 @@
   });
 
   /* ---------- 計測 ----------
-     JS側の時間ではなく、実際に出たフレーム数を測る。
-     描画の設定を1つずつ落としながら fps を比べて、どの塗りが重いのかを特定する */
+     初版は (1) vsync の上限に当たって 60fps で頭打ち (2) 設定ごとに盤面が違う、
+     の2つで結果が読めなかった。
+
+     いまは盤面を凍結し、1フレームに render() を何度も回して上限を外し、
+     描画1回あたりの ms を出す。比べるのは同じ絵。 */
+
+  var benching = false;
+
+  function benchBoard() {
+    /* 実際に重くなる場面に合わせて、大きい塊と火花で埋める */
+    P.stages = 0; P.drain = 0; P.colors = 4; P.spawnEvery = 0.3;
+    restart();
+    P.stages = 0; P.drain = 0; P.colors = 4; P.spawnEvery = 0.3;
+    for (var i = 0; i < 420; i++) { tNow += 1 / 60; update(1 / 60); }
+    /* 育った塊が無いと軽すぎるので、足りなければ足す */
+    var big = 0, k;
+    for (k = 0; k < shapes.length; k++) if (shapes[k].size >= 6) big++;
+    for (k = big; k < 4; k++) {
+      var a = Math.random() * Math.PI * 2, r = 150 + Math.random() * 250;
+      shapes.push({ x: CX + Math.cos(a) * r, y: CY + Math.sin(a) * r,
+                    vx: Math.cos(a + 1) * P.speed, vy: Math.sin(a + 1) * P.speed,
+                    size: 8 + Math.random() * 12, ci: k % 4, cd: {}, chain: 0, chainT: 0,
+                    rot: 0, spin: 0.3 });
+    }
+    chain.n = 6; chain.t = tNow; heat = 0.8;   // 暗さと heat の光を確実に出す
+  }
 
   function runBench(done) {
     var box = document.getElementById('bench');
     var snap = { glow: P.glow, preview: P.preview, stages: P.stages,
                  drain: P.drain, colors: P.colors, spawn: P.spawnEvery };
     var cfgs = [
-      { n: 'いまのまま',        f: function () {} },
-      { n: '発光なし',          f: function () { P.glow = 0; } },
-      { n: '先読みなし',        f: function () { P.preview = 0; } },
-      { n: '軌跡の層を描かない', f: function () { DBG.low = 0; } },
-      { n: '上の層を描かない',   f: function () { DBG.top = 0; } },
-      { n: '加算合成なし',      f: function () { DBG.lighter = 0; } },
-      { n: '解像度を半分',      f: function () { DBG.res = 0.5; resize(); } }
+      { n: 'いまのまま',         f: function () {} },
+      { n: '発光なし',           f: function () { P.glow = 0; } },
+      { n: '先読みなし',         f: function () { P.preview = 0; } },
+      { n: '軌跡の層を描かない',  f: function () { DBG.low = 0; } },
+      { n: '上の層を描かない',    f: function () { DBG.top = 0; } },
+      { n: '加算合成なし',       f: function () { DBG.lighter = 0; } },
+      { n: '解像度を半分',       f: function () { DBG.res = 0.5; resize(); } }
     ];
-    var res = [];
-    var i = 0;
+    var REPS = 8;                  // 1フレームあたりの描画回数。vsync の上限を外すため
+    var ROUNDS = 6;                // 各設定を何フレーム分測るか
+    var res = [], i = 0;
 
     function reset() {
       P.glow = snap.glow; P.preview = snap.preview;
       DBG.low = 1; DBG.top = 1; DBG.lighter = 1;
       if (DBG.res !== 1) { DBG.res = 1; resize(); }
     }
+    function show(t) { if (box) { box.hidden = false; box.innerHTML = t; } }
 
-    /* 盤面を毎回そろえる */
-    P.stages = 0; P.drain = 0; P.colors = 4; P.spawnEvery = 0.35;
-    restart();
-    P.stages = 0; P.drain = 0; P.colors = 4; P.spawnEvery = 0.35;
-    for (var w0 = 0; w0 < 120; w0++) { tNow += 1 / 60; update(1 / 60); }
-
-    function show(txt) { if (box) { box.hidden = false; box.innerHTML = txt; } }
+    benching = true;
+    benchBoard();
     show('計測中…');
 
     function step() {
@@ -1656,28 +1677,35 @@
         P.stages = snap.stages; P.drain = snap.drain;
         P.colors = snap.colors; P.spawnEvery = snap.spawn;
         syncPanel();
-        var base = res[0].fps || 1;
-        show('<b>1フレームの犯人さがし</b>' +
-          '<table><tr><th>設定</th><th>fps</th><th>差</th></tr>' +
+        benching = false;
+        toTitle();
+        var base = res[0].ms;
+        res.slice(1).sort(function (a, b) { return a.ms - b.ms; });
+        show('<b>描画1回あたりの時間</b>' +
+          '<table><tr><th>設定</th><th>ms</th><th>差</th></tr>' +
           res.map(function (r) {
-            var d = r.fps - base;
-            return '<tr><td>' + r.n + '</td><td>' + r.fps.toFixed(0) + '</td><td>' +
-              (r === res[0] ? '基準' : (d >= 0 ? '+' : '') + d.toFixed(0)) + '</td></tr>';
+            var d = base - r.ms;
+            return '<tr><td>' + r.n + '</td><td>' + r.ms.toFixed(1) + '</td><td>' +
+              (r === res[0] ? '基準' : (d > 0 ? '-' + d.toFixed(1) : '+' + (-d).toFixed(1))) +
+              '</td></tr>';
           }).join('') + '</table>' +
-          '<p>' + (cv.width * cv.height / 1e6).toFixed(1) + 'Mpx ／ 数 ' + shapes.length + '</p>' +
-          '<p class="cl">クリックで閉じる</p>');
+          '<p>' + (cv.width * cv.height / 1e6).toFixed(1) + 'Mpx ／ 数 ' + shapes.length +
+          ' ／ 60fpsの予算は 16.7ms</p><p class="cl">クリックで閉じる</p>');
         CF.benchResult = res;
         if (done) done(res);
         return;
       }
       reset();
       cfgs[i].f();
-      var frames = 0, t0 = 0;
-      requestAnimationFrame(function tick(ts) {
-        if (!t0) { t0 = ts; requestAnimationFrame(tick); return; }
-        frames++;
-        if (ts - t0 < 900) { requestAnimationFrame(tick); return; }
-        res.push({ n: cfgs[i].n, fps: frames * 1000 / (ts - t0) });
+      var best = Infinity, round = 0;
+      requestAnimationFrame(function tick() {
+        var t0 = performance.now();
+        for (var k = 0; k < REPS; k++) render();
+        var ms = (performance.now() - t0) / REPS;
+        round++;
+        if (round > 2 && ms < best) best = ms;      // 最初の2回は捨てる
+        if (round < ROUNDS + 2) { requestAnimationFrame(tick); return; }
+        res.push({ n: cfgs[i].n, ms: best });
         i++;
         show('計測中… ' + i + '/' + cfgs.length);
         requestAnimationFrame(step);
@@ -1698,10 +1726,11 @@
     tNow += dt;
     if (dt > 0) stat.fps += (1 / dt - stat.fps) * 0.06;
     var _u0 = performance.now();
+    if (benching) { requestAnimationFrame(frame); return; }
     if (state === 'play' || state === 'title') update(dt);
     else { core.t += dt; for (var q = parts.length - 1; q >= 0; q--) { var pp = parts[q]; pp.life -= dt; pp.x += pp.vx * dt; pp.y += pp.vy * dt; pp.vx *= Math.exp(-2.6 * dt); pp.vy *= Math.exp(-2.6 * dt); if (pp.life <= 0) parts.splice(q, 1); } }
     prof.up += (performance.now() - _u0 - prof.up) * 0.05;
-    render();
+    if (!benching) render();
     requestAnimationFrame(frame);
   }
 
