@@ -94,7 +94,9 @@
     stages: 1,         // 段階進行。切ると下の値をそのまま使える（調整用）
     colors: 4,         // 使う色数。段階進行が入っていると STAGES に上書きされる
     preview: 1,
-    glow: 1            // 火花の発光。切ると shadowBlur を使わなくなる（重さの切り分け用）
+    glow: 1            /* 発光。切ると shadowBlur を一切使わなくなる。
+                          shadowBlur は描いた面積とぼかし半径に比例して重く、
+                          全画面だと効きが大きい。重さの切り分け用 */
   };
 
   /* 進行の段。at は融合回数。
@@ -905,7 +907,7 @@
   /* 火花：中まで色が付いた点。小さくても見えるように下限を置く */
   function drawSpark(s) {
     var c = COLORS[s.ci], r = Math.max(FRAG_MIN_R, radius(s.size));
-    ctx.shadowBlur = P.glow ? 12 + r : 0;
+    ctx.shadowBlur = P.glow ? (12 + r) : 0;
     ctx.shadowColor = col(c.hue, 66, 0.95);
     var g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, r);
     g.addColorStop(0, col(c.hue, 95, 1));
@@ -993,7 +995,7 @@
       var hu = chainHue(chain.endN);
       ctx2.textAlign = 'center';
       ctx2.font = 'bold ' + (52 + Math.min(52, chain.endN * 5)) + 'px system-ui, sans-serif';
-      ctx2.shadowBlur = 26; ctx2.shadowColor = col(hu, 70, 0.9);
+      ctx2.shadowBlur = P.glow ? (26) : 0; ctx2.shadowColor = col(hu, 70, 0.9);
       ctx2.fillStyle = col(hu, 88, e * 0.85);
       ctx2.fillText('x' + chain.endN, CX, y + (1 - e) * 34);
       ctx2.shadowBlur = 0;
@@ -1007,7 +1009,7 @@
 
     ctx2.textAlign = 'center';
     ctx2.font = 'bold ' + size.toFixed(0) + 'px system-ui, sans-serif';
-    ctx2.shadowBlur = 20 + chain.pop * 34;
+    ctx2.shadowBlur = P.glow ? (20 + chain.pop * 34) : 0;
     ctx2.shadowColor = col(hue, 68, 0.95);
     ctx2.fillStyle = col(hue, 92, 0.95);
     ctx2.fillText('x' + n, CX, y);
@@ -1022,7 +1024,7 @@
     var bw = 150;
     ctx2.fillStyle = col(hue, 60, 0.18);
     ctx2.fillRect(CX - bw / 2, y + 38, bw, 5);
-    ctx2.shadowBlur = 10; ctx2.shadowColor = col(hue, 70, 0.9);
+    ctx2.shadowBlur = P.glow ? (10) : 0; ctx2.shadowColor = col(hue, 70, 0.9);
     ctx2.fillStyle = col(hue, 88, 0.9);
     ctx2.fillRect(CX - bw / 2, y + 38, bw * left, 5);
     ctx2.shadowBlur = 0;
@@ -1047,7 +1049,7 @@
     var y = CY + 186 - (1 - t) * 10;
     ctx2.textAlign = 'center';
     ctx2.font = 'bold 27px system-ui, sans-serif';
-    ctx2.shadowBlur = 18; ctx2.shadowColor = 'rgba(150,225,255,0.9)';
+    ctx2.shadowBlur = P.glow ? (18) : 0; ctx2.shadowColor = 'rgba(150,225,255,0.9)';
     ctx2.fillStyle = 'rgba(225,245,255,' + (a * 0.92) + ')';
     ctx2.fillText(banner.s, CX, y);
     ctx2.shadowBlur = 0;
@@ -1068,13 +1070,13 @@
     ctx2.fillStyle = g;
     ctx2.beginPath(); ctx2.arc(CX, CY, r * 2.4, 0, 6.2832); ctx2.fill();
 
-    ctx2.shadowBlur = 20 + 26 * bright; ctx2.shadowColor = 'rgba(140,240,255,0.9)';
+    ctx2.shadowBlur = P.glow ? (20 + 26 * bright) : 0; ctx2.shadowColor = 'rgba(140,240,255,0.9)';
     ctx2.strokeStyle = 'rgba(220,250,255,' + (0.35 + 0.6 * bright) + ')';
     ctx2.lineWidth = 3;
     ctx2.beginPath(); ctx2.arc(CX, CY, r, 0, 6.2832); ctx2.stroke();
 
     /* 残りを細い弧で示す。数字は読ませない */
-    ctx2.shadowBlur = 12;
+    ctx2.shadowBlur = P.glow ? (12) : 0;
     ctx2.strokeStyle = 'rgba(255,255,255,0.12)';
     ctx2.lineWidth = 5;
     ctx2.beginPath(); ctx2.arc(CX, CY, CORE_R + 16, 0, 6.2832); ctx2.stroke();
@@ -1112,7 +1114,7 @@
     ctx2.lineCap = 'round';
     ctx2.beginPath(); ctx2.moveTo(a.x1, a.y1); ctx2.lineTo(a.x2, a.y2); ctx2.stroke();
 
-    ctx2.shadowBlur = 10 + t * 22 + f * 40;
+    ctx2.shadowBlur = P.glow ? (10 + t * 22 + f * 40) : 0;
     ctx2.shadowColor = 'rgba(255,255,255,0.9)';
     ctx2.strokeStyle = 'rgba(255,255,255,' + Math.min(1, (lum + f) * alpha) + ')';
     ctx2.lineWidth = w;
@@ -1131,7 +1133,7 @@
     ctx2.closePath();
     ctx2.fill();
 
-    ctx2.shadowBlur = 6;
+    ctx2.shadowBlur = P.glow ? (6) : 0;
     ctx2.fillStyle = 'rgba(200,235,255,' + (0.7 * alpha) + ')';
     ctx2.beginPath(); ctx2.arc(a.x1, a.y1, 2 + t * 3, 0, 6.2832); ctx2.fill();
     ctx2.shadowBlur = 0;
@@ -1143,7 +1145,7 @@
     ctx2.setLineDash([7, 9]);
     ctx2.lineWidth = 1.6;
     ctx2.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx2.shadowBlur = 8; ctx2.shadowColor = 'rgba(255,255,255,0.6)';
+    ctx2.shadowBlur = P.glow ? (8) : 0; ctx2.shadowColor = 'rgba(255,255,255,0.6)';
     for (var i = 0; i < shapes.length; i++) {
       var pts = predict(shapes[i], all);
       if (!pts) continue;
@@ -1213,7 +1215,7 @@
     for (var y3 = 0; y3 < texts.length; y3++) {
       var tx = texts[y3], al = Math.min(1, tx.life / tx.max * 1.6);
       ctx2.font = 'bold 22px system-ui, sans-serif';
-      ctx2.shadowBlur = 10; ctx2.shadowColor = 'rgba(255,255,255,0.8)';
+      ctx2.shadowBlur = P.glow ? (10) : 0; ctx2.shadowColor = 'rgba(255,255,255,0.8)';
       ctx2.fillStyle = tx.hue < 0 ? 'rgba(255,255,255,' + al + ')' : col(tx.hue, 88, al);
       ctx2.fillText(tx.s, tx.x, tx.y);
       ctx2.shadowBlur = 0;
@@ -1286,7 +1288,7 @@
     g.fillText('ベスト', cx - tw / 2, y + fs * 0.03);
 
     g.font = 'bold ' + nf.toFixed(0) + 'px system-ui, sans-serif';
-    g.shadowBlur = 14; g.shadowColor = col(46, 70, 0.9);
+    g.shadowBlur = P.glow ? (14) : 0; g.shadowColor = col(46, 70, 0.9);
     g.fillStyle = col(46, 88, 1);
     g.fillText(num, cx - tw / 2 + lw + gap, y);
     g.restore();
@@ -1308,18 +1310,18 @@
     ctx2.textAlign = 'center';
 
     var fs = Math.min(42, w / 11);
-    ctx2.shadowBlur = 26; ctx2.shadowColor = 'rgba(120,220,255,0.85)';
+    ctx2.shadowBlur = P.glow ? (26) : 0; ctx2.shadowColor = 'rgba(120,220,255,0.85)';
     ctx2.fillStyle = 'rgba(238,250,255,0.97)';
     ctx2.font = 'bold ' + fs.toFixed(0) + 'px system-ui, sans-serif';
     ctx2.fillText('カラー・フュージョン', cx, cy - fs * 2.6);
 
-    ctx2.shadowBlur = 10;
+    ctx2.shadowBlur = P.glow ? (10) : 0;
     ctx2.fillStyle = 'rgba(170,215,250,0.8)';
     ctx2.font = (fs * 0.36).toFixed(0) + 'px system-ui, sans-serif';
     ctx2.fillText('同じ色をくっつけて、光を絶やすな', cx, cy - fs * 1.8);
 
     /* 中央はコアに空けておく。文字を重ねるとコアが読めなくなる */
-    ctx2.shadowBlur = 8; ctx2.shadowColor = 'rgba(120,220,255,0.7)';
+    ctx2.shadowBlur = P.glow ? (8) : 0; ctx2.shadowColor = 'rgba(120,220,255,0.7)';
     ctx2.fillStyle = 'rgba(190,225,255,' + (0.5 + 0.4 * Math.sin(tNow * 2.6)) + ')';
     ctx2.font = 'bold ' + (fs * 0.42).toFixed(0) + 'px system-ui, sans-serif';
     ctx2.fillText('画面をタップして始める', cx, cy + fs * 2.0);
@@ -1346,7 +1348,7 @@
 
     var cx = view.w / 2, cy = view.h / 2;
     ctx2.textAlign = 'center';
-    ctx2.shadowBlur = 18; ctx2.shadowColor = 'rgba(120,220,255,0.9)';
+    ctx2.shadowBlur = P.glow ? (18) : 0; ctx2.shadowColor = 'rgba(120,220,255,0.9)';
 
     ctx2.fillStyle = 'rgba(180,215,245,' + (0.7 * t) + ')';
     ctx2.font = '13px system-ui, sans-serif';
@@ -1359,7 +1361,7 @@
     roundRect(ctx2, cx - rw / 2 - rp, cy - 104, rw + rp * 2, rh, 9);
     ctx2.fillStyle = col(196, 60, 0.10 * t); ctx2.fill();
     ctx2.strokeStyle = col(196, 72, 0.42 * t); ctx2.lineWidth = 1.3; ctx2.stroke();
-    ctx2.shadowBlur = 18; ctx2.shadowColor = 'rgba(120,220,255,0.85)';
+    ctx2.shadowBlur = P.glow ? (18) : 0; ctx2.shadowColor = 'rgba(120,220,255,0.85)';
     ctx2.fillStyle = 'rgba(228,246,255,' + t + ')';
     ctx2.fillText(rank, cx, cy - 70);
 
@@ -1374,7 +1376,7 @@
                   '　最大の塊 ' + stat.biggest.toFixed(1), cx, cy + 20);
 
     if (newHigh) {
-      ctx2.shadowBlur = 16; ctx2.shadowColor = col(46, 70, 0.9);
+      ctx2.shadowBlur = P.glow ? (16) : 0; ctx2.shadowColor = col(46, 70, 0.9);
       ctx2.fillStyle = col(46, 88, (0.65 + 0.35 * Math.sin(tNow * 4)) * t);
       ctx2.font = 'bold 20px system-ui, sans-serif';
       ctx2.fillText('新記録', cx, cy + 50);
@@ -1382,7 +1384,7 @@
     ctx2.shadowBlur = 0;
     if (t > 0.3) drawBest(ctx2, cx, cy + (newHigh ? 96 : 72), 38);
 
-    ctx2.shadowBlur = 8; ctx2.shadowColor = 'rgba(120,220,255,0.9)';
+    ctx2.shadowBlur = P.glow ? (8) : 0; ctx2.shadowColor = 'rgba(120,220,255,0.9)';
     ctx2.fillStyle = 'rgba(170,215,245,' + (0.42 + 0.3 * Math.sin(tNow * 3)) * t + ')';
     ctx2.font = '14px system-ui, sans-serif';
     ctx2.fillText('画面をクリック／タップで再開', cx, cy + (newHigh ? 190 : 166));
