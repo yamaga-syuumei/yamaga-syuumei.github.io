@@ -535,6 +535,7 @@
       applyStage(STAGES[stage]);
       announce((lap + 1) + '周目');
       SFX.se('lap');
+      SFX.bgm('play2');           // 素材が無ければ play のまま
       flash = 0.85;
     }
   }
@@ -871,6 +872,15 @@
 
     /* 光は常に減る。尽きたらラン終了 */
     core.light -= P.drain * dt;
+
+    /* 残りが少なくなったら曲を替える。境目を1つにすると、
+       そこを跨ぐたびに曲が行き来するので、下がる線と戻る線をずらす */
+    if (state === 'play' && P.lightMax > 0) {
+      var lvNow = core.light / P.lightMax;
+      if (lvNow < 0.22) SFX.bgm('danger');
+      else if (lvNow > 0.32) SFX.bgm(lap > 0 ? 'play2' : 'play');
+    }
+
     if (core.light <= 0 && state === 'play') {
       core.light = 0;
       state = 'over';
@@ -880,6 +890,7 @@
       runs++;
       try { localStorage.setItem('cf_runs', String(runs)); } catch (e) {}
       SFX.se('over');
+      SFX.bgm('over');            // 素材が無ければプレイ中の曲のまま
       if (score > high) {
         high = score; newHigh = true;
         try { localStorage.setItem('cf_high', String(high)); } catch (e) {}

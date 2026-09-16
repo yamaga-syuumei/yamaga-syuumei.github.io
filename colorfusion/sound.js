@@ -30,9 +30,14 @@ window.CFSFX = (function () {
     over:   ''         // 光が尽きた
   };
 
+  /* 空のキーを指定されたときは、いま鳴っている曲をそのまま流し続ける。
+     だから title と play だけ入れて、残りを空のままにしても成立する。 */
   var BGM_FILES = {
     title:  '',        // タイトルとデモ
-    play:   ''         // プレイ中
+    play:   '',        // プレイ中
+    play2:  '',        // 2周目以降。空なら play のまま
+    danger: '',        // 光が残りわずか。空ならプレイ中の曲のまま
+    over:   ''         // 結果画面。空ならプレイ中の曲のまま
   };
 
   /* ---------- 素材の出どころ ----------
@@ -106,16 +111,20 @@ window.CFSFX = (function () {
     })();
   }
 
-  /* BGM。name を null にすると止める */
+  /* BGM。name を null にすると止める。
+
+     素材が入っていないキーを指定されたときは、いま鳴っている曲をそのまま流す。
+     ここで止めてしまうと、曲を1つ足すまで場面が静まり返る。
+     曲は増やしても減らしても成立してほしいので、足りない側に合わせる。 */
   function bgm(name) {
     if (!unlocked) { wantBgm = name; return; }
     if (name === curBgm) return;
+    if (name && !BGM_FILES[name]) return;      // 素材が無い → いまの曲を続ける
     var prev = curBgm ? bgmEls[curBgm] : null;
     if (prev) fade(prev, 0, 500, true);
     curBgm = name;
     if (!name) return;
     var url = BGM_FILES[name];
-    if (!url) return;
     if (!bgmEls[name]) {
       var a = new Audio(url);
       a.loop = true;
