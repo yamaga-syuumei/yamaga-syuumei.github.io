@@ -1,4 +1,4 @@
-# 荒野の車載工房（ベータ 0.6）
+# 荒野の車載工房（ベータ 0.7）
 
 メタルマックス風 × Slay the Spire × backpack battles。
 `ActivityPlan/WebGame/WEBゲーム企画_メタルマックス風StS.md` の実装。
