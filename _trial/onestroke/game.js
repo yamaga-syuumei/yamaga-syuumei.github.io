@@ -19,6 +19,12 @@
 
   const { drawItem, roundRect } = window.ART;
   const STAGES = window.STAGES;
+  const SND = window.OSSND;
+
+  // 自動確認（__osf.ff）は1秒分を一瞬で回すので、その間だけ音を止める。
+  // 止めないと数百回ぶんの効果音が同時に鳴る。
+  let ffing = false;
+  const simSe = (name, opts) => { if (!ffing && !st.cleared) SND.se(name, opts); };
 
   const NODE_SKIN = {
     src: { fill: '#17293a', edge: '#3d6b8e' },
@@ -90,6 +96,7 @@
     st.ticks = 0;
     st.cleared = false;
     st.result = null;
+    st.alive = false;
     st.ports.forEach((p) => { p.buf = 0; });
     st.nodes.forEach((n) => { n.craftT = -1; n.pending = false; n.t = 0; n.count = 0; });
     st.belts.forEach((b) => { b.slots.fill(null); b.ghosts.length = 0; b.moved = false; b.jam = false; });
@@ -106,6 +113,7 @@
     cells.forEach((c) => { st.cell[c.y * st.w + c.x].belt = b; });
     st.belts.push(b);
     resetSim();
+    SND.se('link');
   }
 
   function removeBelt(b) {
@@ -114,6 +122,7 @@
     st.belts.splice(st.belts.indexOf(b), 1);
     if (hoverBelt === b) hoverBelt = null;
     resetSim();
+    SND.se('erase');
   }
 
   function usedCells() { return st.belts.reduce((a, b) => a + b.cells.length, 0); }
@@ -123,6 +132,10 @@
     if (!st.cleared) st.ticks++;
     for (const b of st.belts) stepBelt(b);
     for (const n of st.nodes) stepNode(n);
+    if (!st.alive && st.nodes.every((n) => n.k !== 'snk' || n.count > 0)) {
+      st.alive = true;
+      if (!ffing) SND.bgm('run');
+    }
     if (!st.cleared && st.nodes.every((n) => n.k !== 'snk' || n.count >= n.goal)) finishStage();
   }
 
@@ -162,7 +175,10 @@
         n.craftT = n.ticks;
       }
       if (n.craftT > 0) { n.craftT--; if (n.craftT === 0) { n.pending = true; n.craftT = -1; } }
-      if (n.pending) { const o = n.outs[0]; if (o.buf < o.cap) { o.buf++; n.pending = false; } }
+      if (n.pending) {
+        const o = n.outs[0];
+        if (o.buf < o.cap) { o.buf++; n.pending = false; simSe('craft'); }
+      }
       return;
     }
     if (n.k === 'dup') {
@@ -170,12 +186,22 @@
       if (n.ins[0].buf > 0 && live.length && live.every((p) => p.buf < p.cap)) {
         n.ins[0].buf--;
         live.forEach((p) => { p.buf++; });
+        simSe('dup');
       }
       return;
     }
     if (n.k === 'snk') {
       const p = n.ins[0];
-      if (p.buf > 0) { n.count = Math.min(n.goal, n.count + p.buf); p.buf = 0; }
+      if (p.buf > 0) {
+        const was = n.count;
+        n.count = Math.min(n.goal, n.count + p.buf);
+        p.buf = 0;
+        if (n.count > was) {
+          // 納品が進むほど高くする。満ちきるところまで音が上がっていく
+          simSe('deliver', { rate: 1 + (n.count / n.goal) * 0.5 });
+          if (n.count >= n.goal) simSe('goal');
+        }
+      }
     }
   }
 
@@ -188,6 +214,7 @@
     st.result = { cells, time, stars };
     const key = String(st.def.no);
     if (!progress[key] || progress[key] < stars) { progress[key] = stars; saveProgress(); }
+    if (!ffing) { SND.se('clear'); SND.bgm('clear'); }
     showClear();
   }
 
@@ -256,6 +283,7 @@
   }
 
   function onDown(e) {
+    SND.unlock();
     if (!st || st.cleared) return;
     const pc = pointerCell(e);
     if (!inBoard(pc.x, pc.y)) return;
@@ -269,6 +297,7 @@
       if (p.belt) removeBelt(p.belt);
       if (!canDraw(p.ax, p.ay)) return;   // 出口がふさがっている
       drag = { port: p, cells: [{ x: p.ax, y: p.ay }], snap: null };
+      SND.se('grab');
       updateSnap();
       return;
     }
@@ -285,16 +314,31 @@
       return;
     }
     if (!inBoard(pc.x, pc.y)) return;
+    let drew = 0, backed = 0;
     for (let guard = 0; guard < 80; guard++) {
-      if (!stepTowards(pc.x, pc.y)) break;
+      const r = stepTowards(pc.x, pc.y);
+      if (!r) break;
+      if (r === 'push') drew++; else backed++;
+    }
+    // 素早く引くと1回のイベントで何マスも進む。全部鳴らすと団子になるので3つまで。
+    for (let i = 0; i < Math.min(drew, 3); i++) {
+      const len = drag.cells.length - (drew - 1 - i);
+      SND.se('draw', { rate: 1 + Math.min(len, 20) * 0.02 });
+    }
+    if (backed) SND.se('undo');
+    if (!drew && !backed) {
+      const head = drag.cells[drag.cells.length - 1];
+      const stuck = head.x !== pc.x || head.y !== pc.y;
+      if (stuck && performance.now() - denyAt > 220) { denyAt = performance.now(); SND.se('deny'); }
     }
     updateSnap();
   }
+  let denyAt = 0;
 
   function stepTowards(tx, ty) {
     const head = drag.cells[drag.cells.length - 1];
     const dx = tx - head.x, dy = ty - head.y;
-    if (!dx && !dy) return false;
+    if (!dx && !dy) return null;
     const order = Math.abs(dx) >= Math.abs(dy)
       ? [[Math.sign(dx), 0], [0, Math.sign(dy)]]
       : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
@@ -302,10 +346,10 @@
       if (!sx && !sy) continue;
       const nx = head.x + sx, ny = head.y + sy;
       const idx = drag.cells.findIndex((c) => c.x === nx && c.y === ny);
-      if (idx >= 0) { drag.cells.length = idx + 1; return true; }  // 戻る＝消える
-      if (canDraw(nx, ny)) { drag.cells.push({ x: nx, y: ny }); return true; }
+      if (idx >= 0) { drag.cells.length = idx + 1; return 'back'; }  // 戻る＝消える
+      if (canDraw(nx, ny)) { drag.cells.push({ x: nx, y: ny }); return 'push'; }
     }
-    return false;
+    return null;
   }
 
   function updateSnap() {
@@ -317,7 +361,7 @@
   function onUp() {
     if (!drag) return;
     const d = drag; drag = null;
-    if (!d.snap) return;
+    if (!d.snap) { if (d.cells.length > 1) SND.se('cancel'); return; }
     const cells = d.cells.slice();
     if (d.port.io === 'out') addBelt(d.port, d.snap, cells);
     else addBelt(d.snap, d.port, cells.reverse());
@@ -335,7 +379,9 @@
     acc += dt;
     while (acc >= DT) { acc -= DT; step(); }
     flowT += dt;
-    st.belts.forEach((b) => { b.flow += dt / 1000 * TPS * cs; });
+    let running = 0;
+    st.belts.forEach((b) => { b.flow += dt / 1000 * TPS * cs; if (b.moved) running += b.cells.length; });
+    SND.amb('belt', Math.min(1, running / 36));
     draw(acc / DT);
     updateHud();
   }
@@ -590,9 +636,17 @@
       const got = progress[String(d.no)] || 0;
       b.innerHTML = '<u>STAGE ' + d.no + '</u><span>' + d.name + '</span>' +
         '<em><span class="on">' + '★'.repeat(got) + '</span>' + '☆'.repeat(3 - got) + '</em>';
-      b.onclick = () => { el('ovStages').hidden = true; load(i); };
+      b.onclick = () => { SND.unlock(); SND.se('ui'); el('ovStages').hidden = true; load(i); };
       box.appendChild(b);
     });
+
+    // 素材をもらったら sound.js の CREDITS に足す。ここにそのまま出る。
+    const cr = SND.credits();
+    const line = el('credits');
+    line.hidden = !cr.length;
+    line.innerHTML = cr.map((c) =>
+      c.url ? c.what + '：<a href="' + c.url + '" target="_blank" rel="noopener">' + c.who + '</a>'
+            : c.what + '：' + c.who).join(' ／ ');
   }
 
   // ------------------------------------------------------------------ 進行
@@ -600,17 +654,28 @@
     stageIdx = Math.max(0, Math.min(STAGES.length - 1, i));
     st = buildStage(STAGES[stageIdx]);
     drag = null; hoverBelt = null;
+    SND.bgm('play');
     el('ovClear').hidden = true;
     layout();
     buildHud();
     updateHud();
   }
 
-  el('btnReset').onclick = () => load(stageIdx);
-  el('btnRetry').onclick = () => load(stageIdx);
-  el('btnNext').onclick = () => load(stageIdx + 1);
-  el('btnStages').onclick = () => { buildStageList(); el('ovStages').hidden = false; };
-  el('btnCloseStages').onclick = () => { el('ovStages').hidden = true; };
+  const uiClick = (fn) => () => { SND.unlock(); SND.se('ui'); fn(); };
+  el('btnReset').onclick = uiClick(() => load(stageIdx));
+  el('btnRetry').onclick = uiClick(() => load(stageIdx));
+  el('btnNext').onclick = uiClick(() => load(stageIdx + 1));
+  el('btnStages').onclick = uiClick(() => { buildStageList(); SND.bgm('select'); el('ovStages').hidden = false; });
+  el('btnCloseStages').onclick = uiClick(() => { el('ovStages').hidden = true; SND.bgm(st.alive ? 'run' : 'play'); });
+
+  // 音量ボタンは素材が1つでも入るまで出さない（押しても何も起きないので）
+  const btnMute = el('btnMute');
+  if (SND.ready()) {
+    btnMute.hidden = false;
+    const paint = () => { btnMute.textContent = SND.muted() ? '🔇' : '🔊'; };
+    paint();
+    btnMute.onclick = () => { SND.unlock(); SND.toggleMute(); paint(); };
+  }
 
   cv.addEventListener('pointerdown', onDown);
   cv.addEventListener('pointermove', onMove);
@@ -619,6 +684,7 @@
   cv.addEventListener('contextmenu', (e) => e.preventDefault());
   window.addEventListener('resize', () => { if (st) layout(); });
   window.addEventListener('keydown', (e) => {
+    SND.unlock();
     if (e.key === 'r' || e.key === 'R') load(stageIdx);
     if (e.key === 'Escape') { el('ovStages').hidden = true; }
   });
@@ -627,7 +693,10 @@
   window.__osf = {
     state: () => st,
     load: (i) => load(i),
-    ff: (n) => { for (let i = 0; i < n; i++) step(); },
+    ff: (n) => { ffing = true; for (let i = 0; i < n; i++) step(); ffing = false; },
+    // ff は音を止める。音が鳴っているかを確かめたいときはこちら。
+    // ブラウザのタブが裏だと rAF が止まってシミュレーションが進まないので、その回避にも使う。
+    step: (n) => { for (let i = 0; i < n; i++) step(); },
     cell: (x, y) => toClient(midX(x), midY(y)),
     joint: (p) => { const j = jointOf(p); return toClient(j.x, j.y); },
   };
