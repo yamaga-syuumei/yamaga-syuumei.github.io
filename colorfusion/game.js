@@ -123,20 +123,20 @@
      2色なら半分は素通りするので、最初の数秒でルールが目に入る */
   var STAGES = [
     { at:    0, colors: 2, spawn: 0.30, drain: 0,  speed: 105, say: '' },
-    { at:   30, colors: 2, spawn: 0.32, drain: 4,  speed: 105, say: '光が減りはじめる' },
-    { at:  130, colors: 3, spawn: 0.36, drain: 5,  speed: 108, say: '四角が来る' },
-    { at:  290, colors: 4, spawn: 0.42, drain: 6,  speed: 112, say: '六角が来る' },
-    { at:  450, colors: 4, spawn: 0.48, drain: 7,  speed: 115, say: '速くなる' },
-    { at:  620, colors: 4, spawn: 0.56, drain: 9,  speed: 120, say: '数が減る' },
-    { at:  800, colors: 4, spawn: 0.66, drain: 11, speed: 128, say: '一つが重くなる' },
-    { at:  980, colors: 4, spawn: 0.76, drain: 13, speed: 136, say: '静かになる' },
-    { at: 1180, colors: 4, spawn: 0.86, drain: 15, speed: 144, say: '光が遠い' }
+    { at:   60, colors: 2, spawn: 0.32, drain: 4,  speed: 105, say: '光が減りはじめる' },
+    { at:  260, colors: 3, spawn: 0.36, drain: 5,  speed: 108, say: '四角が来る' },
+    { at:  580, colors: 4, spawn: 0.42, drain: 6,  speed: 112, say: '六角が来る' },
+    { at:  900, colors: 4, spawn: 0.48, drain: 7,  speed: 115, say: '速くなる' },
+    { at: 1240, colors: 4, spawn: 0.56, drain: 9,  speed: 120, say: '数が減る' },
+    { at: 1600, colors: 4, spawn: 0.66, drain: 11, speed: 128, say: '一つが重くなる' },
+    { at: 1960, colors: 4, spawn: 0.76, drain: 13, speed: 136, say: '静かになる' },
+    { at: 2360, colors: 4, spawn: 0.86, drain: 15, speed: 144, say: '光が遠い' }
   ];
   /* 周回。最終段から LAP_EXTRA だけ稼いだら次の周へ。
      段は LAP_START から流し直す（また1色からでは戻りすぎる）。
      周ごとに配色が変わり、光の減りと速度に下駄を履かせる */
   var LAP_START = 2;
-  var LAP_EXTRA = 220;
+  var LAP_EXTRA = 440;
   var LAP_DRAIN = 4;
   var LAP_SPEED = 8;
 
