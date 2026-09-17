@@ -99,7 +99,26 @@
                           全画面だと効きが大きい。重さの切り分け用 */
   };
 
-  /* 進行の段。at は融合回数。
+  /* 進行の段。at はスコア。
+
+     以前は融合回数で進めていたが、これは逆インセンティブだった。
+     同色は勝手に引き合って融合するので、放置していても回数は増える。
+     しかも吸い込むと塊が盤面から消えて自動融合の機会が減るため、
+     ちゃんと遊ぶほど回数が伸びない。
+     実測（5分・光を満タンに保って比較）：
+       放置 段8 ／ まとめずコアへ送る 段6 ／ まとめ重視 段8
+     何もしない方が難易度が速く上がっていた。
+
+     スコアは吸い込んだ量そのもの（score と core.light は同じ値から来る）なので、
+     放置では伸びず、通した人ほど伸びる。同じ条件でこうなる：
+       放置 段5 ／ まとめ重視 段7 ／ コアへ送る 周1
+
+     連鎖倍率は抜かずに乗せたままにする。抜くと放置と実プレイの差が
+     ほとんど無くなった（1融合あたり 2.83 対 2.34）。差を作っているのは倍率の方。
+
+     at の値は、実際のプレイに近い打ち方の実測（1融合あたり11.2）で
+     元の融合回数を換算したもの。
+
      出現間隔はここが肝で、最初ほど短い（＝大量に降る）。
      進むほど間隔が伸びて数が減り、1つを取りこぼせなくなる。
 
@@ -107,21 +126,21 @@
      「同じ色だけがくっつく」というルールがそもそも見えない。
      2色なら半分は素通りするので、最初の数秒でルールが目に入る */
   var STAGES = [
-    { at:   0, colors: 2, spawn: 0.30, drain: 0,  speed: 105, say: '' },
-    { at:   3, colors: 2, spawn: 0.32, drain: 4,  speed: 105, say: '光が減りはじめる' },
-    { at:  12, colors: 3, spawn: 0.36, drain: 5,  speed: 108, say: '四角が来る' },
-    { at:  26, colors: 4, spawn: 0.42, drain: 6,  speed: 112, say: '六角が来る' },
-    { at:  40, colors: 4, spawn: 0.48, drain: 7,  speed: 115, say: '速くなる' },
-    { at:  56, colors: 4, spawn: 0.56, drain: 9,  speed: 120, say: '数が減る' },
-    { at:  72, colors: 4, spawn: 0.66, drain: 11, speed: 128, say: '一つが重くなる' },
-    { at:  88, colors: 4, spawn: 0.76, drain: 13, speed: 136, say: '静かになる' },
-    { at: 105, colors: 4, spawn: 0.86, drain: 15, speed: 144, say: '光が遠い' }
+    { at:    0, colors: 2, spawn: 0.30, drain: 0,  speed: 105, say: '' },
+    { at:   30, colors: 2, spawn: 0.32, drain: 4,  speed: 105, say: '光が減りはじめる' },
+    { at:  130, colors: 3, spawn: 0.36, drain: 5,  speed: 108, say: '四角が来る' },
+    { at:  290, colors: 4, spawn: 0.42, drain: 6,  speed: 112, say: '六角が来る' },
+    { at:  450, colors: 4, spawn: 0.48, drain: 7,  speed: 115, say: '速くなる' },
+    { at:  620, colors: 4, spawn: 0.56, drain: 9,  speed: 120, say: '数が減る' },
+    { at:  800, colors: 4, spawn: 0.66, drain: 11, speed: 128, say: '一つが重くなる' },
+    { at:  980, colors: 4, spawn: 0.76, drain: 13, speed: 136, say: '静かになる' },
+    { at: 1180, colors: 4, spawn: 0.86, drain: 15, speed: 144, say: '光が遠い' }
   ];
-  /* 周回。最終段から LAP_EXTRA だけ融合したら次の周へ。
+  /* 周回。最終段から LAP_EXTRA だけ稼いだら次の周へ。
      段は LAP_START から流し直す（また1色からでは戻りすぎる）。
      周ごとに配色が変わり、光の減りと速度に下駄を履かせる */
   var LAP_START = 2;
-  var LAP_EXTRA = 20;
+  var LAP_EXTRA = 220;
   var LAP_DRAIN = 4;
   var LAP_SPEED = 8;
 
@@ -253,7 +272,7 @@
   /* 連鎖は「盤面のどこかで融合が続いている間」を1本と数える。
      塊ごとに数えると画面に小さい数字が散らばって連鎖に見えない（落ち物の数え方に寄せる） */
   var chain = { n: 0, t: -99, pop: 0, end: 0, endN: 0 };
-  var stage = 0, lap = 0, fuseBase = 0, flash = 0;
+  var stage = 0, lap = 0, scoreBase = 0, flash = 0;
   var banner = { s: '', life: 0 };   // 段が変わったときの一言
 
   try { high = parseFloat(localStorage.getItem('cf_high')) || 0; } catch (e) { high = 0; }
@@ -272,7 +291,7 @@
     spawnTimer = 0;
     texts.length = 0;
     chain.n = 0; chain.t = -99; chain.pop = 0; chain.end = 0; chain.endN = 0;
-    stage = 0; lap = 0; fuseBase = 0; flash = 0; banner.life = 0;
+    stage = 0; lap = 0; scoreBase = 0; flash = 0; banner.life = 0;
     setPalette(0);
     if (P.stages) applyStage(STAGES[0]);
     state = 'play';
@@ -517,10 +536,10 @@
     core.pulse = Math.min(1, core.pulse + 0.7);
   }
 
-  /* 融合回数で段を進める。最終段を過ぎたら次の周へ */
+  /* スコアで段を進める。最終段を過ぎたら次の周へ */
   function progress() {
     if (!P.stages) return;
-    var f = stat.fuse - fuseBase;
+    var f = score - scoreBase;
     while (stage < STAGES.length - 1 && f >= STAGES[stage + 1].at) {
       stage++;
       applyStage(STAGES[stage]);
@@ -530,7 +549,7 @@
       lap++;
       stage = LAP_START;
       /* 次の周の最初の段の位置から数え直す */
-      fuseBase = stat.fuse - STAGES[LAP_START].at;
+      scoreBase = score - STAGES[LAP_START].at;
       setPalette(lap);
       applyStage(STAGES[stage]);
       announce((lap + 1) + '周目');
