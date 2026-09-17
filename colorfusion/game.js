@@ -657,8 +657,7 @@
     if (P.fusePay > 0) {
       var fs = P.fusePay * small;
       score += fs;
-      /* 拾い食いの +0.25 が毎回出ると画面が埋まるので、狙って揃えたときだけ出す */
-      if (small >= 3) floatText(a.x, a.y, '+' + Math.round(fs), COLORS[a.ci].hue);
+      floatText(a.x, a.y, '+' + Math.round(fs), COLORS[a.ci].hue);
     }
 
     if (a.size > stat.biggest) stat.biggest = a.size;
