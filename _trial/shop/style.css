@@ -1,0 +1,298 @@
+/* ==========================================================
+   ハンター向けのショップ（プロトタイプ）
+   ファミコン風：角丸なし、硬い枠線、黒地に原色
+   横長のブラウザゲーム。主対象はPC、スマホでは縮んで収まる
+   ========================================================== */
+:root {
+  --bg:     #0b0e11;
+  --panel:  #171c21;
+  --panel2: #1f262d;
+  --line:   #39424b;
+  --line2:  #566270;
+  --ink:    #e7ecf1;
+  --ink-2:  #9aa6b2;
+  --ink-3:  #6f7c88;
+  --red:    #e03919;
+  --amber:  #d9a441;
+  --green:  #3fb87a;
+  --blue:   #3d8be0;
+  --sans: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0; height: 100%; background: #05070a; color: var(--ink);
+  font-family: var(--sans); font-size: 14px; line-height: 1.7;
+}
+button { font-family: inherit; }
+img { image-rendering: pixelated; }
+
+.sp-frame {
+  max-width: 980px; width: 100%; margin: 0 auto;
+  /* 横長ゲームなので、縦に長い画面（スマホ縦持ち）でも高さを幅に合わせて決める。
+     100vh に固定すると、縦長画面では絵の上下に巨大な黒帯ができてしまう */
+  height: min(100vh, 74vw);
+  background: var(--bg); display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+}
+@media (min-width: 700px) {
+  .sp-frame {
+    max-height: 720px; margin-top: max(14px, 2vh); margin-bottom: max(14px, 2vh);
+    border: 2px solid var(--line);
+  }
+}
+
+/* ---------- 上部の状態表示 ---------- */
+.sp-hud {
+  flex: none; display: flex; gap: 14px; align-items: center;
+  padding: 9px 12px; background: #05070a;
+  border-bottom: 2px solid var(--line);
+}
+.sp-hud-item { display: flex; align-items: baseline; gap: 6px; font-size: 12px; }
+.sp-hud-item b { font-size: 14px; font-weight: 800; }
+.sp-k { color: var(--ink-3); font-size: 11px; }
+.sp-gold { color: var(--amber); }
+
+/* どの画面にいても押せる「次の日へ」 */
+.sp-hud-day {
+  position: relative; margin-left: auto; flex: none;
+  background: var(--red); color: #fff; border: 1px solid #ff6a45;
+  padding: 6px 12px; font-size: 12px; font-weight: 800; cursor: pointer;
+}
+.sp-hud-day:hover { background: #f04a29; }
+.sp-hud-day .sp-dot {
+  position: absolute; top: -3px; right: -3px;
+  width: 7px; height: 7px; background: var(--amber); border-radius: 50%;
+}
+
+.sp-dot {
+  position: absolute; top: 5px; right: 5px;
+  width: 6px; height: 6px; background: var(--red); border-radius: 50%;
+}
+
+/* ---------- 本体：絵と窓を同じ場所に重ねる ---------- */
+.sp-body { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; background: #000; }
+
+.sp-scene {
+  position: absolute; inset: 0; background: #000;
+  display: flex; align-items: center; justify-content: center;
+}
+/* JSが実寸（px）を入れる。canvasと同じ大きさにして、
+   ホットスポットの%指定が絵とずれないようにする */
+.sp-stage { position: relative; }
+.sp-stage canvas {
+  width: 100%; height: 100%; image-rendering: pixelated; display: block;
+}
+/* 部屋の当たり判定。絵のピクセル座標に対する割合で置く（_scene.html と同じ考え方） */
+.sp-hot {
+  position: absolute; cursor: pointer; border: 1px solid transparent;
+}
+.sp-hot:hover { border-color: var(--amber); background: rgba(217, 164, 65, .12); }
+.sp-tag {
+  position: absolute; pointer-events: none;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .04em;
+  background: rgba(5, 7, 10, .8); border: 1px solid var(--line2);
+  padding: 0 5px; color: var(--ink-2); white-space: nowrap;
+}
+.sp-tag .sp-dot { position: static; display: inline-block; margin-left: 4px; vertical-align: middle; }
+
+/* ---------- 部屋の窓 ---------- */
+.sp-window {
+  position: absolute; inset: 0; z-index: 20;
+  background: #05070a; display: flex; flex-direction: column;
+}
+.sp-window-head {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 12px; border-bottom: 2px solid var(--line);
+}
+.sp-window-head b { font-size: 14px; letter-spacing: .04em; }
+.sp-window-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding: 12px 12px 26px;
+}
+.sp-sec { margin: 0 0 6px; }
+.sp-sec h2 {
+  font-size: 12px; font-weight: 800; letter-spacing: .08em;
+  color: var(--amber); margin: 14px 0 6px;
+  border-bottom: 1px solid var(--line); padding-bottom: 4px;
+}
+.sp-sec:first-child h2 { margin-top: 0; }
+.sp-note { color: var(--ink-3); font-size: 11.5px; margin: 0 0 8px; }
+
+/* ---------- 行 ---------- */
+.sp-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 8px; margin-bottom: 5px;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.sp-row.is-locked { opacity: .35; }
+.sp-icon { width: 24px; height: 24px; flex: none; display: block; }
+.sp-row-mid { flex: 1 1 auto; min-width: 0; }
+.sp-row-name { font-size: 13px; font-weight: 700; }
+.sp-row-sub { font-size: 11px; color: var(--ink-3); }
+.sp-row-desc { font-size: 10.5px; color: var(--ink-3); margin-top: 2px; line-height: 1.4; }
+.sp-num { font-size: 12px; color: var(--ink-2); font-weight: 700; white-space: nowrap; }
+.sp-num.is-done { color: var(--green); }
+.sp-from { font-size: 10.5px; color: var(--ink-3); }
+
+/* ---------- 棚 ---------- */
+.sp-shelf {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px;
+}
+.sp-slot {
+  border: 2px solid var(--line); background: var(--panel);
+  min-height: 76px; padding: 6px 4px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  text-align: center;
+}
+.sp-slot.is-filled { cursor: pointer; border-color: var(--line2); }
+.sp-slot.is-filled:hover { background: var(--panel2); border-color: var(--red); }
+.sp-slot .sp-icon { width: 30px; height: 30px; }
+.sp-slot-name { font-size: 10.5px; font-weight: 700; line-height: 1.3; }
+.sp-slot-price { font-size: 10px; color: var(--amber); }
+.sp-slot-count { font-size: 9.5px; color: var(--ink-3); }
+.sp-slot-count.is-zero { color: var(--red); font-weight: 700; }
+.sp-slot-empty { font-size: 10.5px; color: #3d454e; }
+
+/* ---------- カード ---------- */
+.sp-card {
+  background: var(--panel); border: 1px solid var(--line);
+  padding: 9px 10px; margin-bottom: 8px;
+}
+.sp-card.is-off { opacity: .55; }
+.sp-card .sp-row { margin-bottom: 0; border: 0; padding: 0; background: none; }
+.sp-cost { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-top: 7px; }
+.sp-tag {
+  font-size: 10.5px; padding: 1px 6px;
+  background: var(--panel2); border: 1px solid var(--line); color: var(--ink-2);
+}
+.sp-tag.is-lack { color: var(--red); border-color: var(--red); }
+
+/* 商人：数量を指定して買う */
+.sp-qtywrap { display: flex; align-items: center; gap: 6px; flex: none; }
+.sp-qty {
+  width: 46px; background: #0b0e11; color: var(--ink);
+  border: 1px solid var(--line2); padding: 5px 4px; font-size: 12px; text-align: center;
+}
+.sp-qty::-webkit-inner-spin-button { opacity: 1; }
+.sp-tag.is-empty { color: var(--ink-3); border-style: dashed; }
+
+/* 売れ残りは目に付かせる。棚の選択が間違っているという合図 */
+.sp-slot.is-stale { border-color: var(--amber); }
+.sp-stale { font-size: 9.5px; color: var(--amber); }
+
+.sp-fac-head { display: flex; align-items: baseline; gap: 8px; }
+.sp-fac-head b { font-size: 14px; }
+.sp-lv { font-size: 11px; color: var(--amber); font-weight: 800; }
+.sp-fac-now { font-size: 12px; color: var(--ink); margin-top: 2px; }
+.sp-fac-next { font-size: 11.5px; color: var(--ink-3); margin: 4px 0 8px; }
+
+/* ---------- ボタン ---------- */
+.sp-btn {
+  background: var(--panel2); color: var(--ink);
+  border: 2px solid var(--line2); padding: 8px 14px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.sp-btn:hover:not(:disabled) { background: #2b343d; }
+.sp-btn:active:not(:disabled) { transform: translateY(1px); }
+.sp-btn:disabled { opacity: .4; cursor: default; }
+.sp-btn.is-main { background: var(--red); border-color: #ff6a45; color: #fff; }
+.sp-btn.is-main:hover:not(:disabled) { background: #f04a29; }
+.sp-btn-s { padding: 5px 10px; font-size: 11.5px; border-width: 1px; white-space: nowrap; }
+.sp-btn-big { display: block; width: 100%; padding: 14px; font-size: 15px; margin-top: 10px; }
+.sp-btn-ghost {
+  display: block; width: 100%; margin-top: 8px;
+  background: none; border: 1px solid var(--line); color: var(--ink-3);
+  font-size: 11.5px; padding: 7px;
+}
+
+/* ---------- 出来事・実績 ---------- */
+.sp-ev {
+  background: var(--panel); border-left: 3px solid var(--amber);
+  padding: 7px 10px; margin-bottom: 6px;
+}
+.sp-ev b { font-size: 12.5px; }
+.sp-ev p { margin: 2px 0 0; font-size: 11.5px; color: var(--ink-2); }
+.sp-ev.is-locked { border-left-color: #2c353d; color: #4a545e; }
+
+/* 図鑑：項目を開くと出来事と来歴が出る */
+.sp-row.is-open-able { cursor: pointer; }
+.sp-row.is-open-able:hover { border-color: var(--line2); }
+.sp-more { font-size: 10.5px; color: var(--amber); white-space: nowrap; }
+.sp-dexopen {
+  margin: -4px 0 8px 10px; padding: 8px 10px;
+  border-left: 2px solid var(--line2); background: #0b0e11;
+}
+.sp-chron-h {
+  font-size: 10.5px; color: var(--amber); font-weight: 800;
+  margin: 8px 0 4px; letter-spacing: .06em;
+}
+.sp-chron {
+  border-left: 2px solid var(--line); padding: 4px 0 4px 9px; margin-bottom: 6px;
+}
+.sp-chron p { margin: 0; font-size: 11.5px; color: var(--ink-2); line-height: 1.6; }
+
+/* 戦闘の詳細ログ */
+.sp-battle-toggle { margin: 0 0 6px; }
+.sp-battle {
+  background: #0b0e11; border: 1px solid var(--line);
+  padding: 8px 10px; margin-bottom: 10px;
+  font-size: 11.5px; line-height: 1.7; color: var(--ink-2);
+  max-height: 240px; overflow-y: auto;
+}
+.sp-battle div + div { border-top: 1px dotted #1f262d; }
+
+/* データルーム・管理室 */
+.sp-ta {
+  width: 100%; background: #0b0e11; color: var(--ink);
+  border: 1px solid var(--line2); padding: 8px; font-size: 11px;
+  font-family: monospace; margin: 8px 0; resize: vertical;
+}
+.sp-opt { display: flex; align-items: center; gap: 9px; font-size: 13px; cursor: pointer; }
+.sp-opt input { width: 16px; height: 16px; }
+
+/* ---------- 結果の重ね表示 ---------- */
+.sp-overlay {
+  position: absolute; inset: 0; z-index: 30;
+  background: #05070a;
+  display: none; overflow-y: auto; padding: 14px;
+}
+.sp-overlay.is-open { display: block; }
+.sp-result h2 {
+  font-size: 15px; margin: 0 0 12px; padding-bottom: 6px;
+  border-bottom: 2px solid var(--red); letter-spacing: .06em;
+}
+.sp-rsec { margin-bottom: 16px; }
+.sp-rsec h3 {
+  font-size: 11.5px; color: var(--amber); margin: 0 0 6px;
+  letter-spacing: .08em; font-weight: 800;
+}
+.sp-line {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 12.5px; padding: 3px 0; border-bottom: 1px dotted #2c353d;
+}
+.sp-line b { color: var(--amber); }
+.sp-report {
+  font-size: 12.5px; margin: 0 0 7px; padding-left: 9px;
+  border-left: 2px solid var(--line);
+}
+.sp-report b { color: var(--red); }
+.sp-power { display: block; font-size: 10.5px; color: var(--ink-3); }
+.sp-unlock {
+  background: var(--panel); border: 1px solid var(--amber);
+  padding: 8px 10px; margin-bottom: 6px;
+}
+.sp-unlock-k {
+  display: inline-block; font-size: 10px; font-weight: 800;
+  background: var(--amber); color: #14181c; padding: 0 5px; margin-right: 6px;
+}
+.sp-unlock b { font-size: 13px; }
+.sp-unlock p { margin: 3px 0 0; font-size: 11.5px; color: var(--ink-2); }
+
+/* ---------- 一言 ---------- */
+.sp-toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  background: #05070a; border: 2px solid var(--red);
+  padding: 7px 16px; font-size: 12.5px; z-index: 60; white-space: nowrap;
+}

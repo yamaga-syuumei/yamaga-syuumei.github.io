@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ハンター向けのショップ（試作） | ヒノガタリ</title>
+<meta name="description" content="荒野のハンターに物を売る店を経営するブラウザゲームの試作版。">
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<link rel="stylesheet" href="style.css?v=27552d1f">
+</head>
+<body>
+
+<div class="sp-frame">
+
+  <!-- 日付・所持金・解放率 -->
+  <div class="sp-hud" id="hud"></div>
+
+  <div class="sp-body" id="body">
+    <!-- 店の絵。部屋を押すと、その部屋の窓が上に開く -->
+    <div class="sp-scene" id="scene">
+      <div class="sp-stage" id="stage">
+        <canvas id="cv"></canvas>
+      </div>
+    </div>
+
+    <!-- 部屋の窓 -->
+    <div class="sp-window" id="window" hidden>
+      <div class="sp-window-head">
+        <b id="winTitle"></b>
+        <button class="sp-btn sp-btn-s" id="winClose">閉じる</button>
+      </div>
+      <div class="sp-window-body" id="winBody"></div>
+    </div>
+  </div>
+
+  <!-- 日を進めた結果はここに重ねて出す -->
+  <div class="sp-overlay" id="overlay"></div>
+
+</div>
+
+<script src="data.js?v=18daaae4"></script>
+<script src="art.js?v=676e1917"></script>
+<script src="scene.js?v=33ba42ce"></script>
+<script src="game.js?v=9391ca46"></script>
+</body>
+</html>

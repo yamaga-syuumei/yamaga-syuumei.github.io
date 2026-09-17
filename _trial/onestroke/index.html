@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ワンストローク・ファクトリー（試作） | ヒノガタリ</title>
+<meta name="description" content="マウスの一筆書きでベルトコンベアを引き、供給口と工場と納品口をつないで工場のラインを組み上げるパズル。試作版。">
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<link rel="stylesheet" href="style.css?v=ce3f61e9">
+</head>
+<body>
+
+<div class="of-frame">
+
+  <header class="of-bar">
+    <button class="of-btn" id="btnStages">ステージ</button>
+    <div class="of-title"><span id="stgNo">1</span><b id="stgName"></b></div>
+    <div class="of-goals" id="goals"></div>
+    <div class="of-stats">
+      <span class="of-stat"><i>マス</i><b id="statCells">0</b><em id="parCells"></em></span>
+      <span class="of-stat"><i>時間</i><b id="statTime">0.0</b><em id="parTime"></em></span>
+    </div>
+    <button class="of-btn" id="btnReset">やり直す</button>
+  </header>
+
+  <div class="of-board">
+    <canvas id="cv"></canvas>
+  </div>
+
+  <p class="of-hint" id="hint"></p>
+
+  <!-- クリア -->
+  <div class="of-ov" id="ovClear" hidden>
+    <div class="of-panel">
+      <div class="of-ov-head">納品完了</div>
+      <div class="of-stars" id="clearStars"></div>
+      <ul class="of-score" id="clearScore"></ul>
+      <div class="of-ov-btns">
+        <button class="of-btn" id="btnRetry">もう一度</button>
+        <button class="of-btn of-btn-p" id="btnNext">次のステージ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ステージ選択 -->
+  <div class="of-ov" id="ovStages" hidden>
+    <div class="of-panel of-panel-w">
+      <div class="of-ov-head">ステージ</div>
+      <div class="of-sel" id="stageList"></div>
+      <div class="of-ov-btns">
+        <button class="of-btn" id="btnCloseStages">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="stages.js?v=77402843"></script>
+<script src="art.js?v=a314b566"></script>
+<script src="game.js?v=ab0f19f6"></script>
+</body>
+</html>

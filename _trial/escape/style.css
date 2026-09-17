@@ -1,0 +1,163 @@
+/* ==========================================================
+   脱出ADV（プロトタイプ）
+   スマホのチャット画面そのものを基準にする。PCでは中央に縦長で置く
+   （企画書4章「スマホ縦を基準。PCでは中央に縦長」）
+   ========================================================== */
+:root {
+  --bg:     #0d1013;
+  --panel:  #171c21;
+  --panel2: #1f262d;
+  --line:   #2c353d;
+  --ink:    #e7ecf1;
+  --ink-2:  #9aa6b2;
+  --red:    #e03919;
+  --amber:  #d9a441;
+  --green:  #3fb87a;
+  --her:    #232b32;   /* 彼女の吹き出し（左） */
+  --me:     #2a4f78;   /* こちらの吹き出し（右） */
+  --serif: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
+  --sans:  "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0; height: 100%; background: #05070a; color: var(--ink);
+  font-family: var(--sans); font-size: 14.5px; line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; }
+
+/* PCでは携帯の縦長をそのまま中央に置く。スマホでは画面いっぱいに広げる */
+.ec-frame {
+  max-width: 430px; height: 100vh; margin: 0 auto;
+  background: var(--bg); display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+}
+@media (min-width: 431px) {
+  .ec-frame {
+    max-height: 860px; margin-top: max(18px, 3vh); margin-bottom: max(18px, 3vh);
+    border: 1px solid var(--line); border-radius: 22px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+}
+
+/* ---------- ヘッダ ---------- */
+.ec-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: #05070a;
+  border-bottom: 1px solid var(--line); flex: none;
+  position: relative; z-index: 5;
+}
+.ec-back {
+  background: none; border: 0; padding: 0; color: var(--ink-2);
+  text-decoration: none; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.ec-back:hover { color: #fff; }
+.ec-headtitle { font-family: var(--serif); font-size: 14.5px; letter-spacing: .04em; }
+.ec-resetwrap { margin-left: auto; display: flex; align-items: center; }
+.ec-reset {
+  background: none; border: 0; padding: 5px 6px; color: #5c6873;
+  font-size: 11px; cursor: pointer; text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-color: #333d46;
+}
+.ec-reset:hover { color: var(--ink-2); }
+.ec-resetask { display: flex; align-items: center; gap: 2px; }
+.ec-resetask em { font-style: normal; color: var(--ink-2); font-size: 11px; margin-right: 6px; }
+.ec-reset.is-danger { color: var(--red); font-weight: 800; }
+
+/* ---------- タイトル／エンディング一覧（同じ枠を使い回す） ---------- */
+.ec-title {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+}
+.ec-art { position: relative; flex: 1 1 auto; min-height: 0; background:
+  radial-gradient(120% 90% at 50% 0%, #263241 0%, #12161b 60%, #0a0d10 100%); }
+.ec-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ec-title-body { flex: none; padding: 22px 24px 26px; text-align: center; }
+.ec-title-name {
+  font-family: var(--serif); font-size: 21px; letter-spacing: .08em;
+  margin: 0 0 4px;
+}
+.ec-title-sub { color: var(--ink-2); font-size: 11.5px; margin: 0 0 20px; }
+.ec-title-menu { display: grid; gap: 10px; }
+.ec-btn {
+  background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 10px; padding: 12px 16px; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: background .15s, border-color .15s;
+}
+.ec-btn:hover { background: #2b343d; }
+.ec-btn.is-main { background: var(--red); border-color: var(--red); color: #fff; }
+.ec-btn.is-main:hover { background: #f04a29; border-color: #f04a29; }
+.ec-btn.is-ghost { background: transparent; }
+
+.ec-list { padding: 18px 20px 22px; overflow-y: auto; }
+.ec-list h2 { font-family: var(--serif); font-size: 16px; margin: 0 0 4px; }
+.ec-list-count { color: var(--ink-2); font-size: 11.5px; margin: 0 0 16px; }
+.ec-end-row {
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 13px;
+  margin-bottom: 8px; background: var(--panel2);
+}
+.ec-end-row.is-locked { opacity: .5; }
+.ec-end-title { font-size: 13px; font-weight: 700; }
+.ec-end-text { font-size: 12px; color: var(--ink-2); margin-top: 3px; }
+.ec-list-back { margin-top: 14px; width: 100%; }
+
+/* ---------- チャット本体 ---------- */
+.ec-log {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding: 16px 14px 10px; display: flex; flex-direction: column; gap: 10px;
+}
+.ec-row { display: flex; }
+.ec-row.is-her { justify-content: flex-start; }
+.ec-row.is-me  { justify-content: flex-end; }
+.ec-bubble {
+  max-width: 78%; padding: 9px 13px; border-radius: 16px; font-size: 14px;
+  line-height: 1.65; white-space: pre-wrap; word-break: break-word;
+}
+.ec-row.is-her .ec-bubble { background: var(--her); border-bottom-left-radius: 4px; }
+.ec-row.is-me  .ec-bubble { background: var(--me);  border-bottom-right-radius: 4px; }
+.ec-status {
+  font-size: 10px; color: var(--ink-2); align-self: flex-end;
+  margin: 0 6px; white-space: nowrap;
+}
+.ec-typing .ec-bubble {
+  background: var(--her); display: flex; gap: 4px; padding: 12px 15px;
+}
+.ec-typing i {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--ink-2);
+  display: inline-block; animation: ec-blink 1.2s infinite ease-in-out;
+}
+.ec-typing i:nth-child(2) { animation-delay: .15s; }
+.ec-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes ec-blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+/* ---------- 選択肢：画面下部に固定 ---------- */
+.ec-choices {
+  flex: none; padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line); background: #05070a;
+  display: grid; gap: 8px; max-height: 46vh; overflow-y: auto;
+}
+.ec-choice {
+  background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 12px; padding: 11px 14px; font-size: 13.5px; font-weight: 600;
+  text-align: left; cursor: pointer; transition: background .15s, border-color .15s;
+}
+.ec-choice:hover:not(:disabled) { background: #2b343d; border-color: #46525d; }
+.ec-choice:disabled { opacity: .4; cursor: default; }
+
+/* ---------- エンディング表示（チャットに続けて出す） ---------- */
+.ec-endcard {
+  margin: 6px 12px 12px; padding: 14px 15px; border-radius: 12px;
+  border: 1px solid var(--amber); background: var(--panel2);
+}
+.ec-endcard h3 { font-family: var(--serif); font-size: 15px; margin: 0 0 6px; color: var(--amber); }
+.ec-endcard p { font-size: 12.5px; color: var(--ink-2); margin: 0 0 12px; }
+.ec-endcard.is-bad { border-color: #5c6873; }
+.ec-endcard.is-bad h3 { color: var(--ink-2); }
+.ec-endcard .ec-actions { display: grid; gap: 8px; }
+
+@media (max-width: 380px) {
+  .ec-title-body { padding: 18px 18px 20px; }
+}

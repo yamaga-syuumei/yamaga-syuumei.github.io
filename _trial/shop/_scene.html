@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>店の場面（見た目モック） | ハンター向けのショップ</title>
+<style>
+:root {
+  --bg:#0b0e11; --panel:#171c21; --panel2:#1f262d; --line:#39424b; --line2:#566270;
+  --ink:#e7ecf1; --ink-2:#9aa6b2; --ink-3:#6f7c88; --red:#e03919; --amber:#d9a441;
+  --sans:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",system-ui,sans-serif;
+}
+* { box-sizing:border-box; }
+html,body { margin:0; background:#05070a; color:var(--ink); font-family:var(--sans); font-size:14px; }
+img,canvas { image-rendering:pixelated; }
+
+.wrap { max-width:1080px; margin:0 auto; padding:16px 18px 40px; }
+h1 { font-size:15px; letter-spacing:.06em; margin:0 0 4px; }
+.lead { color:var(--ink-3); font-size:12px; margin:0 0 14px; line-height:1.7; }
+
+.wrap { max-width:1220px; }
+.main { display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:16px; align-items:start; }
+
+/* ---- 場面 ---- */
+.stage { position:relative; background:#05070a; border:2px solid var(--line); }
+.stage canvas { display:block; width:100%; height:auto; }
+
+/* 文字はキャンバスに描かず、HTMLで重ねる（日本語が潰れないように） */
+.tag {
+  position:absolute;
+  font-size:10.5px; font-weight:800; letter-spacing:.06em;
+  background:rgba(5,7,10,.78); border:1px solid var(--line2);
+  padding:0 6px; color:var(--ink-2); pointer-events:none; white-space:nowrap;
+}
+.hot { position:absolute; cursor:pointer; border:1px solid transparent; }
+.hot:hover { border-color:var(--amber); background:rgba(217,164,65,.10); }
+
+/* 看板は絵の外に出す（部屋の名札とぶつからないように） */
+.signbar {
+  background:#05070a; border:2px solid var(--line); border-bottom:0;
+  padding:5px 10px; font-size:12px; font-weight:800; letter-spacing:.16em;
+  color:var(--amber);
+}
+
+/* ---- 右のパネル ---- */
+.side { background:var(--panel); border:1px solid var(--line); padding:12px 13px; }
+.side h2 { font-size:12px; color:var(--amber); margin:0 0 8px; letter-spacing:.08em;
+  border-bottom:1px solid var(--line); padding-bottom:5px; }
+.side p { font-size:12px; color:var(--ink-2); margin:0 0 10px; line-height:1.7; }
+.ctl { margin-bottom:12px; }
+.ctl label { display:block; font-size:11px; color:var(--ink-3); margin-bottom:3px; }
+.ctl input[type=range] { width:100%; }
+.picked { font-size:13px; font-weight:700; }
+.note { font-size:11px; color:var(--ink-3); line-height:1.7; }
+.zoom { display:flex; gap:6px; margin-bottom:12px; }
+.zoom button {
+  flex:1; background:var(--panel2); color:var(--ink); border:1px solid var(--line2);
+  padding:5px; font-size:11.5px; font-weight:700; cursor:pointer; font-family:inherit;
+}
+.zoom button.on { background:var(--red); border-color:#ff6a45; }
+
+@media (max-width:860px) { .main { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>店の場面 — 見た目のモック</h1>
+  <p class="lead">
+    原案の「全体的にシステムの表示は使わないで街に含めた形にする」を、実際に絵にしたもの。<br>
+    320×224 に整数ピクセルで描いて拡大しています（画像ファイルなし・スーファミと同じ作り）。<br>
+    <b>右のつまみを動かすと、店の状態が絵に出ることを確認できます。</b>部屋を押すと下に何が開くかが出ます。
+  </p>
+
+  <div class="main">
+    <div>
+      <div class="signbar">ハンター向けのショップ</div>
+      <div class="stage" id="stage">
+        <canvas id="cv"></canvas>
+      </div>
+    </div>
+
+    <aside class="side">
+      <h2>押した場所</h2>
+      <p class="picked" id="picked">（部屋を押してください）</p>
+
+      <h2>店の状態を動かす</h2>
+      <div class="ctl">
+        <label>棚の枠（ショップレベル） <b id="v-slots">6</b></label>
+        <input type="range" id="r-slots" min="3" max="12" value="6">
+      </div>
+      <div class="ctl">
+        <label>棚の埋まり具合 <b id="v-shelf">6</b> 割</label>
+        <input type="range" id="r-shelf" min="0" max="10" value="6">
+      </div>
+      <div class="ctl">
+        <label>宿屋の部屋数（宿屋レベル） <b id="v-rooms">3</b></label>
+        <input type="range" id="r-rooms" min="1" max="5" value="3">
+      </div>
+      <div class="ctl">
+        <label>泊まっている数 <b id="v-stay">2</b></label>
+        <input type="range" id="r-stay" min="0" max="5" value="2">
+      </div>
+      <div class="ctl">
+        <label>酒場の客 <b id="v-mobs">3</b></label>
+        <input type="range" id="r-mobs" min="0" max="4" value="3">
+      </div>
+      <div class="ctl">
+        <label>滞在中のハンター <b id="v-hunt">1</b></label>
+        <input type="range" id="r-hunt" min="0" max="3" value="1">
+      </div>
+      <div class="ctl">
+        <label>工房レベル <b id="v-ws">1</b></label>
+        <input type="range" id="r-ws" min="0" max="2" value="1">
+      </div>
+
+      <h2>表示の大きさ</h2>
+      <div class="zoom">
+        <button data-z="1">×1</button>
+        <button data-z="2" class="on">×2</button>
+      </div>
+
+      <p class="note">
+        文字は絵の中に描かず、HTMLで重ねています。日本語は小さく描くと潰れるので、
+        看板や部屋名は拡大しても常に読める形にしてあります。
+      </p>
+    </aside>
+  </div>
+</div>
+
+<script src="data.js?v=18daaae4"></script>
+<script src="art.js?v=676e1917"></script>
+<script src="scene.js?v=33ba42ce"></script>
+<script>
+(function () {
+  'use strict';
+  var cv = document.getElementById('cv');
+  var g = cv.getContext('2d');
+  var stage = document.getElementById('stage');
+  var zoom = 2;
+
+  var PRODUCTS = SHOP_DATA.blueprints.map(function (b) { return b.product.id; });
+
+  function state() {
+    var slots = +document.getElementById('r-slots').value;
+    var rooms = +document.getElementById('r-rooms').value;
+    var stay = Math.min(+document.getElementById('r-stay').value, rooms);
+    var rm = [];
+    for (var r = 0; r < rooms; r++) {
+      rm.push({ grade: r < rooms - 2 ? 1 : 2, who: r < stay ? (r === 0 ? 'hunter' : 'mob') : null });
+    }
+    var hunters = [];
+    for (var hh = 0; hh < +document.getElementById('r-hunt').value; hh++) hunters.push('h');
+    return {
+      slots: slots,
+      racksFilled: +document.getElementById('r-shelf').value / 10,
+      rooms: rm,
+      mobs: +document.getElementById('r-mobs').value,
+      hunters: hunters,
+      fac: { workshop: +document.getElementById('r-ws').value }
+    };
+  }
+
+  function render() {
+    cv.width = SCENE.W; cv.height = SCENE.H;
+    stage.style.maxWidth = (SCENE.W * zoom) + 'px';
+    var hits = SCENE.draw(g, state());
+
+    // 重ねている当たり判定と名札を作り直す
+    Array.prototype.slice.call(stage.querySelectorAll('.hot,.tag')).forEach(function (e) { e.remove(); });
+    hits.forEach(function (h) {
+      var pct = function (v, total) { return (v / total * 100) + '%'; };
+      var hot = document.createElement('div');
+      hot.className = 'hot';
+      hot.style.left = pct(h.x, SCENE.W); hot.style.top = pct(h.y, SCENE.H);
+      hot.style.width = pct(h.w, SCENE.W); hot.style.height = pct(h.h, SCENE.H);
+      hot.title = h.label;
+      hot.addEventListener('click', function () {
+        document.getElementById('picked').textContent =
+          h.label + ' → ' + ({
+            shop: '店舗の窓（棚に並べる・下ろす）',
+            office: '帳場の窓（買取・売上の明細）',
+            bedroom: '自室（寝ると次の日へ進む）',
+            workshop: '工房の窓（設計図から作る・分解）',
+            inn: '宿屋の窓（部屋・宿泊料・滞在者）',
+            saloon: '酒場の窓（来る客・増築）',
+            library: '資料室の窓（図鑑・出来事・実績）',
+            data: 'データルームの窓（セーブ・書き出し）',
+            admin: '管理室の窓（設定）',
+            merchant: '商人の窓（素材・設計図を買う）'
+          }[h.place] || h.place) + ' が開く';
+      });
+      stage.appendChild(hot);
+
+      // 名札は部屋の左上に置き、絵の見せ場に重ならないようにする
+      var tag = document.createElement('div');
+      tag.className = 'tag';
+      tag.textContent = h.label;
+      tag.style.left = pct(h.x + 2, SCENE.W);
+      tag.style.top = pct(h.y + 2, SCENE.H);
+      stage.appendChild(tag);
+    });
+
+    ['slots','shelf','rooms','stay','mobs','hunt','ws'].forEach(function (k) {
+      document.getElementById('v-' + k).textContent = document.getElementById('r-' + k).value;
+    });
+  }
+
+  Array.prototype.slice.call(document.querySelectorAll('input[type=range]')).forEach(function (r) {
+    r.addEventListener('input', render);
+  });
+  Array.prototype.slice.call(document.querySelectorAll('.zoom button')).forEach(function (b) {
+    b.addEventListener('click', function () {
+      zoom = +b.dataset.z;
+      document.querySelectorAll('.zoom button').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      render();
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

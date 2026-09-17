@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>脱出チャット（仮） | ヒノガタリ</title>
+<meta name="description" content="知らない屋敷で目を覚ました彼女を、チャット越しに出口まで誘導する無料ブラウザゲーム（プロトタイプ）。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="脱出チャット（仮） | ヒノガタリ">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/escape/">
+<meta property="og:description" content="プレイヤーは屋敷にいない。彼女の言葉だけが情報源。チャット越しに出口まで導く脱出ADV。">
+<meta property="og:image" content="https://yamaga-syuumei.github.io/ogp.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:image" content="https://yamaga-syuumei.github.io/ogp.jpg">
+<link rel="canonical" href="https://yamaga-syuumei.github.io/escape/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css?v=2d739b3c">
+</head>
+<body>
+
+<div class="ec-frame">
+
+  <!-- ==========================================================
+       タイトル。エンディング／サムネイル兼用の1枚をここにも使う
+       ========================================================== -->
+  <div class="ec-title" id="screen-title">
+    <div class="ec-art">
+      <!-- 本番の素材ができたら img/title.jpg を置くだけで表示される -->
+      <img src="img/title.jpg" alt="" onerror="this.style.display='none'">
+    </div>
+    <div class="ec-title-body">
+      <p class="ec-title-name">脱出チャット<span style="opacity:.5">（仮）</span></p>
+      <p class="ec-title-sub">知らない屋敷で目を覚ました彼女を、チャット越しに出口まで導く。</p>
+      <div class="ec-title-menu">
+        <button class="ec-btn is-main" id="btn-start">はじめる</button>
+        <span id="btn-restart-wrap" hidden>
+          <button class="ec-btn is-ghost" id="btn-restart">さいしょから</button>
+          <span class="ec-resetask" id="restart-ask" hidden>
+            <em>ここまでの進行が消えます。</em>
+            <button class="ec-reset is-danger" id="restart-yes">はい</button>
+            <button class="ec-reset" id="restart-no">やめる</button>
+          </span>
+        </span>
+        <button class="ec-btn is-ghost" id="btn-endings">エンディング一覧</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       エンディング一覧
+       ========================================================== -->
+  <div class="ec-title" id="screen-list" hidden>
+    <div class="ec-list">
+      <h2>エンディング</h2>
+      <p class="ec-list-count" id="list-count">0 / 0 到達</p>
+      <div id="list-rows"></div>
+      <button class="ec-btn ec-list-back" id="list-back">タイトルへ戻る</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       チャット本体
+       ========================================================== -->
+  <div id="screen-chat" hidden style="display:flex; flex-direction:column; height:100%;">
+    <header class="ec-head">
+      <button class="ec-back" id="chat-back">← タイトル</button>
+      <span class="ec-headtitle">脱出チャット（仮）</span>
+    </header>
+    <div class="ec-log" id="log"></div>
+    <div class="ec-choices" id="choices"></div>
+  </div>
+
+</div>
+
+<script src="data.js?v=cefdac43"></script>
+<script src="game.js?v=ffc625bd"></script>
+</body>
+</html>
