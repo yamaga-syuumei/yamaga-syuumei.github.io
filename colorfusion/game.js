@@ -90,6 +90,10 @@
     maxShapes: 200,
     fragChain: 0,      // 1 にすると火花からも火花が出る（発散の確認用）
     combo: 1.5,        // 連鎖が途切れるまでの猶予（秒）
+    comboMin: 0.25,    /* 連鎖として数える最小の間隔（秒）。
+                          盤面が崩れるときの融合は 0.1秒刻みの連射になり、
+                          そのまま数えると x70 まで伸びて倍率が事故になる。
+                          実測：0.25 で普段の連鎖は 3〜4 のまま、最長だけ半分以下 */
     chainMul: 1.0,     // 連鎖1つあたり倍率がどれだけ伸びるか。0 で倍率なし
     stages: 1,         // 段階進行。切ると下の値をそのまま使える（調整用）
     colors: 4,         // 使う色数。段階進行が入っていると STAGES に上書きされる
@@ -655,7 +659,10 @@
 
     /* 猶予を過ぎていたら前の連鎖は終わっている。数え直す */
     if (tNow - chain.t > P.combo) chain.n = 0;
-    chain.n++; chain.t = tNow; chain.pop = 1;
+    /* 近すぎる融合は数えない。ただし連鎖は切らない。
+       切ると、崩れに巻き込まれた瞬間に連鎖が終わることになって理不尽になる */
+    if (tNow - chain.t >= P.comboMin) { chain.n++; chain.pop = 1; }
+    chain.t = tNow;
 
     stat.fuse++;
     if (a.size > stat.biggest) stat.biggest = a.size;
