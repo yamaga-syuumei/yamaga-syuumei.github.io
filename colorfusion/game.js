@@ -39,7 +39,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ベータ 1.0';
+  var VERSION = 'ベータ 1.1';
   /* 音。sound.js が無くても落ちないようにしておく */
   var SFX = window.CFSFX || { se: function () {}, bgm: function () {}, unlock: function () {},
                               setVol: function () {}, vol: function () { return { se: 0, bgm: 0 }; },
