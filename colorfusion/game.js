@@ -122,8 +122,8 @@
      「同じ色だけがくっつく」というルールがそもそも見えない。
      2色なら半分は素通りするので、最初の数秒でルールが目に入る */
   var STAGES = [
-    { at:    0, colors: 2, spawn: 0.30, drain: 0,   speed: 105, say: '' },
-    { at:   60, colors: 2, spawn: 0.32, drain: 8,   speed: 105, say: '光が減りはじめる' },
+    { at:    0, colors: 2, spawn: 0.30, drain: 6,   speed: 105, say: '' },
+    { at:   60, colors: 2, spawn: 0.32, drain: 8,   speed: 105, say: '光の減りが速くなる' },
     { at:  260, colors: 3, spawn: 0.36, drain: 10,  speed: 108, say: '四角が来る' },
     { at:  580, colors: 4, spawn: 0.42, drain: 12,  speed: 112, say: '六角が来る' },
     { at:  900, colors: 4, spawn: 0.48, drain: 14,  speed: 115, say: '速くなる' },
