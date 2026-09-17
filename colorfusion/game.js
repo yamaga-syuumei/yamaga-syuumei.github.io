@@ -89,7 +89,11 @@
     spawnEvery: 0.45,   // 段階進行を切ったときの値。長すぎると同色が出会わない
     life: 3.0,
     count: 3,
-    jitter: 7,
+    missRate: 0.5,     /* 最初からコアを外して入ってくる割合。
+                          全部がコアへ向かっていると、放っておくだけで光が増える。
+                          外れたものは縁を越えて失われるので、拾うには矢印が要る */
+    missNear: 76,      // 外す側が通る、コアからの最短距離の下限（掴まれない位置）
+    missFar: 220,      // 同・上限
     maxShapes: 200,
     fragChain: 0,      // 1 にすると火花からも火花が出る（発散の確認用）
     combo: 1.5,        // 連鎖が途切れるまでの猶予（秒）
@@ -595,8 +599,18 @@
     var x = CX + Math.cos(edge) * (FIELD_R + R0);
     var y = CY + Math.sin(edge) * (FIELD_R + R0);
 
-    var ang = Math.atan2(CY - y, CX - x);
-    ang += (Math.random() - 0.5) * 2 * (P.jitter * Math.PI / 180);
+    /* コアの脇を何px通るかを決める。進む向きに直角へずらすので、
+       ここで決めた値がそのまま最短距離になる。
+       掴まれるのは CORE_R + 塊の半径*0.6（大きさ1で約54px）まで */
+    var toCore = Math.atan2(CY - y, CX - x);
+    var off = Math.random() < P.missRate
+      ? (P.missNear + Math.random() * (P.missFar - P.missNear))   // 外す
+      : Math.random() * CORE_R * 0.5;                             // 当てる
+    if (Math.random() < 0.5) off = -off;
+    var tx = CX + Math.cos(toCore + Math.PI / 2) * off;
+    var ty = CY + Math.sin(toCore + Math.PI / 2) * off;
+
+    var ang = Math.atan2(ty - y, tx - x);
     shapes.push({
       x: x, y: y,
       vx: Math.cos(ang) * P.speed, vy: Math.sin(ang) * P.speed,
@@ -1606,7 +1620,9 @@
   bind('p-spawn', 'spawnEvery');
   bind('p-life', 'life');
   bind('p-count', 'count');
-  bind('p-jitter', 'jitter');
+  bind('p-missrate', 'missRate');
+  bind('p-missnear', 'missNear');
+  bind('p-missfar', 'missFar');
   bind('p-maxs', 'maxShapes');
   bind('p-colors', 'colors');
 
