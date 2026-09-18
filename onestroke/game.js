@@ -15,14 +15,14 @@
   const DT = 1000 / TPS;
   const PAD = 14;
   const DIRS = { N: [0, -1], E: [1, 0], S: [0, 1], W: [-1, 0] };
-  const SAVE_KEY = 'onestroke.progress2';
+  const SAVE_KEY = 'onestroke.progress3';
 
-  // 星は3つの条件を別々のビットで持つ。
-  // 「マス数が短い答え」と「タイムが速い答え」がぶつかるステージを作りたいので、
-  // 1回のプレイで同時に取れることを条件にすると、そういう面では★3が永久に取れない。
-  // 別々に積めるようにして、2回解いてもらう。
-  const S_CLEAR = 1, S_CELLS = 2, S_TIME = 4;
-  const starCount = (bits) => ((bits & 1) ? 1 : 0) + ((bits & 2) ? 1 : 0) + ((bits & 4) ? 1 : 0);
+  // 星は1回のプレイで判定する。クリアで1つ、マス数の目標で1つ、タイムの目標で1つ。
+  // 記録に残すのはその面で出した最高の数。
+  // 3つが同時に取れない盤面は作らない（クリアできたのに満点が構造的に不可能だと、
+  // なぜ取れないのかが分からず後味が悪いため）。
+  const S_CELLS = 2, S_TIME = 4;
+  const starCount = (bits) => 1 + ((bits & S_CELLS) ? 1 : 0) + ((bits & S_TIME) ? 1 : 0);
   const got = (def) => progress[def.key] || 0;
 
   const { drawItem, drawBridge, drawSpeed, speedLevel, roundRect } = window.ART;
@@ -251,13 +251,14 @@
     const cells = usedCells();
     const time = st.ticks / TPS;
     const par = st.def.par;
-    let bits = S_CLEAR;
+    let bits = 0;
     if (cells <= par.cells) bits |= S_CELLS;
     if (time <= par.time) bits |= S_TIME;
-    const was = got(st.def);
-    progress[st.def.key] = was | bits;
+    const stars = starCount(bits);
+    const best = Math.max(got(st.def), stars);
+    progress[st.def.key] = best;
     saveProgress();
-    st.result = { cells, time, bits, stars: starCount(bits), best: starCount(was | bits), was };
+    st.result = { cells, time, bits, stars, best };
     if (!ffing) { SND.se('clear'); SND.bgm('clear'); }
     showClear();
   }
@@ -754,18 +755,12 @@
   function showClear() {
     const r = st.result, par = st.def.par;
     el('clearStars').innerHTML =
-      '<span class="on">' + '★'.repeat(r.best) + '</span>' + '☆'.repeat(3 - r.best);
-    // 今回取れたものと、前に取ってあるものを分けて見せる。
-    // 別々の回で取れるので「今回は外したが持ってはいる」が起きる。
-    const line = (label, hit, kept) =>
-      '<li class="' + (hit ? 'hit' : kept ? 'kept' : '') + '">' + label +
-      (hit ? '' : kept ? '<i>取得済み</i>' : '') + '</li>';
+      '<span class="on">' + '★'.repeat(r.stars) + '</span>' + '☆'.repeat(3 - r.stars);
+    const line = (label, hit) => '<li class="' + (hit ? 'hit' : '') + '">' + label + '</li>';
     el('clearScore').innerHTML =
-      line('<b>納品</b> 完了', true, false) +
-      line('ベルト <b>' + r.cells + '</b> マス（目標 ' + par.cells + '）',
-        !!(r.bits & S_CELLS), !!(r.was & S_CELLS)) +
-      line('時間 <b>' + r.time.toFixed(1) + '</b> 秒（目標 ' + par.time.toFixed(1) + '）',
-        !!(r.bits & S_TIME), !!(r.was & S_TIME));
+      line('<b>納品</b> 完了', true) +
+      line('ベルト <b>' + r.cells + '</b> マス（目標 ' + par.cells + '）', !!(r.bits & S_CELLS)) +
+      line('時間 <b>' + r.time.toFixed(1) + '</b> 秒（目標 ' + par.time.toFixed(1) + '）', !!(r.bits & S_TIME));
     el('btnNext').style.display = stageIdx + 1 < STAGES.length ? '' : 'none';
     el('ovClear').hidden = false;
   }
@@ -776,7 +771,7 @@
     STAGES.forEach((d, i) => {
       const b = document.createElement('button');
       b.className = 'of-cell' + (i === stageIdx ? ' cur' : '');
-      const bits = starCount(progress[d.key] || 0);
+      const bits = progress[d.key] || 0;
       b.innerHTML = '<u>STAGE ' + d.no + '</u><span>' + d.name + '</span>' +
         '<em><span class="on">' + '★'.repeat(bits) + '</span>' + '☆'.repeat(3 - bits) + '</em>';
       b.onclick = () => { SND.unlock(); SND.se('ui'); el('ovStages').hidden = true; hideTitle(); load(i); };
@@ -828,7 +823,7 @@
   function startDemo() {
     // 解いたことのあるステージだけ見せる。まだ解いていない面の答えを先に出さない
     const done = [];
-    for (let i = 0; i < STAGES.length; i++) if (got(STAGES[i]) & S_CLEAR) done.push(i);
+    for (let i = 0; i < STAGES.length; i++) if (got(STAGES[i]) > 0) done.push(i);
     demoPool = done.length ? done : [0, 1];
     nextDemo();
   }
@@ -950,7 +945,7 @@
 
   // 「はじめる」で開く面。最後に解いた面の次
   for (let i = 0; i < STAGES.length; i++) {
-    if (got(STAGES[i]) & S_CLEAR) resumeIdx = Math.min(i + 1, STAGES.length - 1);
+    if (got(STAGES[i]) > 0) resumeIdx = Math.min(i + 1, STAGES.length - 1);
   }
   showTitle();
   requestAnimationFrame(frame);
