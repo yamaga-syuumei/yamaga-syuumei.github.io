@@ -17,7 +17,7 @@
   const DIRS = { N: [0, -1], E: [1, 0], S: [0, 1], W: [-1, 0] };
   const SAVE_KEY = 'onestroke.progress';
 
-  const { drawItem, roundRect } = window.ART;
+  const { drawItem, drawBridge, roundRect } = window.ART;
   const STAGES = window.STAGES;
   const SND = window.OSSND;
 
@@ -643,32 +643,39 @@
   // ------------------------------------------------------------------ HUD
   const el = (id) => document.getElementById(id);
   let goalEls = [];
+  let bridgeEl = null;
+
+  // 納品カウンタと同じ見た目の札を作る
+  function chip(box, paint) {
+    const d = document.createElement('div');
+    d.className = 'of-goal';
+    const c = document.createElement('canvas');
+    c.width = 40; c.height = 40; c.style.width = '20px'; c.style.height = '20px';
+    const cc = c.getContext('2d');
+    cc.scale(2, 2);
+    paint(cc);
+    const num = document.createElement('span');
+    d.appendChild(c); d.appendChild(num);
+    box.appendChild(d);
+    return { d, num };
+  }
 
   function buildHud() {
     el('stgNo').textContent = st.def.no;
     el('stgName').textContent = st.def.name;
     el('hint').textContent = st.def.hint || '';
-    el('parCells').textContent = '/ ' + st.def.par.cells;
-    el('statBridgeWrap').hidden = !bridgeCap();
-    el('capBridge').textContent = '/ ' + bridgeCap();
-    el('parTime').textContent = '/ ' + st.def.par.time.toFixed(1);
+    el('parCells').textContent = '目標 ' + st.def.par.cells + '以下';
+    el('parTime').textContent = '目標 ' + st.def.par.time.toFixed(1) + '秒以内';
 
     const box = el('goals');
     box.innerHTML = '';
     goalEls = [];
     st.nodes.filter((n) => n.k === 'snk').forEach((n) => {
-      const d = document.createElement('div');
-      d.className = 'of-goal';
-      const c = document.createElement('canvas');
-      c.width = 40; c.height = 40; c.style.width = '20px'; c.style.height = '20px';
-      const cc = c.getContext('2d');
-      cc.scale(2, 2);
-      drawItem(cc, n.item, 10, 10, 8);
-      const num = document.createElement('span');
-      d.appendChild(c); d.appendChild(num);
-      box.appendChild(d);
-      goalEls.push({ n, d, num });
+      const g = chip(box, (cc) => drawItem(cc, n.item, 10, 10, 8));
+      goalEls.push({ n, d: g.d, num: g.num });
     });
+    // 陸橋も同じ列に並べる。ステージごとの数え物という点では納品と同じなので
+    bridgeEl = bridgeCap() ? chip(box, (cc) => drawBridge(cc, 10, 10, 7)) : null;
   }
 
   function updateHud() {
@@ -678,7 +685,11 @@
     el('statTime').textContent = time.toFixed(1);
     el('statCells').parentNode.className = 'of-stat ' + (cells > st.def.par.cells ? 'over' : 'ok');
     el('statTime').parentNode.className = 'of-stat ' + (time > st.def.par.time ? 'over' : 'ok');
-    if (bridgeCap()) el('statBridge').textContent = usedBridges();
+    if (bridgeEl) {
+      const used = usedBridges();
+      bridgeEl.num.textContent = used + ' / ' + bridgeCap();
+      bridgeEl.d.classList.toggle('full', used >= bridgeCap());
+    }
     goalEls.forEach((g) => {
       g.num.textContent = g.n.count + ' / ' + g.n.goal;
       g.d.classList.toggle('done', g.n.count >= g.n.goal);

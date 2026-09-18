@@ -144,5 +144,22 @@
     c.restore();
   }
 
-  global.ART = { ITEMS, drawItem, roundRect };
+  // 陸橋の目印。盤面で描いている陸橋（下をくぐる線＋影で浮かせた線）と同じ形。
+  function drawBridge(c, cx, cy, r) {
+    c.save();
+    c.translate(cx, cy);
+    c.lineCap = 'round';
+    c.strokeStyle = '#55637a';
+    c.lineWidth = Math.max(2, r * 0.42);
+    c.beginPath(); c.moveTo(0, -r); c.lineTo(0, r); c.stroke();
+    c.strokeStyle = 'rgba(8,11,16,.85)';
+    c.lineWidth = Math.max(4, r * 0.95);
+    c.beginPath(); c.moveTo(-r, 0); c.lineTo(r, 0); c.stroke();
+    c.strokeStyle = '#9fb4cc';
+    c.lineWidth = Math.max(2, r * 0.5);
+    c.beginPath(); c.moveTo(-r, 0); c.lineTo(r, 0); c.stroke();
+    c.restore();
+  }
+
+  global.ART = { ITEMS, drawItem, drawBridge, roundRect };
 })(window);
