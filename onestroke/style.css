@@ -159,6 +159,8 @@ body.title .of-bar,body.title .of-hint{visibility:hidden}
 .of-score li{padding:2px 0;font-variant-numeric:tabular-nums}
 .of-score b{color:var(--fg);font-weight:600}
 .of-score .hit b{color:var(--gold)}
+.of-score .kept{color:#5c6b7d}
+.of-score .kept i{font-style:normal;font-size:11px;margin-left:6px;color:var(--gold);opacity:.75}
 .of-ov-btns{display:flex;gap:10px;justify-content:center}
 
 /* ---- ステージ選択 ---- */
