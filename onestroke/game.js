@@ -754,6 +754,7 @@
 
   function showClear() {
     const r = st.result, par = st.def.par;
+    el('clearStage').innerHTML = 'STAGE ' + st.def.no + '<b>' + st.def.name + '</b>';
     el('clearStars').innerHTML =
       '<span class="on">' + '★'.repeat(r.stars) + '</span>' + '☆'.repeat(3 - r.stars);
     const line = (label, hit) => '<li class="' + (hit ? 'hit' : '') + '">' + label + '</li>';

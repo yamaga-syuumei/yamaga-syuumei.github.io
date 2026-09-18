@@ -158,7 +158,9 @@ body.title .of-bar,body.title .of-hint{visibility:hidden}
   box-shadow:0 18px 50px rgba(0,0,0,.5);
 }
 .of-panel-w{min-width:min(560px,92vw)}
-.of-ov-head{font-size:17px;letter-spacing:.08em;margin-bottom:14px}
+.of-ov-stage{font-size:11.5px;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.of-ov-stage b{color:var(--fg);font-weight:600;font-size:13.5px;margin-left:9px;letter-spacing:.04em}
+.of-ov-head{font-size:17px;letter-spacing:.08em;margin:2px 0 14px}
 .of-stars{font-size:30px;letter-spacing:.14em;color:#38424f;margin-bottom:10px}
 .of-stars .on{color:var(--gold)}
 .of-score{list-style:none;margin:0 0 18px;padding:0;font-size:13px;color:var(--dim)}
