@@ -75,7 +75,7 @@
     const s = {
       def, w: def.w, h: def.h,
       cell: [], nodes: [], ports: [], belts: [],
-      ticks: 0, cleared: false, result: null,
+      ticks: 0, cleared: false, result: null, ready: false,
     };
     for (let i = 0; i < def.w * def.h; i++) s.cell.push({ wall: false, node: null, belts: [] });
     (def.walls || []).forEach(([x, y]) => { s.cell[y * def.w + x].wall = true; });
@@ -110,9 +110,27 @@
     return p;
   }
 
+  // 納品口まで物が流れる道が出来ているか。
+  // 供給口から順に「物を出せる出口」を広げていって、納品口の入口がそこに
+  // 繋がっているかを見る。使わない供給口や複製機があっても関係ない。
+  function lineReady() {
+    const live = new Set();
+    for (let pass = 0, changed = true; changed && pass < st.nodes.length + 2; pass++) {
+      changed = false;
+      for (const n of st.nodes) {
+        if (n.k === 'snk') continue;
+        // 工場と複製機は、入口が全部ふさがっていないと物を出せない
+        if (n.k !== 'src' && !n.ins.every((p) => p.belt && live.has(p.belt.from))) continue;
+        for (const o of n.outs) if (!live.has(o)) { live.add(o); changed = true; }
+      }
+    }
+    return st.nodes.every((n) =>
+      n.k !== 'snk' || (n.ins[0].belt && live.has(n.ins[0].belt.from)));
+  }
+
   function resetSim() {
     st.ticks = 0;
-    st.aliveTick = -999;
+    st.ready = lineReady();     // 繋がった瞬間から数え始める
     st.cleared = false;
     st.result = null;
     st.alive = false;
@@ -151,12 +169,11 @@
 
   // ------------------------------------------------------------------ シミュレーション
   function step() {
-    if (!st.cleared) st.ticks++;
+    if (st.ready && !st.cleared) st.ticks++;
     for (const b of st.belts) stepBelt(b);
     for (const n of st.nodes) stepNode(n);
     if (!st.alive && st.nodes.every((n) => n.k !== 'snk' || n.count > 0)) {
       st.alive = true;
-      st.aliveTick = st.ticks;     // 時計を出すのはここから。出た瞬間を光らせる
       if (!ffing) SND.bgm('run');
     }
     if (!st.cleared && st.nodes.every((n) => n.k !== 'snk' || n.count >= n.goal)) finishStage();
@@ -720,11 +737,11 @@
     const cells = usedCells();
     const time = st.ticks / TPS;
     el('statCells').textContent = cells;
-    el('statTime').textContent = st.alive ? time.toFixed(1) : '—';
+    el('statTime').textContent = st.ready ? time.toFixed(1) : '—';
     setStat(el('statCells').parentNode, cells > st.def.par.cells ? 'over' : 'ok', false);
     setStat(el('statTime').parentNode,
-      !st.alive ? '' : time > st.def.par.time ? 'over' : 'ok',
-      st.alive && st.ticks - st.aliveTick < TPS * 1.2);
+      !st.ready ? '' : time > st.def.par.time ? 'over' : 'ok',
+      st.ready && st.ticks < TPS * 1.2);
     if (bridgeEl) {
       const used = usedBridges();
       bridgeEl.num.textContent = used + ' / ' + bridgeCap();
