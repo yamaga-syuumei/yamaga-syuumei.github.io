@@ -139,6 +139,8 @@ canvas#cv{
 }
 .of-tagline{margin:0 0 22px;font-size:13px;color:var(--dim);letter-spacing:.08em}
 .of-titlenote{margin:14px 0 0;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+.of-home{display:inline-block;margin:18px 0 0;font-size:12px;font-weight:700;color:var(--dim);text-decoration:none}
+.of-home:hover{color:#fff}
 body.title .of-bar,body.title .of-hint{visibility:hidden}
 
 .of-ov{
