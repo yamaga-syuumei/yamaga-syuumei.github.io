@@ -6,7 +6,7 @@
 <title>ワンストローク・ファクトリー（試作） | ヒノガタリ</title>
 <meta name="description" content="マウスの一筆書きでベルトコンベアを引き、供給口と工場と納品口をつないで工場のラインを組み上げるパズル。試作版。">
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
-<link rel="stylesheet" href="style.css?v=a71999ec">
+<link rel="stylesheet" href="style.css?v=2967f403">
 </head>
 <body>
 
@@ -32,6 +32,19 @@
 
   <p class="of-hint" id="hint"></p>
 
+  <!-- タイトル。裏でデモが勝手に遊んでいる -->
+  <div class="of-ov of-ov-title" id="ovTitle" hidden>
+    <div class="of-titlecard">
+      <h1>ワンストローク・ファクトリー</h1>
+      <p class="of-tagline">一筆書きでベルトを引き、工場をつなぐ</p>
+      <div class="of-ov-btns">
+        <button class="of-btn of-btn-p" id="btnStart">はじめる</button>
+        <button class="of-btn" id="btnTitleStages">ステージ選択</button>
+      </div>
+      <p class="of-titlenote" id="titleNote"></p>
+    </div>
+  </div>
+
   <!-- クリア -->
   <div class="of-ov" id="ovClear" hidden>
     <div class="of-panel">
@@ -52,6 +65,7 @@
       <div class="of-sel" id="stageList"></div>
       <p class="of-credits" id="credits" hidden></p>
       <div class="of-ov-btns">
+        <button class="of-btn" id="btnTitle">タイトルへ</button>
         <button class="of-btn" id="btnCloseStages">閉じる</button>
       </div>
     </div>
@@ -59,9 +73,9 @@
 
 </div>
 
-<script src="sound.js?v=65f94f3e"></script>
-<script src="stages.js?v=450edf26"></script>
+<script src="sound.js?v=47cd0c00"></script>
+<script src="stages.js?v=5bafabe8"></script>
 <script src="art.js?v=da97dcda"></script>
-<script src="game.js?v=dbf3aec8"></script>
+<script src="game.js?v=37c937ac"></script>
 </body>
 </html>

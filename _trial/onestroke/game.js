@@ -44,6 +44,16 @@
   let hoverBelt = null;
   let progress = loadProgress();
 
+  // タイトル画面。裏でデモが勝手に遊ぶ。
+  // デモは想定解（stages.js の sol）を1マスずつ引いていくだけで、
+  // 引く処理も動かす処理も人が遊ぶときと同じものを通す。
+  let titleMode = false;
+  let demo = null;
+  let demoPool = [];
+  let lastDemo = -1;
+  let resumeIdx = 0;
+  const DEMO_CELL_MS = 45, DEMO_GAP_MS = 280, DEMO_RUN_MS = 7000;
+
   // ------------------------------------------------------------------ 保存
   function loadProgress() {
     try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch (e) { return {}; }
@@ -210,6 +220,7 @@
 
   function finishStage() {
     st.cleared = true;
+    if (st.demo) return;      // デモは記録も結果表示もしない
     const cells = usedCells();
     const time = st.ticks / TPS;
     const par = st.def.par;
@@ -423,10 +434,17 @@
     requestAnimationFrame(frame);
     if (!st) return;
     if (!last) last = now;
-    let dt = Math.min(250, now - last);
+    const dt = Math.min(250, now - last);
     last = now;
+    advance(dt);
+  }
+
+  // 時間を渡せば進む形にしておく。requestAnimationFrame が止まる場所でも
+  // 同じ道筋を通して確認できるようにするため（__osf.advance）。
+  function advance(dt) {
     acc += dt;
     while (acc >= DT) { acc -= DT; step(); }
+    if (titleMode) stepDemo(dt);
     flowT += dt;
     let running = 0;
     st.belts.forEach((b) => { b.flow += dt / 1000 * TPS * cs; if (b.moved) running += b.cells.length; });
@@ -717,7 +735,7 @@
       const got = progress[String(d.no)] || 0;
       b.innerHTML = '<u>STAGE ' + d.no + '</u><span>' + d.name + '</span>' +
         '<em><span class="on">' + '★'.repeat(got) + '</span>' + '☆'.repeat(3 - got) + '</em>';
-      b.onclick = () => { SND.unlock(); SND.se('ui'); el('ovStages').hidden = true; load(i); };
+      b.onclick = () => { SND.unlock(); SND.se('ui'); el('ovStages').hidden = true; hideTitle(); load(i); };
       box.appendChild(b);
     });
 
@@ -731,15 +749,93 @@
   }
 
   // ------------------------------------------------------------------ 進行
-  function load(i) {
+  function load(i, isDemo) {
     stageIdx = Math.max(0, Math.min(STAGES.length - 1, i));
     st = buildStage(STAGES[stageIdx]);
+    st.demo = !!isDemo;
     drag = null; hoverBelt = null;
-    SND.bgm('play');
+    SND.bgm(isDemo ? 'title' : 'play');
     el('ovClear').hidden = true;
     layout();
     buildHud();
     updateHud();
+  }
+
+  // ------------------------------------------------------------------ タイトル
+  function showTitle() {
+    titleMode = true;
+    document.body.classList.add('title');
+    el('ovTitle').hidden = false;
+    el('ovStages').hidden = true;
+    el('titleNote').textContent = resumeIdx > 0
+      ? 'つづき　STAGE ' + STAGES[resumeIdx].no + '　' + STAGES[resumeIdx].name
+      : '全 ' + STAGES.length + ' ステージ';
+    startDemo();
+  }
+
+  function hideTitle() {
+    titleMode = false;
+    demo = null;
+    drag = null;
+    document.body.classList.remove('title');
+    el('ovTitle').hidden = true;
+  }
+
+  function startDemo() {
+    // 解いたことのあるステージだけ見せる。まだ解いていない面の答えを先に出さない
+    const done = [];
+    for (let i = 0; i < STAGES.length; i++) if (progress[String(STAGES[i].no)]) done.push(i);
+    demoPool = done.length ? done : [0, 1];
+    nextDemo();
+  }
+
+  function nextDemo() {
+    let i = demoPool[Math.floor(Math.random() * demoPool.length)];
+    if (demoPool.length > 1 && i === lastDemo) i = demoPool[(demoPool.indexOf(i) + 1) % demoPool.length];
+    lastDemo = i;
+    load(i, true);
+    demo = { queue: STAGES[i].sol || [], i: 0, step: 1, t: 0, phase: 'draw' };
+  }
+
+  function stepDemo(dt) {
+    if (!demo) return;
+    demo.t += dt;
+    if (demo.phase === 'run') {
+      if (demo.t > DEMO_RUN_MS) nextDemo();
+      return;
+    }
+    let guard = 0;
+    while (guard++ < 40) {
+      const wait = drag ? DEMO_CELL_MS : DEMO_GAP_MS;
+      if (demo.t < wait) break;
+      demo.t -= wait;
+      if (!drag) {
+        const item = demo.queue[demo.i];
+        if (!item) { demo.phase = 'run'; demo.t = 0; return; }
+        const k = item[0];
+        const port = st.ports.find((q) =>
+          q.node.k === k[0] && q.node.x === k[1] && q.node.y === k[2] && q.d === k[3]);
+        if (!port || !canDraw(port.ax, port.ay)) { nextDemo(); return; }   // sol が配置とずれている
+        drag = { port, cells: [{ x: port.ax, y: port.ay }], snap: null };
+        demo.step = 1;
+        SND.se('grab', { gain: 0.55 });
+        updateSnap();
+        continue;
+      }
+      const path = demo.queue[demo.i][1];
+      if (demo.step < path.length) {
+        if (stepTowards(path[demo.step][0], path[demo.step][1])) {
+          SND.se('draw', { rate: 1 + Math.min(drag.cells.length, 20) * 0.02, gain: 0.55 });
+        }
+        demo.step++;
+        updateSnap();
+      } else {
+        const ok = !!drag.snap;
+        onUp();
+        if (!ok) { nextDemo(); return; }
+        demo.i++;
+      }
+    }
   }
 
   const uiClick = (fn) => () => { SND.unlock(); SND.se('ui'); fn(); };
@@ -747,7 +843,13 @@
   el('btnRetry').onclick = uiClick(() => load(stageIdx));
   el('btnNext').onclick = uiClick(() => load(stageIdx + 1));
   el('btnStages').onclick = uiClick(() => { buildStageList(); SND.bgm('select'); el('ovStages').hidden = false; });
-  el('btnCloseStages').onclick = uiClick(() => { el('ovStages').hidden = true; SND.bgm(st.alive ? 'run' : 'play'); });
+  el('btnCloseStages').onclick = uiClick(() => {
+    el('ovStages').hidden = true;
+    SND.bgm(titleMode ? 'title' : (st.alive ? 'run' : 'play'));
+  });
+  el('btnStart').onclick = uiClick(() => { hideTitle(); load(resumeIdx); });
+  el('btnTitleStages').onclick = uiClick(() => { buildStageList(); SND.bgm('select'); el('ovStages').hidden = false; });
+  el('btnTitle').onclick = uiClick(() => { el('ovStages').hidden = true; showTitle(); });
 
   // 音量ボタンは素材が1つでも入るまで出さない（押しても何も起きないので）
   const btnMute = el('btnMute');
@@ -766,7 +868,7 @@
   window.addEventListener('resize', () => { if (st) layout(); });
   window.addEventListener('keydown', (e) => {
     SND.unlock();
-    if (e.key === 'r' || e.key === 'R') load(stageIdx);
+    if (!titleMode && (e.key === 'r' || e.key === 'R')) load(stageIdx);
     if (e.key === 'Escape') { el('ovStages').hidden = true; }
   });
 
@@ -778,6 +880,9 @@
     // ff は音を止める。音が鳴っているかを確かめたいときはこちら。
     // ブラウザのタブが裏だと rAF が止まってシミュレーションが進まないので、その回避にも使う。
     step: (n) => { for (let i = 0; i < n; i++) step(); },
+    // 1フレーム分を手で進める。rAF が止まっているときの確認用
+    advance: (ms, times) => { for (let i = 0; i < (times || 1); i++) advance(ms); },
+    title: () => titleMode,
     // ポインタ座標を介さずに1本引く。ブラウザのペインが隠れていると canvas の
     // 大きさが 0 になり、画面座標からマスを求められなくなるため。
     drawBelt: (port, path) => {
@@ -799,9 +904,10 @@
     return { x: r.left + x * k, y: r.top + y * k };
   }
 
-  // 最後に遊んでいた続きから
-  let startAt = 0;
-  for (let i = 0; i < STAGES.length; i++) { if (progress[String(STAGES[i].no)]) startAt = i + 1; }
-  load(Math.min(startAt, STAGES.length - 1));
+  // 「はじめる」で開く面。最後に解いた面の次
+  for (let i = 0; i < STAGES.length; i++) {
+    if (progress[String(STAGES[i].no)]) resumeIdx = Math.min(i + 1, STAGES.length - 1);
+  }
+  showTitle();
   requestAnimationFrame(frame);
 })();
