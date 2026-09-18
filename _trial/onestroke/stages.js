@@ -11,6 +11,8 @@
 //   dup : in を1つ受けて、つながっている out すべてに同じ物を配る。
 //   snk : item を goal 個受け取るのが目的。
 //
+// bridges : 陸橋（交差）を何回まで使えるか。省略＝0＝交差できない。
+//
 // par.cells / par.time は★2/★3の目標。実際に解いた手順のマス数を入れてある。
 (function (global) {
   'use strict';
@@ -195,6 +197,56 @@
         { k: 'snk', x: 13, y: 4, item: 'robot', goal: 10, in: [{ d: 'W' }] },
       ],
       par: { cells: 33, time: 13.5 },
+    },
+    {
+      name: '陸橋',
+      hint: '陸橋を使うと1回だけ交差できる。引いてあるベルトの上を、曲がらずにまっすぐ横切る。',
+      w: 13, h: 9, walls: [], bridges: 1,
+      nodes: [
+        { k: 'src', x: 0, y: 0, item: 'iron', rate: 6, out: [{ d: 'E' }] },
+        { k: 'src', x: 12, y: 0, item: 'bolt', rate: 6, out: [{ d: 'W' }] },
+        { k: 'snk', x: 0, y: 8, item: 'bolt', goal: 8, in: [{ d: 'N' }] },
+        { k: 'snk', x: 12, y: 8, item: 'iron', goal: 8, in: [{ d: 'N' }] },
+      ],
+      par: { cells: 38, time: 6.5 },
+    },
+    {
+      name: '立体交差',
+      hint: '陸橋は2つ。遠回りでも解けるが、それだとマス数の目標には届かない。',
+      w: 13, h: 9, walls: [], bridges: 2,
+      nodes: [
+        { k: 'src', x: 1, y: 3, item: 'bolt', rate: 6, out: [{ d: 'E' }] },
+        { k: 'src', x: 1, y: 5, item: 'iron', rate: 6, out: [{ d: 'E' }] },
+        { k: 'src', x: 11, y: 3, item: 'wire', rate: 6, out: [{ d: 'W' }] },
+        { k: 'src', x: 11, y: 5, item: 'gear', rate: 6, out: [{ d: 'W' }] },
+        { k: 'fac', x: 4, y: 4, make: 'frame', ticks: 8, out: [{ d: 'E' }],
+          in: [{ d: 'N', item: 'iron' }, { d: 'S', item: 'bolt' }] },
+        { k: 'fac', x: 8, y: 4, make: 'motor', ticks: 8, out: [{ d: 'W' }],
+          in: [{ d: 'N', item: 'gear' }, { d: 'S', item: 'wire' }] },
+        { k: 'fac', x: 6, y: 4, make: 'robot', ticks: 12, out: [{ d: 'S' }],
+          in: [{ d: 'W', item: 'frame' }, { d: 'E', item: 'motor' }] },
+        { k: 'snk', x: 6, y: 7, item: 'robot', goal: 8, in: [{ d: 'N' }] },
+      ],
+      par: { cells: 28, time: 11 },
+    },
+    {
+      name: 'ロボット工場・改',
+      hint: '最後。材料の行き先がねじれている。どこで交差させるかを決めてから引く。',
+      w: 15, h: 10, walls: [], bridges: 2,
+      nodes: [
+        { k: 'src', x: 1, y: 1, item: 'bolt', rate: 6, out: [{ d: 'E' }] },
+        { k: 'src', x: 1, y: 4, item: 'iron', rate: 6, out: [{ d: 'E' }] },
+        { k: 'src', x: 1, y: 5, item: 'wire', rate: 6, out: [{ d: 'E' }] },
+        { k: 'src', x: 1, y: 8, item: 'gear', rate: 6, out: [{ d: 'E' }] },
+        { k: 'fac', x: 6, y: 2, make: 'frame', ticks: 8, out: [{ d: 'E' }],
+          in: [{ d: 'N', item: 'iron' }, { d: 'S', item: 'bolt' }] },
+        { k: 'fac', x: 6, y: 7, make: 'motor', ticks: 8, out: [{ d: 'E' }],
+          in: [{ d: 'N', item: 'gear' }, { d: 'S', item: 'wire' }] },
+        { k: 'fac', x: 11, y: 4, make: 'robot', ticks: 12, out: [{ d: 'E' }],
+          in: [{ d: 'N', item: 'frame' }, { d: 'S', item: 'motor' }] },
+        { k: 'snk', x: 13, y: 4, item: 'robot', goal: 10, in: [{ d: 'W' }] },
+      ],
+      par: { cells: 46, time: 13.5 },
     },
   ];
 

@@ -59,7 +59,7 @@
       cell: [], nodes: [], ports: [], belts: [],
       ticks: 0, cleared: false, result: null,
     };
-    for (let i = 0; i < def.w * def.h; i++) s.cell.push({ wall: false, node: null, belt: null });
+    for (let i = 0; i < def.w * def.h; i++) s.cell.push({ wall: false, node: null, belts: [] });
     (def.walls || []).forEach(([x, y]) => { s.cell[y * def.w + x].wall = true; });
 
     def.nodes.forEach((nd) => {
@@ -110,7 +110,7 @@
       ghosts: [], flow: 0, moved: false, jam: false,
     };
     from.belt = b; to.belt = b;
-    cells.forEach((c) => { st.cell[c.y * st.w + c.x].belt = b; });
+    cells.forEach((c) => { st.cell[c.y * st.w + c.x].belts.push(b); });
     st.belts.push(b);
     resetSim();
     SND.se('link');
@@ -118,7 +118,10 @@
 
   function removeBelt(b) {
     b.from.belt = null; b.to.belt = null;
-    b.cells.forEach((c) => { st.cell[c.y * st.w + c.x].belt = null; });
+    b.cells.forEach((c) => {
+      const list = st.cell[c.y * st.w + c.x].belts;
+      list.splice(list.indexOf(b), 1);
+    });
     st.belts.splice(st.belts.indexOf(b), 1);
     if (hoverBelt === b) hoverBelt = null;
     resetSim();
@@ -264,7 +267,44 @@
 
   const inBoard = (x, y) => x >= 0 && y >= 0 && x < st.w && y < st.h;
   const at = (x, y) => st.cell[y * st.w + x];
-  const canDraw = (x, y) => inBoard(x, y) && !at(x, y).wall && !at(x, y).node && !at(x, y).belt;
+  const canDraw = (x, y) => inBoard(x, y) && !at(x, y).wall && !at(x, y).node && !at(x, y).belts.length;
+  // 掴む・消す対象。陸橋のマスは上を通っている方（後から引いた方）を選ぶ。
+  const beltAt = (x, y) => { const l = at(x, y).belts; return l.length ? l[l.length - 1] : null; };
+
+  // ------------------------------------------------------------------ 陸橋
+  // そのマスをまっすぐ通り抜けているなら向きを返す。曲がっているなら null。
+  // 交差できるのは「両方がまっすぐ」かつ「向きが直角」のときだけ。
+  function straightDirAt(b, x, y) {
+    const i = b.cells.findIndex((c) => c.x === x && c.y === y);
+    if (i < 0) return null;
+    const prev = i > 0 ? b.cells[i - 1] : { x: b.from.node.x, y: b.from.node.y };
+    const next = i < b.cells.length - 1 ? b.cells[i + 1] : { x: b.to.node.x, y: b.to.node.y };
+    const ax = x - prev.x, ay = y - prev.y;
+    const bx = next.x - x, by = next.y - y;
+    return (ax === bx && ay === by) ? { x: ax, y: ay } : null;
+  }
+
+  const bridgeCap = () => st.def.bridges || 0;
+  function usedBridges() {
+    let n = 0;
+    for (const c of st.cell) if (c.belts.length > 1) n++;
+    return n;
+  }
+  function dragBridges() {
+    return drag ? drag.cells.filter((c) => at(c.x, c.y).belts.length > 0).length : 0;
+  }
+
+  // (sx,sy) 方向に (x,y) へ踏み込んで陸橋にできるか。
+  // できるなら渡り切った先のマスを返す。曲がって渡ることはできない。
+  function bridgeThrough(x, y, sx, sy) {
+    if (usedBridges() + dragBridges() >= bridgeCap()) return null;
+    const list = at(x, y).belts;
+    if (list.length !== 1) return null;
+    const d = straightDirAt(list[0], x, y);
+    if (!d || d.x * sx + d.y * sy !== 0) return null;   // 直角でないと渡れない
+    const ex = x + sx, ey = y + sy;
+    return canDraw(ex, ey) ? { x: ex, y: ey } : null;
+  }
 
   // ------------------------------------------------------------------ 入力
   function compatible(a, b) {
@@ -290,7 +330,7 @@
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 合成イベントでは失敗する */ }
 
     const c = at(pc.x, pc.y);
-    if (e.button === 2) { if (c.belt) removeBelt(c.belt); return; }
+    if (e.button === 2) { const b = beltAt(pc.x, pc.y); if (b) removeBelt(b); return; }
 
     const p = portAtPointer(pc);
     if (p) {
@@ -301,7 +341,8 @@
       updateSnap();
       return;
     }
-    if (c.belt) removeBelt(c.belt);
+    const hit = beltAt(pc.x, pc.y);
+    if (hit) removeBelt(hit);
   }
 
   function onMove(e) {
@@ -309,7 +350,7 @@
     const pc = pointerCell(e);
     if (!drag) {
       const c = inBoard(pc.x, pc.y) ? at(pc.x, pc.y) : null;
-      hoverBelt = c ? c.belt : null;
+      hoverBelt = inBoard(pc.x, pc.y) ? beltAt(pc.x, pc.y) : null;
       cv.style.cursor = hoverBelt ? 'pointer' : 'crosshair';
       return;
     }
@@ -318,7 +359,7 @@
     for (let guard = 0; guard < 80; guard++) {
       const r = stepTowards(pc.x, pc.y);
       if (!r) break;
-      if (r === 'push') drew++; else backed++;
+      if (r === 'push' || r === 'bridge') drew++; else backed++;
     }
     // 素早く引くと1回のイベントで何マスも進む。全部鳴らすと団子になるので3つまで。
     for (let i = 0; i < Math.min(drew, 3); i++) {
@@ -346,8 +387,16 @@
       if (!sx && !sy) continue;
       const nx = head.x + sx, ny = head.y + sy;
       const idx = drag.cells.findIndex((c) => c.x === nx && c.y === ny);
-      if (idx >= 0) { drag.cells.length = idx + 1; return 'back'; }  // 戻る＝消える
+      if (idx >= 0) {
+        drag.cells.length = idx + 1;
+        // 陸橋は2マスで1組。渡っている途中で止まらないよう、もう1マス戻す。
+        const last = drag.cells[drag.cells.length - 1];
+        if (drag.cells.length > 1 && at(last.x, last.y).belts.length) drag.cells.pop();
+        return 'back';
+      }
       if (canDraw(nx, ny)) { drag.cells.push({ x: nx, y: ny }); return 'push'; }
+      const exit = bridgeThrough(nx, ny, sx, sy);
+      if (exit) { drag.cells.push({ x: nx, y: ny }, exit); return 'bridge'; }
     }
     return null;
   }
@@ -430,6 +479,16 @@
 
   function drawBelt(b, alpha) {
     const pts = b.pts = beltPts(b);
+    // 陸橋。下をくぐっている側との境目に影を落として、上に乗っているように見せる。
+    // ベルトは作った順に描くので、上に乗る側（後から引いた方）のときだけ影を落とせばいい。
+    for (const c of b.cells) {
+      const list = at(c.x, c.y).belts;
+      if (list.length < 2 || list[list.length - 1] !== b) continue;
+      const d = straightDirAt(b, c.x, c.y) || { x: 1, y: 0 };
+      const mx = midX(c.x), my = midY(c.y);
+      const ex = d.x * cs * 0.56, ey = d.y * cs * 0.56;
+      strokePts([{ x: mx - ex, y: my - ey }, { x: mx + ex, y: my + ey }], cs * 0.74, 'rgba(8,11,16,.72)');
+    }
     const hot = hoverBelt === b;
     strokePts(pts, cs * 0.54, hot ? '#5b2f31' : '#2b3543');
     strokePts(pts, cs * 0.40, hot ? '#7a3e40' : '#3a4657');
@@ -441,6 +500,13 @@
     ctx.fillStyle = 'rgba(12,17,24,.72)';
     ctx.beginPath(); ctx.arc(x, y, r * 1.18, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
+  }
+
+  // そのマスが陸橋で、この b が下をくぐっている側か
+  function under(b, i) {
+    const c = b.cells[i];
+    const list = at(c.x, c.y).belts;
+    return list.length > 1 && list[list.length - 1] !== b;
   }
 
   function drawItems(b, alpha) {
@@ -456,6 +522,7 @@
     for (let i = 0; i < n; i++) {
       const o = b.slots[i];
       if (!o) continue;
+      if (under(b, i)) continue;              // 陸橋の下。潜って見えなくなる
       const prev = o.prev === undefined ? i : o.prev;
       const p = posAt(prev + (i - prev) * alpha);
       itemPad(p.x, p.y, r);
@@ -582,6 +649,8 @@
     el('stgName').textContent = st.def.name;
     el('hint').textContent = st.def.hint || '';
     el('parCells').textContent = '/ ' + st.def.par.cells;
+    el('statBridgeWrap').hidden = !bridgeCap();
+    el('capBridge').textContent = '/ ' + bridgeCap();
     el('parTime').textContent = '/ ' + st.def.par.time.toFixed(1);
 
     const box = el('goals');
@@ -609,6 +678,7 @@
     el('statTime').textContent = time.toFixed(1);
     el('statCells').parentNode.className = 'of-stat ' + (cells > st.def.par.cells ? 'over' : 'ok');
     el('statTime').parentNode.className = 'of-stat ' + (time > st.def.par.time ? 'over' : 'ok');
+    if (bridgeCap()) el('statBridge').textContent = usedBridges();
     goalEls.forEach((g) => {
       g.num.textContent = g.n.count + ' / ' + g.n.goal;
       g.d.classList.toggle('done', g.n.count >= g.n.goal);
@@ -697,6 +767,18 @@
     // ff は音を止める。音が鳴っているかを確かめたいときはこちら。
     // ブラウザのタブが裏だと rAF が止まってシミュレーションが進まないので、その回避にも使う。
     step: (n) => { for (let i = 0; i < n; i++) step(); },
+    // ポインタ座標を介さずに1本引く。ブラウザのペインが隠れていると canvas の
+    // 大きさが 0 になり、画面座標からマスを求められなくなるため。
+    drawBelt: (port, path) => {
+      if (port.belt) removeBelt(port.belt);
+      if (!canDraw(port.ax, port.ay)) return false;
+      drag = { port, cells: [{ x: port.ax, y: port.ay }], snap: null };
+      for (const [x, y] of path) { for (let g = 0; g < 80; g++) if (!stepTowards(x, y)) break; }
+      updateSnap();
+      const ok = !!drag.snap;
+      onUp();
+      return ok;
+    },
     cell: (x, y) => toClient(midX(x), midY(y)),
     joint: (p) => { const j = jointOf(p); return toClient(j.x, j.y); },
   };
