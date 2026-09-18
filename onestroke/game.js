@@ -25,7 +25,7 @@
   const starCount = (bits) => ((bits & 1) ? 1 : 0) + ((bits & 2) ? 1 : 0) + ((bits & 4) ? 1 : 0);
   const got = (def) => progress[def.key] || 0;
 
-  const { drawItem, drawBridge, roundRect } = window.ART;
+  const { drawItem, drawBridge, drawSpeed, speedLevel, roundRect } = window.ART;
   const STAGES = window.STAGES;
   const SND = window.OSSND;
 
@@ -624,13 +624,11 @@
     const mx = midX(n.x), my = midY(n.y);
 
     if (n.k === 'src') {
-      drawItem(ctx, n.item, mx, my - cs * 0.04, cs * 0.24);
-      ctx.fillStyle = 'rgba(190,215,240,.45)';
-      ctx.font = Math.round(cs * 0.17) + 'px sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText('∞', mx, my + cs * 0.22);
+      drawItem(ctx, n.item, mx, my - cs * 0.1, cs * 0.22);
+      drawSpeed(ctx, mx, my + cs * 0.38, cs * 0.58, cs * 0.22, speedLevel(n.rate / TPS));
     } else if (n.k === 'fac') {
-      drawItem(ctx, n.make, mx, my, cs * 0.24);
+      drawItem(ctx, n.make, mx, my - cs * 0.08, cs * 0.22);
+      drawSpeed(ctx, mx, my + cs * 0.38, cs * 0.58, cs * 0.22, speedLevel(n.ticks / TPS));
       if (n.craftT > 0 || n.pending) {
         const prog = n.pending ? 1 : 1 - n.craftT / n.ticks;
         ctx.save();

@@ -161,5 +161,31 @@
     c.restore();
   }
 
-  global.ART = { ITEMS, drawItem, drawBridge, roundRect };
+  // 速さの目盛り。電波強度のように、左から順に高くなる棒を level 本だけ光らせる。
+  // 工場の製作速度と供給口の供給速度に使う。やってみるまで速さが分からない、
+  // という状態を作らないため。
+  const SPEED_BARS = 5;
+  function drawSpeed(c, cx, cy, w, h, level) {
+    const gap = w / SPEED_BARS;
+    const bw = Math.max(1.5, gap * 0.66);
+    c.save();
+    for (let i = 0; i < SPEED_BARS; i++) {
+      const bh = Math.max(1.5, h * (0.36 + 0.64 * (i / (SPEED_BARS - 1))));
+      const x = cx - w / 2 + gap * i + (gap - bw) / 2;
+      c.fillStyle = i < level ? '#d6e6f7' : 'rgba(214,230,247,.16)';
+      c.fillRect(x, cy - bh, bw, bh);
+    }
+    c.restore();
+  }
+
+  // 1個あたりの秒数から目盛りの本数へ。速いほど多い。
+  function speedLevel(secPerItem) {
+    if (secPerItem <= 0.4) return 5;
+    if (secPerItem <= 0.55) return 4;
+    if (secPerItem <= 0.8) return 3;
+    if (secPerItem <= 1.1) return 2;
+    return 1;
+  }
+
+  global.ART = { ITEMS, drawItem, drawBridge, drawSpeed, speedLevel, roundRect };
 })(window);
