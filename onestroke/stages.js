@@ -49,7 +49,7 @@
         { k: 'src', x: 1, y: 3, item: 'iron', rate: 6, out: [{ d: 'E' }] },
         { k: 'snk', x: 9, y: 3, item: 'iron', goal: 8, in: [{ d: 'W' }] },
       ],
-      par: { cells: 11, time: 6 },
+      par: { cells: 11, time: 5.5 },
     },
     {
       key: 'no-cross', name: '交わらせない',
@@ -61,7 +61,7 @@
         { k: 'snk', x: 9, y: 1, item: 'bolt', goal: 8, in: [{ d: 'N' }] },
         { k: 'snk', x: 9, y: 5, item: 'iron', goal: 8, in: [{ d: 'S' }] },
       ],
-      par: { cells: 28, time: 6.5 },
+      par: { cells: 28, time: 6 },
     },
     {
       key: 'one-lane', name: '一本道の取り合い',
@@ -73,7 +73,7 @@
         { k: 'src', x: 5, y: 1, item: 'bolt', rate: 6, out: [{ d: 'S' }] },
         { k: 'snk', x: 5, y: 6, item: 'bolt', goal: 8, in: [{ d: 'N' }] },
       ],
-      par: { cells: 16, time: 6.5 },
+      par: { cells: 16, time: 5.5 },
     },
     {
       key: 'first-factory', name: 'はじめての工場',
@@ -133,7 +133,7 @@
           in: [{ d: 'N', item: 'iron' }, { d: 'S', item: 'bolt' }] },
         { k: 'snk', x: 11, y: 4, item: 'frame', goal: 10, in: [{ d: 'W' }] },
       ],
-      par: { cells: 20, time: 9.5 },
+      par: { cells: 20, time: 9 },
     },
     {
       key: 'two-stage', name: '二段の工場',
@@ -166,7 +166,7 @@
           in: [{ d: 'W', item: 'wire' }, { d: 'N', item: 'iron' }, { d: 'S', item: 'bolt' }] },
         { k: 'snk', x: 11, y: 4, item: 'chip', goal: 10, in: [{ d: 'W' }] },
       ],
-      par: { cells: 22, time: 9.5 },
+      par: { cells: 22, time: 9 },
     },
     {
       key: 'spare-source', name: '余計な供給口',
@@ -219,7 +219,7 @@
         { k: 'snk', x: 11, y: 6, item: 'chip', goal: 8, in: [{ d: 'W' }] },
         { k: 'snk', x: 8, y: 3, item: 'iron', goal: 8, in: [{ d: 'W' }] },
       ],
-      par: { cells: 35, time: 8 },
+      par: { cells: 35, time: 7.5 },
     },
     {
       key: 'split-product', name: '中間を二手に',
@@ -240,7 +240,7 @@
         { k: 'snk', x: 11, y: 1, item: 'frame', goal: 6, in: [{ d: 'W' }] },
         { k: 'snk', x: 11, y: 6, item: 'robot', goal: 6, in: [{ d: 'W' }] },
       ],
-      par: { cells: 28, time: 12 },
+      par: { cells: 28, time: 9 },
     },
     {
       key: 'no-splitter', name: '複製機の誘惑',
@@ -259,7 +259,7 @@
         { k: 'snk', x: 12, y: 1, item: 'frame', goal: 8, in: [{ d: 'W' }] },
         { k: 'snk', x: 12, y: 7, item: 'chip', goal: 8, in: [{ d: 'W' }] },
       ],
-      par: { cells: 36, time: 8 },
+      par: { cells: 36, time: 7.5 },
     },
     {
       key: 'press', name: '加工機',
@@ -274,7 +274,7 @@
           in: [{ d: 'N', item: 'iron' }, { d: 'S', item: 'bolt' }] },
         { k: 'snk', x: 11, y: 4, item: 'frame', goal: 10, in: [{ d: 'W' }] },
       ],
-      par: { cells: 17, time: 9.5 },
+      par: { cells: 17, time: 9 },
     },
     {
       key: 'iron-only', name: '鉄だけの工場',
@@ -289,7 +289,7 @@
           in: [{ d: 'N', item: 'iron' }, { d: 'S', item: 'bolt' }] },
         { k: 'snk', x: 12, y: 3, item: 'frame', goal: 10, in: [{ d: 'W' }] },
       ],
-      par: { cells: 19, time: 10 },
+      par: { cells: 19, time: 9.5 },
     },
     {
       key: 'two-sinks', name: '二つの納品口',
@@ -321,7 +321,7 @@
           in: [{ d: 'N', item: 'bolt' }, { d: 'S', item: 'gear' }] },
         { k: 'snk', x: 12, y: 4, item: 'chip', goal: 10, in: [{ d: 'W' }] },
       ],
-      par: { cells: 18, time: 10 },
+      par: { cells: 18, time: 9.5 },
     },
     {
       key: 'wire-short', name: '配線が足りない',
@@ -383,7 +383,7 @@
           in: [{ d: 'N', item: 'frame' }, { d: 'S', item: 'motor' }] },
         { k: 'snk', x: 12, y: 4, item: 'robot', goal: 10, in: [{ d: 'W' }] },
       ],
-      par: { cells: 32, time: 13.5 },
+      par: { cells: 32, time: 13 },
     },
     {
       key: 'two-orders', name: '注文が二つ',
@@ -404,7 +404,7 @@
         { k: 'snk', x: 11, y: 1, item: 'frame', goal: 6, in: [{ d: 'W' }] },
         { k: 'snk', x: 11, y: 5, item: 'robot', goal: 6, in: [{ d: 'W' }] },
       ],
-      par: { cells: 29, time: 12 },
+      par: { cells: 29, time: 9 },
     },
 
     // ---------------------------------------------------------------- 陸橋
@@ -451,7 +451,7 @@
           in: [{ d: 'N', item: 'wire' }, { d: 'W', item: 'iron' }, { d: 'E', item: 'bolt' }] },
         { k: 'snk', x: 7, y: 8, item: 'chip', goal: 10, in: [{ d: 'N' }] },
       ],
-      par: { cells: 26, time: 10 },
+      par: { cells: 26, time: 9 },
     },
     {
       key: 'four-corners', name: '四隅の材料',
@@ -470,7 +470,7 @@
           in: [{ d: 'N', item: 'frame' }, { d: 'S', item: 'motor' }] },
         { k: 'snk', x: 12, y: 4, item: 'robot', goal: 10, in: [{ d: 'W' }] },
       ],
-      par: { cells: 46, time: 14 },
+      par: { cells: 46, time: 13 },
     },
 
     // ---------------------------------------------------------------- 15×10
@@ -495,7 +495,7 @@
           in: [{ d: 'N', item: 'frame' }, { d: 'S', item: 'motor' }] },
         { k: 'snk', x: 14, y: 5, item: 'robot', goal: 10, in: [{ d: 'W' }] },
       ],
-      par: { cells: 42, time: 14 },
+      par: { cells: 42, time: 13.5 },
     },
     {
       key: 'robot-plus', name: 'ロボット工場・改',

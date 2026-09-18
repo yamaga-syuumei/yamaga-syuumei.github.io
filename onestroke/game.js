@@ -112,6 +112,7 @@
 
   function resetSim() {
     st.ticks = 0;
+    st.aliveTick = -999;
     st.cleared = false;
     st.result = null;
     st.alive = false;
@@ -155,6 +156,7 @@
     for (const n of st.nodes) stepNode(n);
     if (!st.alive && st.nodes.every((n) => n.k !== 'snk' || n.count > 0)) {
       st.alive = true;
+      st.aliveTick = st.ticks;     // 時計を出すのはここから。出た瞬間を光らせる
       if (!ffing) SND.bgm('run');
     }
     if (!st.cleared && st.nodes.every((n) => n.k !== 'snk' || n.count >= n.goal)) finishStage();
@@ -707,13 +709,22 @@
     bridgeEl = bridgeCap() ? chip(box, (cc) => drawBridge(cc, 10, 10, 7)) : null;
   }
 
+  // className を丸ごと書き換えると、動き出しの演出用のクラスまで消えてしまう
+  function setStat(node, state, lit) {
+    node.classList.toggle('ok', state === 'ok');
+    node.classList.toggle('over', state === 'over');
+    node.classList.toggle('lit', !!lit);
+  }
+
   function updateHud() {
     const cells = usedCells();
     const time = st.ticks / TPS;
     el('statCells').textContent = cells;
-    el('statTime').textContent = time.toFixed(1);
-    el('statCells').parentNode.className = 'of-stat ' + (cells > st.def.par.cells ? 'over' : 'ok');
-    el('statTime').parentNode.className = 'of-stat ' + (time > st.def.par.time ? 'over' : 'ok');
+    el('statTime').textContent = st.alive ? time.toFixed(1) : '—';
+    setStat(el('statCells').parentNode, cells > st.def.par.cells ? 'over' : 'ok', false);
+    setStat(el('statTime').parentNode,
+      !st.alive ? '' : time > st.def.par.time ? 'over' : 'ok',
+      st.alive && st.ticks - st.aliveTick < TPS * 1.2);
     if (bridgeEl) {
       const used = usedBridges();
       bridgeEl.num.textContent = used + ' / ' + bridgeCap();
