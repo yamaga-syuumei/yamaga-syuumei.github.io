@@ -15,7 +15,15 @@
   const DT = 1000 / TPS;
   const PAD = 14;
   const DIRS = { N: [0, -1], E: [1, 0], S: [0, 1], W: [-1, 0] };
-  const SAVE_KEY = 'onestroke.progress';
+  const SAVE_KEY = 'onestroke.progress2';
+
+  // 星は3つの条件を別々のビットで持つ。
+  // 「マス数が短い答え」と「タイムが速い答え」がぶつかるステージを作りたいので、
+  // 1回のプレイで同時に取れることを条件にすると、そういう面では★3が永久に取れない。
+  // 別々に積めるようにして、2回解いてもらう。
+  const S_CLEAR = 1, S_CELLS = 2, S_TIME = 4;
+  const starCount = (bits) => ((bits & 1) ? 1 : 0) + ((bits & 2) ? 1 : 0) + ((bits & 4) ? 1 : 0);
+  const got = (def) => progress[def.key] || 0;
 
   const { drawItem, drawBridge, roundRect } = window.ART;
   const STAGES = window.STAGES;
@@ -224,10 +232,13 @@
     const cells = usedCells();
     const time = st.ticks / TPS;
     const par = st.def.par;
-    const stars = 1 + (cells <= par.cells ? 1 : 0) + (time <= par.time ? 1 : 0);
-    st.result = { cells, time, stars };
-    const key = String(st.def.no);
-    if (!progress[key] || progress[key] < stars) { progress[key] = stars; saveProgress(); }
+    let bits = S_CLEAR;
+    if (cells <= par.cells) bits |= S_CELLS;
+    if (time <= par.time) bits |= S_TIME;
+    const was = got(st.def);
+    progress[st.def.key] = was | bits;
+    saveProgress();
+    st.result = { cells, time, bits, stars: starCount(bits), best: starCount(was | bits), was };
     if (!ffing) { SND.se('clear'); SND.bgm('clear'); }
     showClear();
   }
@@ -717,11 +728,18 @@
   function showClear() {
     const r = st.result, par = st.def.par;
     el('clearStars').innerHTML =
-      '<span class="on">' + '★'.repeat(r.stars) + '</span>' + '☆'.repeat(3 - r.stars);
+      '<span class="on">' + '★'.repeat(r.best) + '</span>' + '☆'.repeat(3 - r.best);
+    // 今回取れたものと、前に取ってあるものを分けて見せる。
+    // 別々の回で取れるので「今回は外したが持ってはいる」が起きる。
+    const line = (label, hit, kept) =>
+      '<li class="' + (hit ? 'hit' : kept ? 'kept' : '') + '">' + label +
+      (hit ? '' : kept ? '<i>取得済み</i>' : '') + '</li>';
     el('clearScore').innerHTML =
-      '<li class="hit"><b>納品</b> 完了</li>' +
-      '<li class="' + (r.cells <= par.cells ? 'hit' : '') + '">ベルト <b>' + r.cells + '</b> マス（目標 ' + par.cells + '）</li>' +
-      '<li class="' + (r.time <= par.time ? 'hit' : '') + '">時間 <b>' + r.time.toFixed(1) + '</b> 秒（目標 ' + par.time.toFixed(1) + '）</li>';
+      line('<b>納品</b> 完了', true, false) +
+      line('ベルト <b>' + r.cells + '</b> マス（目標 ' + par.cells + '）',
+        !!(r.bits & S_CELLS), !!(r.was & S_CELLS)) +
+      line('時間 <b>' + r.time.toFixed(1) + '</b> 秒（目標 ' + par.time.toFixed(1) + '）',
+        !!(r.bits & S_TIME), !!(r.was & S_TIME));
     el('btnNext').style.display = stageIdx + 1 < STAGES.length ? '' : 'none';
     el('ovClear').hidden = false;
   }
@@ -732,9 +750,9 @@
     STAGES.forEach((d, i) => {
       const b = document.createElement('button');
       b.className = 'of-cell' + (i === stageIdx ? ' cur' : '');
-      const got = progress[String(d.no)] || 0;
+      const bits = starCount(progress[d.key] || 0);
       b.innerHTML = '<u>STAGE ' + d.no + '</u><span>' + d.name + '</span>' +
-        '<em><span class="on">' + '★'.repeat(got) + '</span>' + '☆'.repeat(3 - got) + '</em>';
+        '<em><span class="on">' + '★'.repeat(bits) + '</span>' + '☆'.repeat(3 - bits) + '</em>';
       b.onclick = () => { SND.unlock(); SND.se('ui'); el('ovStages').hidden = true; hideTitle(); load(i); };
       box.appendChild(b);
     });
@@ -784,7 +802,7 @@
   function startDemo() {
     // 解いたことのあるステージだけ見せる。まだ解いていない面の答えを先に出さない
     const done = [];
-    for (let i = 0; i < STAGES.length; i++) if (progress[String(STAGES[i].no)]) done.push(i);
+    for (let i = 0; i < STAGES.length; i++) if (got(STAGES[i]) & S_CLEAR) done.push(i);
     demoPool = done.length ? done : [0, 1];
     nextDemo();
   }
@@ -906,7 +924,7 @@
 
   // 「はじめる」で開く面。最後に解いた面の次
   for (let i = 0; i < STAGES.length; i++) {
-    if (progress[String(STAGES[i].no)]) resumeIdx = Math.min(i + 1, STAGES.length - 1);
+    if (got(STAGES[i]) & S_CLEAR) resumeIdx = Math.min(i + 1, STAGES.length - 1);
   }
   showTitle();
   requestAnimationFrame(frame);
