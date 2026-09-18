@@ -69,6 +69,12 @@ body{
 .of-stat em{font-style:normal;font-size:11px;color:var(--dim)}
 .of-stat.over b{color:#e4655a}
 .of-stat.ok b{color:var(--gold)}
+/* 時計が出た瞬間だけ光らせる。数字が出てきたことに気づかせる */
+@keyframes of-timer-on{
+  0%{color:#fff;text-shadow:0 0 16px rgba(242,201,76,.95)}
+  100%{color:var(--gold);text-shadow:none}
+}
+.of-stat.lit b,.of-stat.lit u{animation:of-timer-on 1.2s ease-out}
 
 .of-btn{
   font:inherit;font-size:13px;
