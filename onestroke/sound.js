@@ -1,9 +1,8 @@
 /* ==========================================================
    音（効果音・BGM・環境音）
 
-   素材はまだ入っていない。ファイルを sfx/ と bgm/ に置いて、
-   下の SFX_FILES / BGM_FILES / AMB_FILES に名前を書けば鳴りはじめる。
-   空のままでもエラーにはならず、無音でそのまま遊べる。
+   素材は sfx/ と bgm/ に置き、下の SFX_FILES / BGM_FILES / AMB_FILES に名前を書く。
+   '' のままのキーはエラーにならず、そこだけ無音で遊べる。
 
    効果音は Audio() を複数プールして使い回す。
    ベルトを引いている間は 1マスごとに鳴るので、前の音が切れると気持ち悪い。
@@ -180,11 +179,19 @@ window.OSSND = (function () {
     } catch (e) {}
   }
 
-  /* 最初の操作で解錠する。ここまでは一切鳴らさない */
+  /* 最初の操作で解錠する。ここまでは一切鳴らさない。
+
+     解錠したその操作が、同じ拍で場面も変えることがある（タイトルの「はじめる」）。
+     控えていた曲をその場で鳴らすと、0.5秒だけ顔を出してフェードアウトし、
+     曲ではなく雑音として聞こえる。1拍おいて、次の曲がもう指定されていたら譲る。 */
   function unlock() {
     if (unlocked) return;
     unlocked = true;
-    if (wantBgm !== null) { var w = wantBgm; wantBgm = null; curBgm = null; bgm(w); }
+    if (wantBgm === null) return;
+    var w = wantBgm;
+    wantBgm = null;
+    curBgm = null;
+    setTimeout(function () { if (!curBgm) bgm(w); }, 0);
   }
 
   function setVol(kind, v) {

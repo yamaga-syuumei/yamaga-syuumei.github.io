@@ -906,6 +906,9 @@
   cv.addEventListener('pointercancel', onUp);
   cv.addEventListener('contextmenu', (e) => e.preventDefault());
   window.addEventListener('resize', () => { if (st) layout(); });
+  // タイトルは全面がオーバーレイで覆われていて、ボタン以外を押しても canvas に
+  // 届かない。どこを触っても音が解錠されるよう、窓全体で先に受ける。
+  window.addEventListener('pointerdown', () => SND.unlock(), true);
   window.addEventListener('keydown', (e) => {
     SND.unlock();
     if (!titleMode && (e.key === 'r' || e.key === 'R')) load(stageIdx);
