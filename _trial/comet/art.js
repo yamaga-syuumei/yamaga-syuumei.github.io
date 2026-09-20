@@ -200,11 +200,13 @@ const Art = (() => {
 
   // ---- 目 ----
   // mood: 'normal' | 'angry' | 'hurt' | 'dead' | 'squint'
+  // 大きく丸く、瞳が目のほとんどを占める。白目はふちに残るだけ。
+  // ハイライトは上に大きく・下に小さくの2つ。
   function eyes(g, cx, cy, r, look, mood, t) {
-    const gap = r * 0.42, ey = r * 0.05;
+    const gap = r * 0.73, ey = r * 0.03;
     for (let s = -1; s <= 1; s += 2) {
       const ex = cx + s * gap, y = cy + ey;
-      const w = r * 0.30, h = r * 0.36;
+      const w = r * 0.69, h = r * 0.73;
 
       if (mood === 'dead') {                       // 目が回る
         g.strokeStyle = '#2b2118'; g.lineWidth = Math.max(2, r * 0.05);
@@ -227,22 +229,30 @@ const Art = (() => {
         continue;
       }
 
-      const squint = (mood === 'squint' || mood === 'angry') ? 0.55 : 1;
-      // 白目
+      const squint = (mood === 'squint' || mood === 'angry') ? 0.58 : 1;
+
+      // 白目。真円
       g.fillStyle = '#ffffff';
-      g.beginPath(); g.ellipse(ex, y, w, h * squint, 0, 0, 6.2832); g.fill();
-      // 黒目。彗星の方を向く
-      const px = ex + look.x * w * 0.42, py = y + look.y * h * squint * 0.42;
-      g.fillStyle = '#241b14';
-      g.beginPath(); g.ellipse(px, py, w * 0.52, h * squint * 0.55, 0, 0, 6.2832); g.fill();
-      g.fillStyle = 'rgba(255,255,255,.92)';
-      g.beginPath(); g.arc(px - w * 0.18, py - h * squint * 0.22, w * 0.17, 0, 6.2832); g.fill();
+      g.beginPath(); g.ellipse(ex, y, w, w * squint, 0, 0, 6.2832); g.fill();
+
+      // 黒目。真円。彗星の方へわずかに寄る
+      const px = ex + look.x * w * 0.20, py = y + look.y * w * squint * 0.20;
+      const ir = w * 0.62;
+      g.fillStyle = '#1d1a26';
+      g.beginPath(); g.ellipse(px, py, ir, ir * squint, 0, 0, 6.2832); g.fill();
+
+      // 光。真円1つ
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.ellipse(px - ir * 0.32, py - ir * squint * 0.32, ir * 0.30, ir * 0.30 * squint, 0, 0, 6.2832);
+      g.fill();
+
       // 怒ると眉
       if (mood === 'angry') {
         g.strokeStyle = '#2b2118'; g.lineWidth = Math.max(2, r * 0.045);
         g.beginPath();
-        g.moveTo(ex - s * w * 0.9, y - h * 0.95);
-        g.lineTo(ex + s * w * 0.8, y - h * 0.55);
+        g.moveTo(ex - s * w * 0.85, y - h * 0.92);
+        g.lineTo(ex + s * w * 0.75, y - h * 0.58);
         g.stroke();
       }
     }
@@ -294,9 +304,9 @@ const Art = (() => {
     g.restore();
 
     // 顔（守っている側）。自転で盤面を回る
-    const fx = x + Math.cos(b.face) * r * 0.38;
-    const fy = y + Math.sin(b.face) * r * 0.38;
-    eyes(g, fx, fy, r * 0.52, look, b.mood, t);
+    const fx = x + Math.cos(b.face) * r * 0.05;
+    const fy = y + Math.sin(b.face) * r * 0.05;
+    eyes(g, fx, fy, r * 0.62, look, b.mood, t);
 
     // 環（手前半分）
     if (b.ring) ringHalf(g, b, false);
@@ -340,7 +350,7 @@ const Art = (() => {
     g.fillStyle = gr;
     g.beginPath(); g.arc(m.x, m.y, m.r, 0, 6.2832); g.fill();
     g.restore();
-    eyes(g, m.x, m.y, m.r * 0.78, look, m.hp < m.hpMax ? 'hurt' : 'normal', t);
+    eyes(g, m.x, m.y, m.r * 0.586, look, m.hp < m.hpMax ? 'hurt' : 'normal', t);
   }
 
   // ---- 衝突の閃光 ----

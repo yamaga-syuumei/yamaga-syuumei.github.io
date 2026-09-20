@@ -13,22 +13,34 @@ const Snd = (() => {
     master.gain.value = 0.55;
     master.connect(ac.destination);
 
-    // 彗星の走行音。速度で音量とフィルタが動く
+    // 彗星の走行音。速度でローパスの開き具合と音量が動く。
+    // 素材は白色ノイズにする。先に低域へ寄せた音を帯域通過に入れると、
+    // 素材に無い帯域を切り出すことになり、フィルタの共振＝笛の音になる。
     const n = ac.createBufferSource();
-    const len = ac.sampleRate * 2;
+    const len = ac.sampleRate * 4;          // 長めに取ってループの周期を目立たせない
     const buf = ac.createBuffer(1, len, ac.sampleRate);
     const d = buf.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < len; i++) {
-      const w = Math.random() * 2 - 1;
-      last = (last + 0.02 * w) / 1.02;       // 低域寄りのノイズ
-      d[i] = last * 6;
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * 0.7;
+    // 継ぎ目を滑らかにする
+    const fade = 2000;
+    for (let i = 0; i < fade; i++) {
+      const k = i / fade;
+      d[i] = d[i] * k + d[len - fade + i] * (1 - k);
     }
     n.buffer = buf; n.loop = true;
+
     trailFilt = ac.createBiquadFilter();
-    trailFilt.type = 'bandpass'; trailFilt.frequency.value = 340; trailFilt.Q.value = 0.8;
+    trailFilt.type = 'lowpass';             // 共振させない。開くほど「シャー」に近づく
+    trailFilt.frequency.value = 200;
+    trailFilt.Q.value = 0.0001;
+
+    // 耳に刺さる高域を落とす
+    const tilt = ac.createBiquadFilter();
+    tilt.type = 'highshelf'; tilt.frequency.value = 2000; tilt.gain.value = -12;
+
     trailGain = ac.createGain(); trailGain.gain.value = 0;
-    n.connect(trailFilt); trailFilt.connect(trailGain); trailGain.connect(master);
+    n.connect(trailFilt); trailFilt.connect(tilt); tilt.connect(trailGain);
+    trailGain.connect(master);
     n.start();
   }
 
@@ -97,12 +109,16 @@ const Snd = (() => {
 
   function play(k) { boot(); const f = SFX[k]; if (f && !muted) f(); }
 
-  // 走行音。0..1 の速度で音量とピッチを動かす
+  // 走行音。0..1 の速度で音量とローパスの開き具合を動かす。
+  // TRAIL_VOL を 0 にすると鳴らない。
+  const TRAIL_VOL = 0.085;
+  const TRAIL_FROM = 0.35;                  // これ未満の速度では鳴らさない
   function trail(sp) {
     if (!ac || !trailGain) return;
-    const g = muted ? 0 : Math.min(0.30, sp * sp * 0.34);
-    trailGain.gain.setTargetAtTime(g, ac.currentTime, 0.08);
-    trailFilt.frequency.setTargetAtTime(240 + sp * 900, ac.currentTime, 0.08);
+    const k = Math.max(0, (sp - TRAIL_FROM) / (1 - TRAIL_FROM));
+    const g = muted ? 0 : k * k * TRAIL_VOL;
+    trailGain.gain.setTargetAtTime(g, ac.currentTime, 0.12);
+    trailFilt.frequency.setTargetAtTime(260 + k * 900, ac.currentTime, 0.12);
   }
 
   function setMute(m) {
