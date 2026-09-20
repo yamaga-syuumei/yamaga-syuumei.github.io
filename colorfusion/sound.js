@@ -21,23 +21,23 @@ window.CFSFX = (function () {
      '' のままの音は鳴らない（無音で正常に動く）。
      例： fuse: 'sfx/se_fuse.mp3'                                  */
   var SFX_FILES = {
-    fuse:   'sfx/決定2.mp3',        // 融合した
-    chain:  'sfx/決定5.mp3',        // 連鎖が終わった（x3以上）
-    absorb: 'sfx/決定4.mp3',        // コアが吸い込んだ
-    stage:  'sfx/決定11.mp3',        // 段が変わった
-    lap:    'sfx/決定15.mp3',        // 次の周に入った
-    start:  'sfx/正解9.mp3',        // ランの開始
-    over:   'sfx/電源オン.mp3'         // 光が尽きた
+    fuse:   'sfx/決定2.mp3',    // 融合した
+    chain:  'sfx/決定5.mp3',    // 連鎖が終わった（x3以上）
+    absorb: 'sfx/決定4.mp3',    // コアが吸い込んだ
+    stage:  'sfx/決定11.mp3',   // 段が変わった
+    lap:    'sfx/決定15.mp3',   // 次の周に入った
+    start:  'sfx/正解9.mp3',    // ランの開始
+    over:   'sfx/電源オン.mp3'   // 光が尽きた
   };
 
   /* 空のキーを指定されたときは、いま鳴っている曲をそのまま流し続ける。
      だから title と play だけ入れて、残りを空のままにしても成立する。 */
   var BGM_FILES = {
-    title:  'bgm/Future_3.mp3',        // タイトルとデモ
-    play:   'bgm/Future_2.mp3',        // プレイ中
-    play2:  'bgm/trance2.mp3',        // 2周目以降。空なら play のまま
-    danger: 'bgm/Drumnbass_03.mp3',        // 光が残りわずか。空ならプレイ中の曲のまま
-    over:   'bgm/LoFi_01.mp3'         // 結果画面。空ならプレイ中の曲のまま
+    title:  'bgm/Future_3.mp3',     // タイトルとデモ
+    play:   'bgm/Future_2.mp3',     // プレイ中
+    play2:  'bgm/trance2.mp3',      // 2周目以降。空なら play のまま
+    danger: 'bgm/Drumnbass_03.mp3', // 光が残りわずか。空ならプレイ中の曲のまま
+    over:   'bgm/LoFi_01.mp3'       // 結果画面。空ならプレイ中の曲のまま
   };
 
   /* ---------- 素材の出どころ ----------
