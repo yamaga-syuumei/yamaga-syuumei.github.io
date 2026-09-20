@@ -174,7 +174,7 @@
     for (const n of st.nodes) stepNode(n);
     if (!st.alive && st.nodes.every((n) => n.k !== 'snk' || n.count > 0)) {
       st.alive = true;
-      if (!ffing) SND.bgm('run');
+      if (!ffing && !st.demo) SND.bgm('run');
     }
     if (!st.cleared && st.nodes.every((n) => n.k !== 'snk' || n.count >= n.goal)) finishStage();
   }
