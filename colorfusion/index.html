@@ -28,16 +28,20 @@
 
 <div class="hud">
   <a href="../" class="cf-home">← ヒノガタリ</a>
+  <!-- dev:start -->
   <span id="stat"></span>
   <button id="tune">調整</button>
   <button id="bench-btn">計測</button>
+  <!-- dev:end -->
   <button id="gear">設定</button>
   <button id="clear">やり直す</button>
 </div>
 
 <div class="hint">ドラッグして矢印を引く。<b>矢印の向きへ飛ぶ。</b>短い矢印ほど強く曲がる。<b>同じ色は近づくと糸でつながり、引き合って融合する。</b></div>
 
+<!-- dev:start -->
 <div class="bench" id="bench" hidden></div>
+<!-- dev:end -->
 
 <div class="panel set" id="setting" hidden>
   <label>BGM<input type="range" id="v-bgm" min="0" max="1" step="0.05"><b id="v-bgm-v"></b></label>
@@ -49,6 +53,7 @@
 
 <div class="over" id="over" hidden><button id="copy">結果をコピー</button></div>
 
+<!-- dev:start -->
 <div class="panel" id="panel" hidden>
   <label>矢印の下限<input type="range" id="p-amin" min="20" max="300" step="5"><b id="p-amin-v"></b></label>
   <label>矢印の上限<input type="range" id="p-amax" min="150" max="900" step="10"><b id="p-amax-v"></b></label>
@@ -90,9 +95,10 @@
   <label class="chk">発光（全部）<input type="checkbox" id="p-glow"><b></b></label>
   <label class="chk">先読み<input type="checkbox" id="p-prev"><b></b></label>
 </div>
+<!-- dev:end -->
 
 <script src="sound.js?v=0c3c6cc1"></script>
-<script src="game.js?v=42e1703a"></script>
+<script src="game.js?v=416cacd9"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

@@ -503,10 +503,9 @@
 <script src="data.js?v=95888b5c"></script>
 <script src="sfx.js?v=9c862861"></script>
 <script src="art.js?v=bd32a4e1"></script>
-<script src="game.js?v=40f1b3f4"></script>
-<!-- 回帰テスト。?debug=1&test=1 のときだけ読み込む。
-     _test.js は _ 始まりなので Jekyll が出力から外す＝公開されない。
-     静的な <script src> で書くと本番で毎回404になるので、ここで条件付きに読む。 -->
+<script src="game.js?v=fb053a2f"></script>
+<!-- dev:start -->
+<!-- 回帰テスト。?debug=1&test=1 のときだけ読み込む -->
 <script>
 if (/[?&]test=1/.test(location.search)) {
   var t = document.createElement('script');
@@ -514,6 +513,7 @@ if (/[?&]test=1/.test(location.search)) {
   document.head.appendChild(t);
 }
 </script>
+<!-- dev:end -->
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
