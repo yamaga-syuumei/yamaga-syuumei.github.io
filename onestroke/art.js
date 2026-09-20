@@ -162,8 +162,7 @@
   }
 
   // 速さの目盛り。電波強度のように、左から順に高くなる棒を level 本だけ光らせる。
-  // 工場の製作速度と供給口の供給速度に使う。やってみるまで速さが分からない、
-  // という状態を作らないため。
+  // 工場の製作速度と供給口の供給速度に使う。
   const SPEED_BARS = 5;
   function drawSpeed(c, cx, cy, w, h, level) {
     const gap = w / SPEED_BARS;

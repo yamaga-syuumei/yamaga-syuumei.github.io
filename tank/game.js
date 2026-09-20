@@ -23,7 +23,7 @@
   var WORLD_W = MAPW * TILE, WORLD_H = MAPH * TILE;
   var VIEW_W = 704, VIEW_H = 448, ZOOM = 2;
   var SAND = 0, ROCK = 1, ROAD = 2, TOWN = 3;
-  var SAVE_KEY = 'tank-save-v2';       // 座標系が変わったので旧セーブは読まない
+  var SAVE_KEY = 'tank-save-v2';       // 旧バージョンのセーブは読まない
 
   /* ==========================================================
      乱数（種を固定して、毎回同じ地形にする）
