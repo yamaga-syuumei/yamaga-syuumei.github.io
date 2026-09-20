@@ -914,6 +914,7 @@
     if (e.key === 'Escape') { el('ovStages').hidden = true; }
   });
 
+  /* dev:start */
   // 自動確認用。盤面の座標を外から引けるようにしておく（ブラウザから叩いて動作を見る）。
   window.__osf = {
     state: () => st,
@@ -945,6 +946,7 @@
     const k = r.width / parseFloat(cv.style.width);
     return { x: r.left + x * k, y: r.top + y * k };
   }
+  /* dev:end */
 
   // 「はじめる」で開く面。最後に解いた面の次
   for (let i = 0; i < STAGES.length; i++) {

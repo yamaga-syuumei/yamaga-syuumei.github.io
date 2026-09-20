@@ -15,9 +15,11 @@
 
   var D = window.GAME_DATA;
 
-  /* 自動テスト（test.js, ?test=1）は本物の保存データを壊さないよう、
+  var TEST_MODE = false;
+  /* dev:start */
+  /* 自動テスト（_test.js, ?test=1）は本物の保存データを壊さないよう、
      別のキーを使い、そのキーだけを開始時に必ず空にする */
-  var TEST_MODE = /[?&]test=1/.test(location.search);
+  TEST_MODE = /[?&]test=1/.test(location.search);
   if (TEST_MODE) {
     try {
       localStorage.removeItem('garage-run-v1-test');
@@ -25,6 +27,7 @@
       localStorage.removeItem('garage-opt-v1-test');
     } catch (e) { /* 保存できない設定でも遊べるようにする */ }
   }
+  /* dev:end */
   var SAVE_KEY = 'garage-run-v1' + (TEST_MODE ? '-test' : '');
 
   var PART_BY_ID = {};
@@ -97,9 +100,12 @@
   }
   var OPT = loadOpt();
 
+  var DEBUG = false;
+  /* dev:start */
   /* 動作確認中に音が鳴り続けると邪魔なので、?debug=1 のあいだは黙らせる。
      設定値そのものは触らない（保存も表示もいつもどおり）。出力だけ 0 にする */
-  var DEBUG = /[?&]debug=1/.test(location.search);
+  DEBUG = /[?&]debug=1/.test(location.search);
+  /* dev:end */
   var MUTED = DEBUG;
 
   function saveOpt() {
@@ -3788,8 +3794,10 @@
     $('opt-motion').checked = !OPT.motion;
     var note = $('opt-audio-note');
     if (MUTED) {
+      /* dev:start */
       note.hidden = false;
       note.textContent = '動作確認中（?debug=1）のため消音しています。設定値は保たれます。';
+      /* dev:end */
     } else {
       note.hidden = window.SFX.isUsable();
       note.textContent = 'この環境では音を鳴らせません。';
@@ -3946,6 +3954,7 @@
   }
   show('title');
 
+  /* dev:start */
   /* 動作確認用の入口。?debug=1 のときだけ生やす */
   if (/[?&]debug=1/.test(location.search)) {
     window.__garage = {
@@ -4031,4 +4040,5 @@
       }
     };
   }
+  /* dev:end */
 })();

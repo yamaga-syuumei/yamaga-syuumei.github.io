@@ -1331,6 +1331,7 @@
     scene: [Field, BattleScene]
   });
 
+  /* dev:start */
   /* URL に ?debug=1 が付いているときだけ、動作確認用の入口を開ける。
      通常の閲覧では何も生えない。 */
   if (/[?&]debug=1/.test(location.search)) {
@@ -1352,4 +1353,5 @@
       game: function () { return game; }
     };
   }
+  /* dev:end */
 })();

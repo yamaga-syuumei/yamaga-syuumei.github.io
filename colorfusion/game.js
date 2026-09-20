@@ -1578,6 +1578,7 @@
     }
   }
 
+  /* dev:start */
   function bind(id, key, after) {
     var el = document.getElementById(id), out = document.getElementById(id + '-v');
     if (!el) return;
@@ -1649,6 +1650,8 @@
     prev.addEventListener('change', function () { P.preview = prev.checked ? 1 : 0; });
   }
 
+  /* dev:end */
+
   /* 結果のコピー。リンクは持たせない（貼る先はプレイヤーが決める） */
   var overUI = document.getElementById('over');
   var copyBtn = document.getElementById('copy');
@@ -1676,21 +1679,25 @@
   }
 
   /* 調整パネルは開発用。URL に ?tune=1 を付けたときだけ出す */
+  var hudEl = document.querySelector('.hud');
+  if (hudEl) hudEl.classList.add('bare');
+  /* dev:start */
   var benchBox = document.getElementById('bench');
-  if (benchBox) benchBox.addEventListener('click', function () { benchBox.hidden = true; });
   var benchBtn = document.getElementById('bench-btn');
-
   var panel = document.getElementById('panel');
   var tuneBtn = document.getElementById('tune');
-  if (/[?&]tune=1/.test(location.search)) {
+  var statEl = document.getElementById('stat');
+  if (benchBox) benchBox.addEventListener('click', function () { benchBox.hidden = true; });
+  if (tuneBtn && panel && /[?&]tune=1/.test(location.search)) {
+    if (hudEl) hudEl.classList.remove('bare');
     tuneBtn.addEventListener('click', function () { panel.hidden = !panel.hidden; });
     if (benchBtn) benchBtn.addEventListener('click', function () { runBench(); });
   } else {
-    tuneBtn.hidden = true;
+    if (tuneBtn) tuneBtn.hidden = true;
     if (benchBtn) benchBtn.hidden = true;
-    document.getElementById('stat').hidden = true;
-    document.querySelector('.hud').classList.add('bare');
+    if (statEl) statEl.hidden = true;
   }
+  /* dev:end */
 
   /* 設定（音量と素材の出どころ） */
   var setPanel = document.getElementById('setting');
@@ -1728,13 +1735,14 @@
     SFX.unlock(); startRun();
   });
 
+  var benching = false;
+
+  /* dev:start */
   /* ---------- 計測 ----------
      盤面を凍結し、1フレームに render() を何度も回して vsync の上限を外す。
      出すのは描画1回あたりの ms。比べるのは同じ絵。
 
      fps で測ると 60 で頭打ちになり、設定ごとに盤面が変わると数字が読めない。 */
-
-  var benching = false;
 
   function benchBoard() {
     /* 実際に重くなる場面に合わせて、大きい塊と火花で埋める */
@@ -1827,6 +1835,7 @@
     }
     requestAnimationFrame(step);
   }
+  /* dev:end */
 
   /* ---------- ループ ---------- */
 
@@ -1848,6 +1857,7 @@
     requestAnimationFrame(frame);
   }
 
+  /* dev:start */
   window.CF = { P: P, shapes: shapes, arrows: arrows, parts: parts, view: view,
                 stat: stat, prof: prof, turn: turn, powerOf: powerOf, shapeArrow: shapeArrow,
                 chain: chain, STAGES: STAGES, PALETTES: PALETTES, COLORS: COLORS,
@@ -1871,6 +1881,7 @@
                   }
                   return { frames: n, shapes: shapes.length };
                 } };
+  /* dev:end */
 
   toTitle();
   resize();
