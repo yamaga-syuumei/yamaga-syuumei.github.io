@@ -40,7 +40,7 @@ window.OSSND = (function () {
   var BGM_FILES = {
     title:  'bgm/Future_3.mp3',    // タイトル画面。裏でデモが遊んでいる
     play:   'bgm/Future_2.mp3',    // プレイ中。基本はずっとこれ
-    run:    'bgm/Future_2.mp3',    // 全納品口に物が流れ始めてから。空なら play のまま
+    run:    '',    // 全納品口に物が流れ始めてから。空なら play のまま
     clear:  'bgm/LoFi_01.mp3',    // クリア画面。空なら play のまま
     select: 'bgm/trance2.mp3'     // ステージ選択。空なら play のまま
   };
