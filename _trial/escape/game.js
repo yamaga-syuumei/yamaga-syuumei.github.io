@@ -259,7 +259,7 @@
     elChoices.innerHTML = '';
 
     if (choice.kind === 'puzzle' && !choice.correct) {
-      // 1回目に外したときだけミスとして数える（総当たりは救済／代償は真エンドを逃すこと。企画書2章）
+      // 1回目に外したときだけミスとして数える
       var nodeId = state.node;
       if (!state.missedNodes) state.missedNodes = {};
       if (!state.missedNodes[nodeId]) {

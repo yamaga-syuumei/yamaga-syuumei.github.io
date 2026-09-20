@@ -42,7 +42,7 @@ const Art = (() => {
     g.globalAlpha = 1;
   }
 
-  // ---- 宙域の境界。見えないと壁に当たった理由が分からない ----
+  // ---- 宙域の境界 ----
   function bounds(g, W, H, t) {
     const p = 0.35 + 0.1 * Math.sin(t * 1.2);
     g.save();
@@ -198,7 +198,7 @@ const Art = (() => {
     g.restore();
   }
 
-  // ---- 目。かわいさはここで決まる ----
+  // ---- 目 ----
   // mood: 'normal' | 'angry' | 'hurt' | 'dead' | 'squint'
   function eyes(g, cx, cy, r, look, mood, t) {
     const gap = r * 0.42, ey = r * 0.05;

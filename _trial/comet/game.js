@@ -1,8 +1,4 @@
 // コリジョン・シューティングスター（試作）
-// 確かめたいのは3つ。
-//   1. 慣性でマウスを追う手触り。助走してから当てにいく動きが自然に出るか
-//   2. 尾の長さ＝速度＝破壊力が、説明なしで伝わるか
-//   3. 強くなるほど曲がれなくなる、が気持ちよさとして成立するか
 
 (() => {
 'use strict';
@@ -22,23 +18,19 @@ const C = {
   WALL: 0.94,       // 壁の反発
 
   SOFT: 3.2,        // 相対速度がこれ未満なら弾かれるだけ
-  TOUGH: 5.5,      // 隕石の素の硬さ。大きいほど助走が要る
-  GUARD: 2.2,      // 彗星の素の硬さ。小さいほど止まっていると危ない
-  // 判定幅は左右で変える。助走が決まればちゃんと砕け、
-  // 削られるのは本当に止まっているときだけ、という非対称にする
-  BREAK: 1.10,      // 砕く側。小さいほど砕きやすい
-  HURT: 1.45,       // 削られる側。大きいほど削られにくい
-  AGGR: 0.75,       // 隕石の攻め側の弱め。仕掛けるのはこちら、という形にする
+  TOUGH: 5.5,       // 隕石の素の硬さ。大きいほど助走が要る
+  GUARD: 2.2,       // 彗星の素の硬さ。小さいほど止まっていると危ない
+  BREAK: 1.10,      // 砕く側の判定幅。小さいほど砕きやすい
+  HURT: 1.45,       // 削られる側の判定幅。大きいほど削られにくい
+  AGGR: 0.75,       // 隕石の攻め側の弱め
 
   PULL_R: 130,      // 欠片を吸う距離
   PULL_A: 0.55,
-  GAIN: 0.75,       // 1体砕いたときの基本の取り分。質量の平方根で増える。
-                    // 隕石の質量にそのまま比例させると雪だるまになり、速度が意味を失う
+  GAIN: 0.75,       // 1体砕いたときの基本の取り分。隕石の質量の平方根で増える
   DROP: 0.78,       // 削られた分のうち拾い直せる割合
   CAP: 1.35,        // 隕石の質量の上限（彗星の何倍まで）。
-                    // 超えると速度上限を出しても砕けず、ただの壁になる
-  SCALE: 0.80,      // 隕石の大きさが彗星に追いつく強さ。1 で完全に追随＝成長の実感が消え、
-                    // 0 に近いほど終盤が作業になる。少しだけ楽になる程度に置く
+                    // これを超えると速度上限を出しても砕けなくなる
+  SCALE: 0.80,      // 隕石の大きさが彗星に追いつく強さ。1 で完全追随、0 で据え置き
 
   BURN: 4.2,        // 燃焼の秒数
   BURN_VMAX: 22,
@@ -46,7 +38,6 @@ const C = {
   METEOR_MIN: 11, METEOR_MAX: 19, METEOR_WARN: 1.15, METEOR_RUN: 1.5,
 };
 
-// 核はゆっくりしか育てない。育ちすぎると「助走しないと砕けない」が消える
 const LV = [12, 14.5, 17, 20, 23.5, 27, 31, 35.5, 40, 45, 51];
 
 const BOSSES = [
@@ -58,8 +49,7 @@ const BOSSES = [
     col: { hi:'#ffe6c8', mid:'#d98f57', lo:'#7a3d20', glow:'#ffb070' } },
 ];
 
-// 宙域の差は mix（氷・金属の比率）とボスで出す。
-// mul を大きくすると、彗星の育ちに対して隕石が先に重くなり、砕けない壁になる
+// max は盤面に出す隕石の数。mul は隕石の質量倍率
 const WAVES = [
   { goal: 10, max: 9,  mul: 1.00, mix: { rock: .70, ice: .30, metal: 0 } },
   { goal: 13, max: 11, mul: 1.10, mix: { rock: .48, ice: .27, metal: .25 } },
@@ -142,10 +132,9 @@ function makeRock(kind, x, y, mul) {
   if (kind === 'ice') m = rnd(5, 13);
   else if (kind === 'metal') { m = rnd(12, 20); hp = 2; }
   else m = rnd(7, 17);
-  // 宙域の倍率 × 彗星の育ち具合。育つほど隕石も大きくなる
+  // 宙域の倍率 × 彗星の育ち具合
   const cm = S ? S.comet.m : C.M0;
   m *= (mul || 1) * Math.pow(cm / C.M0, C.SCALE);
-  // 速度上限を出しても砕けない隕石は作らない。壁になって手が止まる
   m = Math.min(m, cm * C.CAP);
   const sp = kind === 'ice' ? rnd(1.6, 3.4) : rnd(0.5, 1.7);
   const a = rnd(0, 6.2832);
@@ -159,7 +148,7 @@ function makeRock(kind, x, y, mul) {
   };
 }
 
-// 彗星から離れた位置に湧かせる。真横に出現して即衝突、をさせない
+// 彗星から 300 以上離れた位置に湧かせる
 function spawnPos() {
   const c = S.comet;
   for (let i = 0; i < 24; i++) {
@@ -208,7 +197,7 @@ function startMeteor() {
   else if (edge === 1) { x0 = W + 40; y0 = rnd(0, H); }
   else if (edge === 2) { x0 = rnd(0, W); y0 = H + 40; }
   else { x0 = -40; y0 = rnd(0, H); }
-  // 盤面の中ほどを通す。端をかすめるだけの流星にしない
+  // 盤面の中ほどを通す
   const tx = rnd(W * 0.25, W * 0.75), ty = rnd(H * 0.25, H * 0.75);
   const dx = tx - x0, dy = ty - y0, L = Math.hypot(dx, dy);
   const ex = x0 + dx / L * 2200, ey = y0 + dy / L * 2200;
@@ -230,7 +219,6 @@ function startBoss() {
   S.boss = b;
   for (let i = 0; i < def.moons; i++) {
     const m = makeRock('metal', b.x, b.y);
-    // 剥がすのに要る速度が宙域ごとに少しずつ上がるよう、彗星の質量に対して決める
     m.m = c.m * (0.95 + S.wave * 0.08); m.r = radOf(m.m) * 1.02;
     m.hp = 1; m.hpMax = 1; m.moon = true;
     m.orb = { ang: i / def.moons * 6.2832, rad: b.r * 1.85 + i * 14, spd: 1.00 - S.wave * 0.08 };
@@ -403,7 +391,7 @@ function step(dt) {
   // --- 進行 ---
   if (S.mode === 'field' || S.mode === 'title') fillField();
   if (S.mode === 'field' && S.kills >= WAVES[Math.min(S.wave, WAVES.length - 1)].goal) startBoss();
-  // デモは序盤の手触りを見せるもの。放置で巨大化も消滅もさせない
+  // タイトルのデモは質量をこの範囲に留める
   if (S.mode === 'title') { c.m = clamp(c.m, 11, 18); S.lv = levelOf(c.m); }
   if (c.m < C.MDEAD && S.mode !== 'over' && S.mode !== 'title') gameOver();
 }
@@ -431,7 +419,7 @@ function sweepHit(x0, y0, x1, y1, r, e) {
   return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1) || (t1 < 0 && t2 > 1) || cc <= 0;
 }
 
-// 企画書の判定。運動量で勝ち負けを決め、近ければ両方弾く
+// 運動量で勝ち負けを決め、近ければ両方弾く
 function resolveHit(c, e, idx) {
   const rvx = c.vx - e.vx, rvy = c.vy - e.vy;
   const vrel = Math.hypot(rvx, rvy);
@@ -447,15 +435,15 @@ function resolveHit(c, e, idx) {
       c.vx += im * nx / c.m; c.vy += im * ny / c.m;
       if (!e.orb) { e.vx -= im * nx / e.m; e.vy -= im * ny / e.m; }
     }
-    // 弾かれた隕石はしばらく離れる。彗星が押さえ込まれないように
+    // 弾かれた隕石は離れる。押さえ込まれると助走ができなくなる
     if (!e.orb) { e.vx += nx * 2.6; e.vy += ny * 2.6; }
   };
 
   if (vrel < C.SOFT && c.burn <= 0) { sepAndBounce(0); Snd.play('bounce'); return; }
 
   const cSp = Math.hypot(c.vx, c.vy), eSp = Math.hypot(e.vx, e.vy);
-  // 相手の硬さは彗星の質量で頭打ちにする。生成時だけ抑えても、
-  // 削られたあとに「今の自分では絶対に壊せない相手」が居残ってしまう
+  // 硬さの頭打ちは衝突のたびに評価する。
+  // 生成時だけでは、彗星が削られたあとに壊せない相手が盤面に残る
   const eM = Math.min(e.m, c.m * C.CAP);
   const cAtk = c.m * cSp * c.tail;
   const cDef = c.m * (cSp + C.GUARD) * c.hard;
@@ -651,7 +639,7 @@ function meteorStep(dt) {
 }
 
 // ============ タイトルのデモ ============
-// 助走してから当てる、という意図した動きをそのまま見せる
+// 隕石を1体選び、反対側へ回り込んで助走してから当てる、を繰り返す
 function autoPilot(dt) {
   const c = S.comet, ai = S.ai;
   ai.pt = (ai.pt || 0) + dt;

@@ -1,5 +1,4 @@
-// 試作用の合成音。音源ファイルは持たない。
-// 本採用時は colorfusion/sound.js と同じ「キー → ファイル、空なら無音」方式に差し替える。
+// 合成音。音源ファイルは持たない。play(key) と trail(0..1) で鳴らす。
 
 const Snd = (() => {
   let ac = null, master = null, muted = false;
@@ -68,7 +67,7 @@ const Snd = (() => {
     s.start(t0); s.stop(t0 + a + d + 0.05);
   }
 
-  // 連鎖でピッチが上がる。拾うほど気持ちよくする
+  // pick は連鎖でピッチが上がる。700ms 空くとリセット
   let pickN = 0, pickT = 0;
 
   const SFX = {

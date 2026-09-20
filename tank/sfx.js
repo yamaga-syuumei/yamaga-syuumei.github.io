@@ -179,7 +179,7 @@ window.SFX = (function () {
     damage:    function () { se.zugyan({ rate: 0.85, gain: 1.1 }); },        // 被弾
     coin:      function () { se.click(); },                                  // 買い物
 
-    /* ---- 効果音（合う素材が無いので合成のまま） ---- */
+    /* ---- 効果音（合成） ---- */
     destroy: function () {
       se.zugyan({ rate: 0.7, gain: 1.15 });
       noise({ f0: 700, f1: 90, dur: 0.4, gain: 0.32, q: 0.5, delay: 0.03 });

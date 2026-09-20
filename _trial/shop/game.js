@@ -806,7 +806,7 @@
      絵（scene.js）の上に部屋を重ね、押すとその部屋の窓が開く。
      窓の中身は以前のタブの中身をそのまま使い回す（elMain＝窓の本体）
      ========================================================== */
-  var elMain   = document.getElementById('winBody');   // 窓の中身。以前の #main と同じ役目
+  var elMain   = document.getElementById('winBody');   // 窓の中身
   var elHud    = document.getElementById('hud');
   var elOverlay = document.getElementById('overlay');
   var elScene  = document.getElementById('scene');
