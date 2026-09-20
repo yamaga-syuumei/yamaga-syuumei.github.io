@@ -137,7 +137,7 @@
      周ごとに配色が変わり、光の減りと速度に下駄を履かせる */
   var LAP_START = 2;
   var LAP_EXTRA = 440;
-  var LAP_DRAIN = 8;
+  var LAP_DRAIN = 4;
   var LAP_SPEED = 8;
 
   var R0 = 13;
