@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>コリジョン・シューティングスター（試作）</title>
+<link rel="stylesheet" href="style.css?v=1f82f0da">
+</head>
+<body>
+
+<div class="cs-frame">
+  <canvas id="cv"></canvas>
+
+  <div class="cs-hud">
+    <div class="cs-left">
+      <div class="cs-row"><b id="lv">Lv 1</b><span class="cs-bar"><i id="core"></i></span><span id="mass">12.0</span></div>
+      <div class="cs-row"><span>速さ</span><span class="cs-bar"><i id="spd"></i></span></div>
+    </div>
+
+    <div class="cs-mid">
+      <div class="cs-wave" id="wave">宙域 1</div>
+      <div class="cs-prog" id="prog">0 / 10</div>
+      <div id="bosswrap" hidden><span class="cs-bar"><i id="bossbar"></i></span></div>
+    </div>
+
+    <div class="cs-right">
+      <button class="cs-btn" id="btnMute">🔊</button>
+    </div>
+  </div>
+
+  <div class="cs-banner" id="banner" hidden>
+    <b id="banA"></b><span id="banB"></span>
+  </div>
+
+  <p class="cs-note">試作。マウスを動かすだけで遊べます。</p>
+
+  <!-- タイトル。裏で勝手に飛んでいる -->
+  <div class="cs-ov cs-title-ov" id="ovTitle">
+    <div class="cs-panel">
+      <h1>コリジョン・シューティングスター</h1>
+      <p class="cs-tag">
+        彗星はマウスをすぐには追いません。<em>大きく回って速度を乗せてから</em>ぶつけます。<br>
+        尾が伸びきっているほど、重いものを砕けます。
+      </p>
+      <div class="cs-btns">
+        <button class="cs-btn cs-btn-p" id="btnStart">はじめる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ボス撃破後の成長 -->
+  <div class="cs-ov" id="ovChoice" hidden>
+    <div class="cs-panel">
+      <h2 id="choiceHead"></h2>
+      <p class="cs-tag">ひとつ選ぶ</p>
+      <div class="cs-cards" id="choiceBox"></div>
+    </div>
+  </div>
+
+  <!-- 終わり -->
+  <div class="cs-ov" id="ovOver" hidden>
+    <div class="cs-panel">
+      <h2 id="overHead"></h2>
+      <p class="cs-tag" id="overBody"></p>
+      <div class="cs-btns">
+        <button class="cs-btn cs-btn-p" id="btnAgain">もう一度</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="sound.js?v=2cfa50ba"></script>
+<script src="art.js?v=bcf831a2"></script>
+<script src="game.js?v=2da36720"></script>
+</body>
+</html>
