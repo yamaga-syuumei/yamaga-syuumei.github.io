@@ -36,24 +36,67 @@ const C = {
   BURN_VMAX: 22,
 
   METEOR_MIN: 11, METEOR_MAX: 19, METEOR_WARN: 1.15, METEOR_RUN: 1.5,
+
+  ATMO: 0.965,      // 厚い大気の中での1tickあたりの減速。中心ほど強くかかる
+  WIND: 0.085,      // 風で彗星が流される強さ
+  FLOCK: 0.09,      // 群れが中心へ寄り集まる強さ
+  FLOCK_R: 26,      // これより中心に近い群れは寄らない
+  SWARM_SLOT: 0.5,  // 群れ1体が盤面の枠を何体分使うか
+  SWARM_MAX: 2,     // 同時に出す群れの数
 };
 
-const LV = [12, 14.5, 17, 20, 23.5, 27, 31, 35.5, 40, 45, 51];
+const LV = [12, 14.5, 17, 20, 23.5, 27, 31, 35.5, 40, 45, 51, 58, 66, 75, 85, 96, 108];
 
+// spin は自転の速さ。arc は守りの弧の半幅（衛星を全部剥がすまでは全周）。
+// atmo は減速する大気の半径（本体の何倍）。sway があると自転せず守りが振れる。
+// gap は環の切れ目の半幅。ここを通さないと本体に届かない。
 const BOSSES = [
-  { name: '水星', r: 62,  hp: 100, moons: 2, spin: 1.15, arc: 1.10, bands: 0, ring: false,
-    col: { hi:'#f6dcab', mid:'#c99a4f', lo:'#6b4820', glow:'#ffcf80' } },
-  { name: '土星', r: 88,  hp: 165, moons: 3, spin: 0.70, arc: 1.25, bands: 3, ring: true,
+  { name: '水星', r: 58,  hp: 100, moons: 0, spin: 1.45, arc: 1.05, bands: 0, dash: 1.15,
+    hint: '目の反対側を突く',
+    col: { hi:'#ece0d2', mid:'#a0958a', lo:'#544b44', glow:'#d8ccbc' } },
+
+  { name: '金星', r: 70,  hp: 145, moons: 1, spin: 1.00, arc: 1.10, bands: 2, atmo: 1.85,
+    hint: '厚い大気の中では減速する。外から助走を乗せきる',
+    col: { hi:'#fff2c8', mid:'#e6be68', lo:'#8a6a2a', glow:'#ffe49a' } },
+
+  { name: '火星', r: 78,  hp: 175, moons: 2, spin: 0.95, arc: 1.15, bands: 0, dash: 1.55,
+    hint: '突進が速い。衛星を剥がしてから本体へ',
+    col: { hi:'#ffc39e', mid:'#c4643a', lo:'#6e2f1c', glow:'#ff9a6a' } },
+
+  { name: '天王星', r: 88,  hp: 205, moons: 2, spin: 0.90, arc: 1.15, bands: 3, tilt: true, sway: 1.95,
+    hint: '横倒しで自転する。守りが上下に振れるので回り込む向きが変わる',
+    col: { hi:'#dcfbff', mid:'#7fd9e8', lo:'#2f7f96', glow:'#9fe9ff' } },
+
+  { name: '海王星', r: 94,  hp: 235, moons: 2, spin: 0.82, arc: 1.20, bands: 3, wind: 1,
+    hint: '風で流される。まっすぐ助走できない',
+    col: { hi:'#d4e4ff', mid:'#4a7ee0', lo:'#1e3a86', glow:'#7fa8ff' } },
+
+  { name: '土星', r: 102, hp: 270, moons: 3, spin: 0.70, arc: 1.20, bands: 3, ring: true,
+    gap: 0.60, gapSpd: 0.55,
+    hint: '環が盾。切れ目と目の反対側が重なる一瞬を突く',
     col: { hi:'#ffdcad', mid:'#e0a25f', lo:'#87532a', glow:'#ffbe7a', ring:'rgba(236,211,176,.8)' } },
-  { name: '木星', r: 114, hp: 250, moons: 4, spin: 0.40, arc: 1.40, bands: 5, ring: false,
+
+  { name: '木星', r: 120, hp: 315, moons: 4, spin: 0.42, arc: 1.42, bands: 5,
+    hint: '最大。自転が遅く顔の面が長い。待てる時間が短い',
     col: { hi:'#ffe6c8', mid:'#d98f57', lo:'#7a3d20', glow:'#ffb070' } },
+
+  { name: '漂流惑星', r: 132, hp: 390, moons: 5, spin: 0.58, arc: 1.30, bands: 4,
+    ring: true, gap: 0.85, gapSpd: 0.75, atmo: 1.70, wind: 0.8, dash: 1.45,
+    hint: '大気も風も環も持っている。地球はこの先',
+    col: { hi:'#ecd8ff', mid:'#8a5ed0', lo:'#2e1a56', glow:'#c79aff', ring:'rgba(206,176,255,.78)' } },
 ];
 
-// max は盤面に出す隕石の数。mul は隕石の質量倍率
+// max は盤面に出す隕石の枠数。mul は隕石の質量倍率。
+// mix はボスごとに寄せる（氷だらけ、金属多め、群れ中心）。
 const WAVES = [
-  { goal: 10, max: 9,  mul: 1.00, mix: { rock: .70, ice: .30, metal: 0 } },
-  { goal: 13, max: 11, mul: 1.10, mix: { rock: .48, ice: .27, metal: .25 } },
-  { goal: 16, max: 12, mul: 1.20, mix: { rock: .38, ice: .30, metal: .32 } },
+  { goal: 10, max: 9,  mul: 1.00, mix: { rock: .70, ice: .30 } },
+  { goal: 12, max: 10, mul: 1.06, mix: { rock: .46, ice: .30, metal: .24 } },
+  { goal: 14, max: 10, mul: 1.12, mix: { rock: .40, ice: .24, metal: .20, swarm: .16 } },
+  { goal: 15, max: 11, mul: 1.18, mix: { rock: .24, ice: .62, metal: .14 } },
+  { goal: 16, max: 11, mul: 1.24, mix: { rock: .30, ice: .20, metal: .22, swarm: .28 } },
+  { goal: 17, max: 11, mul: 1.30, mix: { rock: .28, ice: .20, metal: .44, swarm: .08 } },
+  { goal: 18, max: 12, mul: 1.36, mix: { rock: .30, ice: .26, metal: .26, swarm: .18 } },
+  { goal: 20, max: 12, mul: 1.42, mix: { rock: .26, ice: .26, metal: .30, swarm: .18 } },
 ];
 
 const GROWTH = [
@@ -94,6 +137,7 @@ function reset(full) {
     },
     enemies: [], shards: [], debris: [], flashes: [], sparks: [],
     boss: null, meteor: null, meteorT: rnd(C.METEOR_MIN, C.METEOR_MAX),
+    flocks: [],
     scrollX: 0, scrollY: 0, shake: 0, hitStop: 0, t: 0,
     lv: 1, best: 0, banner: null, bannerT: 0,
     ai: { phase: 'run', target: null, tx: W / 2, ty: H / 2 },
@@ -131,21 +175,39 @@ function makeRock(kind, x, y, mul) {
   let m, hp = 1;
   if (kind === 'ice') m = rnd(5, 13);
   else if (kind === 'metal') { m = rnd(12, 20); hp = 2; }
+  else if (kind === 'swarm') m = rnd(2.6, 5.2);
   else m = rnd(7, 17);
   // 宙域の倍率 × 彗星の育ち具合
   const cm = S ? S.comet.m : C.M0;
   m *= (mul || 1) * Math.pow(cm / C.M0, C.SCALE);
   m = Math.min(m, cm * C.CAP);
-  const sp = kind === 'ice' ? rnd(1.6, 3.4) : rnd(0.5, 1.7);
+  const sp = kind === 'ice' ? rnd(1.6, 3.4) : kind === 'swarm' ? rnd(1.1, 2.4) : rnd(0.5, 1.7);
   const a = rnd(0, 6.2832);
   return {
     x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
     m, r: radOf(m) * 1.02, kind, hp, hpMax: hp,
     rot: rnd(0, 6.2832), spin: rnd(-1.4, 1.4), shape: shapeOf(),
-    aggro: rnd(0.05, 0.13) * (kind === 'ice' ? 1.5 : 1),
+    aggro: rnd(0.05, 0.13) * (kind === 'ice' ? 1.5 : kind === 'swarm' ? 1.2 : 1),
     cool: 0,
-    orb: null,
+    orb: null, sw: 0,
+    // 群れは1体が軽いので、撃破数も1体ぶんでは数えない
+    worth: kind === 'swarm' ? 0.34 : 1,
   };
+}
+
+// 群れ。小さいのが5〜6個で固まって動き、まとめて砕ける
+let swarmId = 0;
+function spawnSwarm(x, y, mul) {
+  const id = ++swarmId, n = 5 + ((Math.random() * 2) | 0);
+  const a0 = rnd(0, 6.2832), sp = rnd(1.0, 2.2);
+  for (let i = 0; i < n; i++) {
+    const a = i / n * 6.2832 + rnd(-0.35, 0.35), rr = rnd(15, 33);
+    const e = makeRock('swarm', x + Math.cos(a) * rr, y + Math.sin(a) * rr, mul);
+    e.vx = Math.cos(a0) * sp + rnd(-0.4, 0.4);
+    e.vy = Math.sin(a0) * sp + rnd(-0.4, 0.4);
+    e.sw = id;
+    S.enemies.push(e);
+  }
 }
 
 // 彗星から 300 以上離れた位置に湧かせる
@@ -158,11 +220,27 @@ function spawnPos() {
   return { x: rnd(60, W - 60), y: rnd(60, H - 60) };
 }
 
+// 盤面の込み具合は体数ではなく枠数で見る。群れは1体が小さいので1体ぶんは使わない
+function slotsUsed() {
+  let n = 0;
+  for (const e of S.enemies) if (!e.orb) n += e.sw ? C.SWARM_SLOT : 1;
+  return n;
+}
+function swarmsOnField() {
+  const ids = [];
+  for (const e of S.enemies) if (e.sw && ids.indexOf(e.sw) < 0) ids.push(e.sw);
+  return ids.length;
+}
+
 function fillField() {
   const w = WAVES[Math.min(S.wave, WAVES.length - 1)];
-  while (S.enemies.filter(e => !e.orb).length < w.max) {
+  let guard = 40;
+  while (slotsUsed() < w.max && guard-- > 0) {
     const p = spawnPos();
-    S.enemies.push(makeRock(kindByMix(w.mix), p.x, p.y, w.mul));
+    let k = kindByMix(w.mix);
+    if (k === 'swarm' && swarmsOnField() >= C.SWARM_MAX) k = 'rock';
+    if (k === 'swarm') spawnSwarm(p.x, p.y, w.mul);
+    else S.enemies.push(makeRock(k, p.x, p.y, w.mul));
   }
 }
 
@@ -208,24 +286,37 @@ function startMeteor() {
 function startBoss() {
   const def = BOSSES[Math.min(S.wave, BOSSES.length - 1)];
   const c = S.comet;
-  let bx = c.x < W / 2 ? W - 180 : 180;
+  // 大きい惑星ほど内側に出す。環や大気が盤外へはみ出して読めなくなる
+  const pad = Math.max(180, def.r * (def.ring ? 2.15 : 1.75));
+  const bx = c.x < W / 2 ? W - pad : pad;
   const b = {
     def, x: bx, y: H / 2, vx: 0, vy: 0, r: def.r, m: 900,
-    face: rnd(0, 6.2832), spin: def.spin, arc: 3.1416,
+    // 衛星が残っている間は全周が硬い。衛星なしの相手は最初から弱点がある
+    face: def.sway ? -1.5708 : rnd(0, 6.2832),
+    spin: def.spin, arc: def.moons > 0 ? 3.1416 : def.arc,
     hp: def.hp, hpMax: def.hp, col: def.col, bands: def.bands, ring: def.ring,
     mood: 'normal', aura: 0, shieldFlash: 0,
     st: 'idle', t: 2.2, dead: 0, moons: def.moons,
+    atmo: def.atmo || 0, wind: def.wind || 0, dash: def.dash || 1,
+    // sway の守りは真上から振れはじめる
+    tilt: !!def.tilt, sway: def.sway || 0, ph: 0, face0: -1.5708,
+    gapW: def.gap || 0, gapSpd: def.gapSpd || 0, gap: rnd(0, 6.2832),
+    windPh: rnd(0, 6.2832), windAng: 0,
   };
   S.boss = b;
+  // 衛星の重さは彗星を基準にし、必ず砕ける範囲に収める。
+  // 固定値や上限なしにすると、削られたあとに剥がせなくなって詰む
   for (let i = 0; i < def.moons; i++) {
     const m = makeRock('metal', b.x, b.y);
-    m.m = c.m * (0.95 + S.wave * 0.08); m.r = radOf(m.m) * 1.02;
-    m.hp = 1; m.hpMax = 1; m.moon = true;
-    m.orb = { ang: i / def.moons * 6.2832, rad: b.r * 1.85 + i * 14, spd: 1.00 - S.wave * 0.08 };
+    m.m = Math.min(c.m * (0.95 + S.wave * 0.05), c.m * C.CAP * 0.92);
+    m.r = radOf(m.m) * 1.02;
+    m.hp = 1; m.hpMax = 1; m.moon = true; m.worth = 1;
+    m.orb = { ang: i / def.moons * 6.2832, rad: b.r * 1.85 + i * 14,
+              spd: Math.max(0.38, 1.00 - S.wave * 0.06) };
     S.enemies.push(m);
   }
   S.mode = 'boss';
-  banner(def.name + ' が来た', '衛星を剥がしてから、目の反対側を突く');
+  banner(def.name + ' が来た', def.hint);
   Snd.play('bossin');
 }
 
@@ -251,6 +342,23 @@ function step(dt) {
 
   const drag = Math.pow(C.DRAG, dt / TICK);
   c.vx *= drag; c.vy *= drag;
+
+  // 厚い大気。中心へ寄るほど減速する。燃焼中は突き抜ける
+  if (S.boss && S.boss.atmo && c.burn <= 0) {
+    const b0 = S.boss, R = b0.r * b0.atmo;
+    const ad = Math.hypot(c.x - b0.x, c.y - b0.y);
+    if (ad < R) {
+      const k = 1 - ad / R;
+      const f = Math.pow(C.ATMO, (0.4 + k * 2.2) * (dt / TICK));
+      c.vx *= f; c.vy *= f;
+    }
+  }
+  // 風。向きがゆっくり回るので、当てにいく先を先に決める必要がある
+  if (S.boss && S.boss.wind) {
+    const a0 = S.boss.windAng;
+    c.vx += Math.cos(a0) * C.WIND * S.boss.wind * (dt / TICK);
+    c.vy += Math.sin(a0) * C.WIND * S.boss.wind * (dt / TICK);
+  }
 
   const vmax = (c.burn > 0 ? C.BURN_VMAX : C.VMAX) * c.vmax;
   let sp = Math.hypot(c.vx, c.vy);
@@ -283,6 +391,23 @@ function step(dt) {
   // --- ボス ---
   if (S.boss) bossStep(S.boss, dt);
 
+  // --- 群れの中心 ---
+  S.flocks.length = 0;
+  for (const e of S.enemies) {
+    if (!e.sw || e.orb) continue;
+    let f = null;
+    for (const o of S.flocks) if (o.id === e.sw) { f = o; break; }
+    if (!f) { f = { id: e.sw, x: 0, y: 0, r: 0, n: 0 }; S.flocks.push(f); }
+    f.x += e.x; f.y += e.y; f.n++;
+  }
+  for (const f of S.flocks) { f.x /= f.n; f.y /= f.n; }
+  for (const e of S.enemies) {
+    if (!e.sw || e.orb) continue;
+    for (const f of S.flocks)
+      if (f.id === e.sw) f.r = Math.max(f.r, Math.hypot(e.x - f.x, e.y - f.y) + e.r);
+  }
+  const flockOf = id => { for (const f of S.flocks) if (f.id === id) return f; return null; };
+
   // --- 隕石 ---
   for (const e of S.enemies) {
     if (e.orb && S.boss) {
@@ -299,7 +424,18 @@ function step(dt) {
         e.vx += ex / ed * e.aggro * (dt / TICK);
         e.vy += ey / ed * e.aggro * (dt / TICK);
       }
-      const es = Math.hypot(e.vx, e.vy), emax = e.kind === 'ice' ? 7 : 5;
+      if (e.sw) {
+        const f = flockOf(e.sw);
+        if (f) {
+          const fx = f.x - e.x, fy = f.y - e.y, fd = Math.hypot(fx, fy) || 1;
+          if (fd > C.FLOCK_R) {
+            e.vx += fx / fd * C.FLOCK * (dt / TICK);
+            e.vy += fy / fd * C.FLOCK * (dt / TICK);
+          }
+        }
+      }
+      const es = Math.hypot(e.vx, e.vy);
+      const emax = e.kind === 'ice' ? 7 : e.kind === 'swarm' ? 6 : 5;
       if (es > emax) { e.vx *= emax / es; e.vy *= emax / es; }
       e.vx *= Math.pow(0.9975, dt / TICK); e.vy *= Math.pow(0.9975, dt / TICK);
       e.x += e.vx * (dt / TICK); e.y += e.vy * (dt / TICK);
@@ -334,7 +470,7 @@ function step(dt) {
   // --- 彗星 × 隕石（線分で判定。速いとすり抜けるため）---
   for (let i = S.enemies.length - 1; i >= 0; i--) {
     const e = S.enemies[i];
-    if (e.cool > 0) continue;
+    if (!e || e.cool > 0) continue;
     if (!sweepHit(pxc, pyc, c.x, c.y, c.r, e)) continue;
     e.cool = 0.30;
     resolveHit(c, e, i);
@@ -473,6 +609,7 @@ function resolveHit(c, e, idx) {
   }
 }
 
+let lastBreak = -1;
 function breakRock(e, idx, power) {
   spawnShards(e.x, e.y, e.vx, e.vy, C.GAIN * Math.sqrt(e.m / 12), e.kind);
   spawnDebris(e.x, e.y, e.r, e.kind, 8 + (e.r / 3) | 0);
@@ -480,18 +617,29 @@ function breakRock(e, idx, power) {
   S.enemies.splice(idx, 1);
   S.shake = 10 + e.r * 0.25;
   S.hitStop = 0.045;
-  S.kills++;
-  Snd.play('break');
+  S.kills += e.worth || 1;
+  // 同じフレームで大量に砕けたときに音が重ならないようにする
+  if (S.t - lastBreak > 0.035) { Snd.play('break'); lastBreak = S.t; }
   if (e.moon && S.boss) {
     S.boss.moons--;
     if (S.boss.moons <= 0) { S.boss.arc = S.boss.def.arc; banner('衛星が全部落ちた', '目の反対側なら通る'); }
   }
+  // 群れは近くの仲間ごとまとめて砕ける
+  if (e.sw) {
+    for (let i = S.enemies.length - 1; i >= 0; i--) {
+      const o = S.enemies[i];
+      if (!o || o.sw !== e.sw) continue;
+      if (Math.hypot(o.x - e.x, o.y - e.y) > e.r + o.r + 52) continue;
+      breakRock(o, i, power * 0.6);
+    }
+  }
+
   // 分裂：周りの隕石にも衝撃
   if (S.comet.split > 0) {
     const R = e.r * (2.6 + S.comet.split * 0.8);
     for (let i = S.enemies.length - 1; i >= 0; i--) {
       const o = S.enemies[i];
-      if (Math.hypot(o.x - e.x, o.y - e.y) > R + o.r) continue;
+      if (!o || Math.hypot(o.x - e.x, o.y - e.y) > R + o.r) continue;
       const p = power * (0.45 + 0.12 * S.comet.split);
       if (p > o.m * (Math.hypot(o.vx, o.vy) + C.TOUGH) * C.BREAK) {
         o.hp -= 1;
@@ -502,10 +650,19 @@ function breakRock(e, idx, power) {
 }
 
 // ============ ボス ============
+// 守りの向きを進める。sway があると一周せず、行って戻る
+function faceStep(b, k, dt) {
+  b.ph += b.spin * k * dt;
+  if (b.sway) b.face = b.face0 + Math.sin(b.ph) * b.sway;
+  else b.face += b.spin * k * dt;
+}
+
 function bossStep(b, dt) {
   const c = S.comet;
   b.aura = clamp(1.6 - Math.hypot(c.x - b.x, c.y - b.y) / (b.r * 5), 0.25, 1.4);
   b.shieldFlash = Math.max(0, b.shieldFlash - dt * 4);
+  if (b.gapW) b.gap += b.gapSpd * dt;
+  if (b.wind) b.windAng = S.t * 0.35 + b.windPh;
 
   if (b.dead > 0) {
     b.dead -= dt; b.mood = 'dead'; b.face += 4 * dt;
@@ -518,20 +675,21 @@ function bossStep(b, dt) {
 
   b.t -= dt;
   if (b.st === 'idle') {
-    b.face += b.spin * dt;
+    faceStep(b, 1, dt);
     b.mood = 'normal';
     // 地球の方（左）へじわじわ進む
     b.vx -= 0.006 * (dt / TICK);
     if (b.t <= 0) { b.st = 'wind'; b.t = 0.75; Snd.play('rage'); }
   } else if (b.st === 'wind') {
-    b.face += b.spin * 0.35 * dt;
+    faceStep(b, 0.35, dt);
     b.mood = 'angry';
     b.vx *= 0.93; b.vy *= 0.93;
     if (b.t <= 0) {
       const dx = c.x - b.x, dy = c.y - b.y, d = Math.hypot(dx, dy) || 1;
-      const imp = 5.2 + S.wave * 0.6;
+      const imp = (5.2 + S.wave * 0.4) * b.dash;
       b.vx = dx / d * imp; b.vy = dy / d * imp;
       b.face = Math.atan2(dy, dx);              // 顔を向けて突っ込む
+      if (b.sway) { b.face0 = b.face; b.ph = 0; }
       b.st = 'charge'; b.t = 1.35;
     }
   } else if (b.st === 'charge') {
@@ -557,6 +715,8 @@ function bossHit(c, b, px, py) {
 
   const hitAng = Math.atan2(ny, nx);
   const shielded = Math.abs(angDiff(hitAng, b.face)) < b.arc;
+  // 環は盾。切れ目を通っていないと本体に届かない
+  const ringed = b.gapW > 0 && Math.abs(angDiff(hitAng, b.gap)) > b.gapW;
   const rel = (c.vx - b.vx) * nx + (c.vy - b.vy) * ny;
   const vrel = Math.hypot(c.vx - b.vx, c.vy - b.vy);
 
@@ -568,7 +728,7 @@ function bossHit(c, b, px, py) {
 
   if (vrel < C.SOFT) { Snd.play('bounce'); return; }
 
-  if (shielded || b.moons > 0) {
+  if (shielded || ringed || b.moons > 0) {
     b.shieldFlash = 1;
     S.shake = 12; S.hitStop = 0.04;
     flash(c.x, c.y, c.r * 2, 'rgba(255,255,255,.9)');
@@ -691,8 +851,10 @@ function draw() {
   bg.addColorStop(0, '#0b1020'); bg.addColorStop(1, '#04060c');
   g.fillStyle = bg; g.fillRect(0, 0, W, H);
   Art.stars(g, W, H, S.scrollX, S.scrollY, S.t);
+  if (S.boss && S.boss.wind) Art.wind(g, W, H, S.boss.windAng, S.boss.wind, S.t);
   Art.bounds(g, W, H, S.t);
 
+  for (const f of S.flocks) Art.flock(g, f);
   for (const d of S.debris) Art.debris(g, d);
   for (const s of S.shards) Art.shard(g, s, S.t);
 
@@ -756,8 +918,8 @@ function hud(sp, spN) {
     elBoss.style.width = clamp(S.boss.hp / S.boss.hpMax * 100, 0, 100) + '%';
   } else {
     const w = WAVES[Math.min(S.wave, WAVES.length - 1)];
-    elWave.textContent = '宙域 ' + (S.wave + 1);
-    elProg.textContent = S.kills + ' / ' + w.goal;
+    elWave.textContent = '宙域 ' + (S.wave + 1) + ' / ' + WAVES.length;
+    elProg.textContent = (S.kills | 0) + ' / ' + w.goal;
     elBossWrap.hidden = true;
   }
 
@@ -808,8 +970,8 @@ function gameOver() { S.mode = 'over'; Snd.play('over'); showOver(false); }
 function showOver(win) {
   $('overHead').textContent = win ? '地球は守られた' : '核が保たなかった';
   $('overBody').textContent = win
-    ? '惑星3つを落とした。'
-    : '宙域 ' + (S.wave + 1) + ' で力尽きた。撃破 ' + S.kills + '。';
+    ? '惑星' + BOSSES.length + 'つを落とした。地球は無事。'
+    : '宙域 ' + (S.wave + 1) + ' で力尽きた。撃破 ' + (S.kills | 0) + '。';
   ovOver.hidden = false;
 }
 
@@ -842,6 +1004,7 @@ window.__cs = {
   get S() { return S; },
   boss: () => startBoss(),
   meteor: () => startMeteor(),
+  tick: n => { for (let i = 0; i < (n || 1); i++) step(TICK); },
   grow: m => { S.comet.m = m; S.lv = levelOf(m); },
 };
 

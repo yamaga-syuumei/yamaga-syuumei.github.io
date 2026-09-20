@@ -106,6 +106,7 @@ const Art = (() => {
     rock:  ['#8a6a52', '#5c4436', '#3a2b23'],
     ice:   ['#bfeaff', '#7cc4e8', '#3f7ea0'],
     metal: ['#b9c2cc', '#7d8896', '#4a525c'],
+    swarm: ['#e0d0f2', '#9a86c0', '#4e4268'],
   };
 
   function rock(g, e) {
@@ -149,6 +150,50 @@ const Art = (() => {
       g.beginPath(); g.arc(e.x, e.y, e.r * 1.5, 0, 6.2832); g.fill();
       g.restore();
     }
+  }
+
+  // ---- 群れ ----
+  // f: {x,y,r}。固まっているのが一目で分かるように薄いもやを敷く
+  function flock(g, f) {
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    const gr = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r * 1.5);
+    gr.addColorStop(0, 'rgba(180,150,230,.13)');
+    gr.addColorStop(0.6, 'rgba(150,120,210,.07)');
+    gr.addColorStop(1, 'rgba(140,110,200,0)');
+    g.fillStyle = gr;
+    g.beginPath(); g.arc(f.x, f.y, f.r * 1.5, 0, 6.2832); g.fill();
+    g.restore();
+  }
+
+  // ---- 風（海王星）----
+  // 流れの向きと強さを線で見せる。まっすぐ助走できないのが目で分かる
+  let gusts = null;
+  function wind(g, W, H, ang, k, t) {
+    if (!gusts) {
+      gusts = [];
+      for (let i = 0; i < 34; i++)
+        gusts.push({ u: Math.random(), v: Math.random(), L: 40 + Math.random() * 120,
+                     sp: 0.06 + Math.random() * 0.14, a: 0.06 + Math.random() * 0.12 });
+    }
+    const ux = Math.cos(ang), uy = Math.sin(ang);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.lineCap = 'round';
+    for (const s2 of gusts) {
+      const p = (s2.u + t * s2.sp) % 1;
+      // 流れに沿って走らせ、直交方向に散らす
+      const cx = W / 2 + (p - 0.5) * (W + H) * ux + (s2.v - 0.5) * (W + H) * -uy;
+      const cy = H / 2 + (p - 0.5) * (W + H) * uy + (s2.v - 0.5) * (W + H) * ux;
+      g.globalAlpha = s2.a * k;
+      g.strokeStyle = '#9fc4ff';
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(cx - ux * s2.L * 0.5, cy - uy * s2.L * 0.5);
+      g.lineTo(cx + ux * s2.L * 0.5, cy + uy * s2.L * 0.5);
+      g.stroke();
+    }
+    g.restore();
   }
 
   // ---- 欠片 ----
@@ -273,6 +318,23 @@ const Art = (() => {
     }
     g.restore();
 
+    // 減速する大気の境目。ここから内側では速度が乗らない
+    if (b.atmo) {
+      const R = r * b.atmo;
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      const ag = g.createRadialGradient(x, y, r * 0.9, x, y, R);
+      ag.addColorStop(0, 'rgba(255,240,190,.16)');
+      ag.addColorStop(1, 'rgba(255,225,150,0)');
+      g.fillStyle = ag;
+      g.beginPath(); g.arc(x, y, R, 0, 6.2832); g.fill();
+      g.globalAlpha = 0.30;
+      g.strokeStyle = b.col.glow; g.lineWidth = 2;
+      g.setLineDash([9, 9]); g.lineDashOffset = -t * 14;
+      g.beginPath(); g.arc(x, y, R, 0, 6.2832); g.stroke();
+      g.restore();
+    }
+
     // 環（後ろ半分）
     if (b.ring) ringHalf(g, b, true);
 
@@ -292,11 +354,14 @@ const Art = (() => {
       g.globalAlpha = 0.22;
       for (let i = 0; i < b.bands; i++) {
         const k = (i + 0.5) / b.bands;
-        const yy = y - r + r * 2 * k;
+        const q = -r + r * 2 * k;
         const hh = r * 2 / b.bands * (0.35 + 0.3 * Math.sin(i * 2.1));
+        const wob = Math.sin(b.face + i) * r * 0.10;
         g.fillStyle = i % 2 ? b.col.hi : b.col.lo;
         g.beginPath();
-        g.ellipse(x + Math.sin(b.face + i) * r * 0.10, yy, r * 1.05, hh, 0, 0, 6.2832);
+        // 横倒しの惑星は縞が縦に走る
+        if (b.tilt) g.ellipse(x + q, y + wob, hh, r * 1.05, 0, 0, 6.2832);
+        else g.ellipse(x + wob, y + q, r * 1.05, hh, 0, 0, 6.2832);
         g.fill();
       }
       g.restore();
@@ -310,6 +375,20 @@ const Art = (() => {
 
     // 環（手前半分）
     if (b.ring) ringHalf(g, b, false);
+
+    // 環の盾。切れ目だけが空いている
+    if (b.gapW && b.mood !== 'dead') {
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      const fl = b.shieldFlash;
+      g.globalAlpha = 0.16 + 0.45 * fl;
+      g.strokeStyle = fl > 0.02 ? '#ffffff' : (b.col.ring || b.col.glow);
+      g.lineWidth = r * 0.22;
+      g.beginPath();
+      g.arc(x, y, r * 1.45, b.gap + b.gapW, b.gap - b.gapW + 6.2832);
+      g.stroke();
+      g.restore();
+    }
 
     // 守りの弧。ここに当てても通らない、が目で分かる
     if (b.mood !== 'dead') {
@@ -381,6 +460,6 @@ const Art = (() => {
     g.restore();
   }
 
-  return { initStars, stars: stars_draw, bounds, comet, spark, rock, shard,
+  return { initStars, stars: stars_draw, bounds, comet, spark, rock, shard, flock, wind,
            meteorWarn, meteor, planet, moon, flash, debris, eyes };
 })();
