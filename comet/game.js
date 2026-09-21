@@ -1038,12 +1038,11 @@ function paintSave() {
 }
 paintSave();
 
-const btnMute = $('btnMute');
-function paintMute() { btnMute.textContent = Snd.isMuted() ? '🔇' : '🔊'; }
-btnMute.onclick = () => { Snd.boot(); Snd.setMute(!Snd.isMuted()); paintMute(); syncVol(); };
-paintMute();
+// 音は右上のボタンひとつから。開いている間は盤面を止める（走っている最中に触るため）
+const btnSound = $('btnSound');
+function paintMute() { btnSound.textContent = Snd.isMuted() ? '🔇' : '🔊'; }
+$('btnMute').onclick = () => { Snd.boot(); Snd.setMute(!Snd.isMuted()); paintMute(); syncVol(); };
 
-// 音量。スライダーはタイトルからだけ開く（走っている最中に手を止めさせない）
 const ovSound = $('ovSound');
 const VOLS = [['vBgm', 'bgm'], ['vSe', 'se']];
 function syncVol() {
@@ -1061,9 +1060,13 @@ for (const [id, kind] of VOLS) {
     paintMute();
   };
 }
-$('btnSound').onclick = () => { Snd.boot(); syncVol(); ovSound.hidden = false; Snd.play('ui'); };
-$('btnSoundClose').onclick = () => { ovSound.hidden = true; Snd.play('ui'); };
+btnSound.onclick = () => {
+  Snd.boot(); syncVol(); paused = true; Snd.trail(0);   // 止めている間は走行音も落とす
+  ovSound.hidden = false; Snd.play('ui');
+};
+$('btnSoundClose').onclick = () => { paused = false; ovSound.hidden = true; Snd.play('ui'); };
 syncVol();
+paintMute();
 
 (() => {
   const list = Snd.credits();
@@ -1075,10 +1078,11 @@ syncVol();
 })();
 
 // ============ ループ ============
-let last = performance.now(), acc = 0;
+let last = performance.now(), acc = 0, paused = false;
 function loop(now) {
   let dt = (now - last) / 1000; last = now;
   if (dt > 0.25) dt = 0.25;
+  if (paused) { acc = 0; draw(); requestAnimationFrame(loop); return; }
   acc += dt;
   while (acc >= TICK) { step(TICK); acc -= TICK; }
   draw();
