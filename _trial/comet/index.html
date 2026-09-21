@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>コリジョン・シューティングスター（試作）</title>
-<link rel="stylesheet" href="style.css?v=1f82f0da">
+<link rel="stylesheet" href="style.css?v=03cfc4f1">
 </head>
 <body>
 
@@ -45,6 +45,24 @@
       </p>
       <div class="cs-btns">
         <button class="cs-btn cs-btn-p" id="btnStart">はじめる</button>
+        <button class="cs-btn" id="btnSound">音</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 音量 -->
+  <div class="cs-ov" id="ovSound" hidden>
+    <div class="cs-panel">
+      <h2>音</h2>
+      <div class="cs-vols">
+        <label class="cs-vol"><span>BGM</span>
+          <input type="range" id="vBgm" min="0" max="1" step="0.05"><b id="vBgmV"></b></label>
+        <label class="cs-vol"><span>効果音</span>
+          <input type="range" id="vSe" min="0" max="1" step="0.05"><b id="vSeV"></b></label>
+      </div>
+      <div class="cs-credits" id="csCredits"></div>
+      <div class="cs-btns">
+        <button class="cs-btn cs-btn-p" id="btnSoundClose">閉じる</button>
       </div>
     </div>
   </div>
@@ -70,8 +88,8 @@
   </div>
 </div>
 
-<script src="sound.js?v=793047ad"></script>
+<script src="sound.js?v=fbe31f2f"></script>
 <script src="art.js?v=a9f137eb"></script>
-<script src="game.js?v=12efc080"></script>
+<script src="game.js?v=615a2900"></script>
 </body>
 </html>

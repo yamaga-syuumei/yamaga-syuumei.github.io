@@ -318,6 +318,7 @@ function startBoss() {
   S.mode = 'boss';
   banner(def.name + ' が来た', def.hint);
   Snd.play('bossin');
+  Snd.bgm('boss');
 }
 
 function banner(a, b) { S.banner = [a, b]; S.bannerT = 3.4; }
@@ -377,7 +378,7 @@ function step(dt) {
 
   if (c.burn > 0) {
     c.burn -= dt;
-    if (c.burn <= 0) { c.burn = 0; Snd.play('burnout'); }
+    if (c.burn <= 0) { c.burn = 0; Snd.play('burnout'); Snd.bgm(S.boss ? 'boss' : 'field'); }
     if (Math.random() < 0.7) S.sparks.push({
       x: c.x + rnd(-c.r, c.r), y: c.y + rnd(-c.r, c.r),
       vx: -c.vx * 0.3 + rnd(-1, 1), vy: -c.vy * 0.3 + rnd(-1, 1),
@@ -765,8 +766,8 @@ function bossDown(b) {
   Snd.play('down');
   S.wave++;
   S.kills = 0;
-  if (S.wave >= BOSSES.length) { S.mode = 'clear'; showOver(true); }
-  else { S.mode = 'choice'; showChoice(); }
+  if (S.wave >= BOSSES.length) { S.mode = 'clear'; Snd.bgm('clear'); showOver(true); }
+  else { S.mode = 'choice'; Snd.bgm('field'); showChoice(); }
 }
 
 // ============ 流星 ============
@@ -792,6 +793,7 @@ function meteorStep(dt) {
     flash(c.x, c.y, c.r * 5, 'rgba(255,220,140,1)');
     S.shake = 14;
     Snd.play('ignite');
+    Snd.bgm('burn');
     S.meteor = null;
     return;
   }
@@ -965,7 +967,7 @@ function applyGrowth(id) {
   S.lv = levelOf(c.m);
 }
 
-function gameOver() { S.mode = 'over'; Snd.play('over'); showOver(false); }
+function gameOver() { S.mode = 'over'; Snd.play('over'); Snd.bgm('over'); showOver(false); }
 
 function showOver(win) {
   $('overHead').textContent = win ? '地球は守られた' : '核が保たなかった';
@@ -975,12 +977,44 @@ function showOver(win) {
   ovOver.hidden = false;
 }
 
-$('btnStart').onclick = () => { Snd.boot(); ovTitle.hidden = true; reset(false); Snd.play('ui'); };
-$('btnAgain').onclick = () => { ovOver.hidden = true; reset(false); Snd.play('ui'); };
-$('btnMute').onclick = () => {
-  Snd.boot(); Snd.setMute(!Snd.isMuted());
-  $('btnMute').textContent = Snd.isMuted() ? '🔇' : '🔊';
-};
+$('btnStart').onclick = () => { Snd.boot(); ovTitle.hidden = true; reset(false); Snd.play('ui'); Snd.bgm('field'); };
+$('btnAgain').onclick = () => { ovOver.hidden = true; reset(false); Snd.play('ui'); Snd.bgm('field'); };
+
+const btnMute = $('btnMute');
+function paintMute() { btnMute.textContent = Snd.isMuted() ? '🔇' : '🔊'; }
+btnMute.onclick = () => { Snd.boot(); Snd.setMute(!Snd.isMuted()); paintMute(); syncVol(); };
+paintMute();
+
+// 音量。スライダーはタイトルからだけ開く（走っている最中に手を止めさせない）
+const ovSound = $('ovSound');
+const VOLS = [['vBgm', 'bgm'], ['vSe', 'se']];
+function syncVol() {
+  const v = Snd.vol();
+  for (const [id, kind] of VOLS) {
+    $(id).value = v[kind];
+    $(id + 'V').textContent = Math.round(v[kind] * 100) + '%';
+  }
+}
+for (const [id, kind] of VOLS) {
+  $(id).oninput = () => {
+    Snd.boot();
+    Snd.setVol(kind, parseFloat($(id).value));
+    $(id + 'V').textContent = Math.round(parseFloat($(id).value) * 100) + '%';
+    paintMute();
+  };
+}
+$('btnSound').onclick = () => { Snd.boot(); syncVol(); ovSound.hidden = false; Snd.play('ui'); };
+$('btnSoundClose').onclick = () => { ovSound.hidden = true; Snd.play('ui'); };
+syncVol();
+
+(() => {
+  const list = Snd.credits();
+  $('csCredits').innerHTML = list.length
+    ? '<p>' + list.map(c => c.what + '：' + (c.url
+        ? '<a href="' + c.url + '" target="_blank" rel="noopener">' + c.who + '</a>'
+        : c.who) + ' 様').join('</p><p>') + '</p>'
+    : '<p>BGMの素材は準備中です。効果音は合成音で鳴っています。</p>';
+})();
 
 // ============ ループ ============
 let last = performance.now(), acc = 0;
@@ -996,6 +1030,7 @@ function loop(now) {
 Art.initStars(W, H, Math.random);
 resize();
 reset(true);
+Snd.bgm('title');
 requestAnimationFrame(loop);
 
 // 調整用。コンソールから触る

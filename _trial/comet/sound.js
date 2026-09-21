@@ -1,16 +1,66 @@
-// 合成音。音源ファイルは持たない。play(key) と trail(0..1) で鳴らす。
+/* ==========================================================
+   音（効果音・走行音・BGM）
+
+   効果音と走行音は合成音。音源ファイルは持たない。play(key) と trail(0..1)。
+   BGM だけ bgm/ にファイルを置き、下の BGM_FILES に名前を書く。
+   '' のままのキーはエラーにならず、そこだけ無音で遊べる。
+   空のキーを指定したときは、いま鳴っている曲をそのまま流し続ける。
+   ここで止めると、曲を1つ足すまで場面が静まり返るため。
+
+   ブラウザは利用者が触るより前に音を鳴らすことを禁じているので、
+   最初のクリックかタップ（boot）まで再生を試みない。
+
+   出どころ（素材提供者）は CREDITS に書く。設定パネルにそのまま出る。
+   ========================================================== */
 
 const Snd = (() => {
-  let ac = null, master = null, muted = false;
+  /* ---------- BGM ---------- */
+  const BGM_FILES = {
+    title: '',   // タイトル画面。裏でデモが飛んでいる
+    field: '',   // 宙域。隕石を砕いて育てている間
+    boss:  '',   // 惑星が現れてから倒すまで
+    burn:  '',   // 燃焼中。空なら現行のまま
+    clear: '',   // 1周クリア。空なら field のまま
+    over:  '',   // ゲームオーバー
+  };
+
+  /* ---------- 素材の出どころ ----------
+     もらったらここに足す。設定パネルにそのまま出る。
+     例： { what: 'BGM', who: '〇〇工房', url: 'https://example.com' } */
+  const CREDITS = [];
+
+  /* ---------- ここから下は素材が決まっても触らなくていい ---------- */
+
+  // 合成音の鳴りは vol.se が既定の 0.7 のときに master が 0.55 になるよう合わせてある
+  const SYNTH = 0.786;
+  const vol = { se: 0.7, bgm: 0.4 };
+  const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('cs_vol') || 'null');
+    if (saved) {
+      if (typeof saved.se === 'number') vol.se = clamp01(saved.se);
+      if (typeof saved.bgm === 'number') vol.bgm = clamp01(saved.bgm);
+    }
+  } catch (e) { /* 読めなくても既定値で動く */ }
+
+  function save() {
+    try { localStorage.setItem('cs_vol', JSON.stringify(vol)); } catch (e) {}
+  }
+
+  let ac = null, master = null;
   let trailGain = null, trailFilt = null;
+  let unlocked = false, wantBgm = null, curBgm = null;
+  const bgmEls = {};
 
   function boot() {
+    unlock();
     if (ac) return;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     ac = new AC();
     master = ac.createGain();
-    master.gain.value = 0.55;
+    master.gain.value = vol.se * SYNTH;
     master.connect(ac.destination);
 
     // 彗星の走行音。速度でローパスの開き具合と音量が動く。
@@ -51,7 +101,7 @@ const Snd = (() => {
   }
 
   function tone(type, f0, f1, a, d, peak, when) {
-    if (!ac || muted) return;
+    if (!ac || vol.se <= 0) return;
     const t0 = ac.currentTime + (when || 0);
     const o = ac.createOscillator(), g = ac.createGain();
     o.type = type;
@@ -63,7 +113,7 @@ const Snd = (() => {
   }
 
   function noise(f, q, a, d, peak, when) {
-    if (!ac || muted) return;
+    if (!ac || vol.se <= 0) return;
     const t0 = ac.currentTime + (when || 0);
     const len = Math.ceil(ac.sampleRate * (a + d + 0.05));
     const buf = ac.createBuffer(1, len, ac.sampleRate);
@@ -107,7 +157,7 @@ const Snd = (() => {
     ui:     () => { tone('sine', 880, 880, 0.003, 0.05, 0.12); },
   };
 
-  function play(k) { boot(); const f = SFX[k]; if (f && !muted) f(); }
+  function play(k) { boot(); const f = SFX[k]; if (f && vol.se > 0) f(); }
 
   // 走行音。0..1 の速度で音量とローパスの開き具合を動かす。
   // TRAIL_VOL を 0 にすると鳴らない。
@@ -116,16 +166,84 @@ const Snd = (() => {
   function trail(sp) {
     if (!ac || !trailGain) return;
     const k = Math.max(0, (sp - TRAIL_FROM) / (1 - TRAIL_FROM));
-    const g = muted ? 0 : k * k * TRAIL_VOL;
+    // master が vol.se で下がるので、ここでは 0 にするかどうかだけ見る
+    const g = vol.se <= 0 ? 0 : k * k * TRAIL_VOL;
     trailGain.gain.setTargetAtTime(g, ac.currentTime, 0.12);
     trailFilt.frequency.setTargetAtTime(260 + k * 900, ac.currentTime, 0.12);
   }
 
-  function setMute(m) {
-    muted = m;
-    if (master) master.gain.setTargetAtTime(m ? 0 : 0.55, ac.currentTime, 0.05);
+  /* ---------- BGM ---------- */
+  function fade(el, to, ms, stopAtEnd) {
+    const from = el.volume, t0 = Date.now();
+    (function stepFade() {
+      const t = Math.min(1, (Date.now() - t0) / ms);
+      el.volume = clamp01(from + (to - from) * t);
+      if (t < 1) requestAnimationFrame(stepFade);
+      else if (stopAtEnd) { try { el.pause(); } catch (e) {} }
+    })();
   }
-  function isMuted() { return muted; }
 
-  return { boot, play, trail, setMute, isMuted };
+  // name を null にすると止める。素材が無いキーは、いまの曲をそのまま続ける
+  function bgm(name) {
+    if (!unlocked) { wantBgm = name; return; }
+    if (name === curBgm) return;
+    if (name && !BGM_FILES[name]) return;
+    const prev = curBgm ? bgmEls[curBgm] : null;
+    if (prev) fade(prev, 0, 500, true);
+    curBgm = name;
+    if (!name) return;
+    if (!bgmEls[name]) {
+      const a = new Audio(BGM_FILES[name]);
+      a.loop = true; a.preload = 'auto'; a.volume = 0;
+      bgmEls[name] = a;
+    }
+    const el = bgmEls[name];
+    try {
+      const pr = el.play();
+      if (pr && pr.catch) pr.catch(() => {});
+      fade(el, vol.bgm, 700, false);
+    } catch (e) {}
+  }
+
+  /* 最初の操作で解錠する。ここまでは一切鳴らさない。
+
+     解錠したその操作が、同じ拍で場面も変えることがある（タイトルの「はじめる」）。
+     控えていた曲をその場で鳴らすと、0.5秒だけ顔を出してフェードアウトし、
+     曲ではなく雑音として聞こえる。1拍おいて、次の曲がもう指定されていたら譲る。 */
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    if (wantBgm === null) return;
+    const w = wantBgm;
+    wantBgm = null; curBgm = null;
+    setTimeout(() => { if (!curBgm) bgm(w); }, 0);
+  }
+
+  /* ---------- 音量 ---------- */
+  function setVol(kind, v) {
+    vol[kind] = clamp01(v);
+    if (kind === 'se' && master) master.gain.setTargetAtTime(vol.se * SYNTH, ac.currentTime, 0.05);
+    if (kind === 'bgm' && curBgm && bgmEls[curBgm]) bgmEls[curBgm].volume = vol.bgm;
+    save();
+  }
+
+  function isMuted() { return vol.se <= 0 && vol.bgm <= 0; }
+
+  // ミュートを解いたときに戻す音量
+  const last = { se: vol.se || 0.7, bgm: vol.bgm || 0.4 };
+
+  function setMute(m) {
+    if (m) { last.se = vol.se; last.bgm = vol.bgm; setVol('se', 0); setVol('bgm', 0); }
+    else { setVol('se', last.se || 0.7); setVol('bgm', last.bgm || 0.4); }
+  }
+
+  // BGM の素材が1つでも入っているか（設定パネルの出し分けに使う）
+  function ready() { for (const k in BGM_FILES) if (BGM_FILES[k]) return true; return false; }
+
+  return {
+    boot, play, trail, bgm, unlock,
+    setVol, setMute, isMuted, ready,
+    vol: () => ({ se: vol.se, bgm: vol.bgm }),
+    credits: () => CREDITS.slice(),
+  };
 })();
