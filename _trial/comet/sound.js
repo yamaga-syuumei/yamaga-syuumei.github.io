@@ -27,7 +27,9 @@ const Snd = (() => {
   /* ---------- 素材の出どころ ----------
      もらったらここに足す。設定パネルにそのまま出る。
      例： { what: 'BGM', who: '〇〇工房', url: 'https://example.com' } */
-  const CREDITS = [];
+  const CREDITS = [
+    { what: 'BGM', who: '魔王魂', url: 'https://maou.audio/' }
+  ];
 
   /* ---------- ここから下は素材が決まっても触らなくていい ---------- */
 

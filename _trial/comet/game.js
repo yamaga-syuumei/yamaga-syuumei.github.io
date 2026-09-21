@@ -45,6 +45,13 @@ const C = {
   SWARM_MAX: 2,     // 同時に出す群れの数
 };
 
+// 進み具合。企画どおり、到達した宙域と最高撃破数だけ残す。
+// 彗星の育ち具合は残さない。死んでも痛くないと、失敗の重さが消える
+const SAVE_KEY = 'cs_save';
+
+// つづきから始めるときの質量。宙域ごとの標準に合わせる
+const RESUME_M = [12, 16, 21, 27, 34, 42, 52, 64];
+
 const LV = [12, 14.5, 17, 20, 23.5, 27, 31, 35.5, 40, 45, 51, 58, 66, 75, 85, 96, 108];
 
 // spin は自転の速さ。arc は守りの弧の半幅（衛星を全部剥がすまでは全周）。
@@ -106,6 +113,23 @@ const GROWTH = [
   { id:'split', n:'分裂',    d:'砕くと周りにも衝撃。核が一回り小さくなる' },
 ];
 
+function loadSave() {
+  try {
+    const o = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (o && typeof o.wave === 'number')
+      return { wave: Math.max(0, Math.min(o.wave | 0, WAVES.length - 1)), kills: o.kills | 0 };
+  } catch (e) { /* 読めなくても最初から遊べる */ }
+  return { wave: 0, kills: 0 };
+}
+
+function saveProgress() {
+  const p = loadSave();
+  const rec = { wave: Math.max(p.wave, Math.min(S.wave, WAVES.length - 1)),
+                kills: Math.max(p.kills, S.killsAll | 0) };
+  if (rec.wave === p.wave && rec.kills === p.kills) return;
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(rec)); } catch (e) {}
+}
+
 // ============ 補助 ============
 const cv = document.getElementById('cv');
 const g = cv.getContext('2d');
@@ -129,7 +153,7 @@ let S;
 function reset(full) {
   S = {
     mode: full ? 'title' : 'field',
-    wave: 0, kills: 0,
+    wave: 0, kills: 0, killsAll: 0,
     comet: {
       x: W / 2, y: H / 2, vx: 0, vy: 0, m: C.M0, r: 0,
       trail: [], burn: 0, hard: 1, tail: 1, pull: 1, split: 0, acc: 1, vmax: 1,
@@ -619,6 +643,7 @@ function breakRock(e, idx, power) {
   S.shake = 10 + e.r * 0.25;
   S.hitStop = 0.045;
   S.kills += e.worth || 1;
+  S.killsAll += e.worth || 1;
   // 同じフレームで大量に砕けたときに音が重ならないようにする
   if (S.t - lastBreak > 0.035) { Snd.play('break'); lastBreak = S.t; }
   if (e.moon && S.boss) {
@@ -766,6 +791,7 @@ function bossDown(b) {
   Snd.play('down');
   S.wave++;
   S.kills = 0;
+  saveProgress();
   if (S.wave >= BOSSES.length) { S.mode = 'clear'; Snd.bgm('clear'); showOver(true); }
   else { S.mode = 'choice'; Snd.bgm('field'); showChoice(); }
 }
@@ -967,18 +993,50 @@ function applyGrowth(id) {
   S.lv = levelOf(c.m);
 }
 
-function gameOver() { S.mode = 'over'; Snd.play('over'); Snd.bgm('over'); showOver(false); }
+function gameOver() { S.mode = 'over'; Snd.play('over'); Snd.bgm('over'); saveProgress(); showOver(false); }
 
 function showOver(win) {
+  paintSave();
   $('overHead').textContent = win ? '地球は守られた' : '核が保たなかった';
   $('overBody').textContent = win
-    ? '惑星' + BOSSES.length + 'つを落とした。地球は無事。'
-    : '宙域 ' + (S.wave + 1) + ' で力尽きた。撃破 ' + (S.kills | 0) + '。';
+    ? '惑星' + BOSSES.length + 'つを落とした。地球は無事。撃破 ' + (S.killsAll | 0) + '。'
+    : '宙域 ' + (S.wave + 1) + ' で力尽きた。撃破 ' + (S.killsAll | 0) + '。';
   ovOver.hidden = false;
 }
 
-$('btnStart').onclick = () => { Snd.boot(); ovTitle.hidden = true; reset(false); Snd.play('ui'); Snd.bgm('field'); };
-$('btnAgain').onclick = () => { ovOver.hidden = true; reset(false); Snd.play('ui'); Snd.bgm('field'); };
+// wave を指定して始める。飛ばした宙域ぶんは、成長を並び順に入れて質量を標準に合わせる
+function startRun(wave) {
+  reset(false);
+  if (wave > 0) {
+    S.wave = wave;
+    for (let i = 0; i < wave; i++) applyGrowth(GROWTH[i % GROWTH.length].id);
+    S.comet.m = RESUME_M[Math.min(wave, RESUME_M.length - 1)];
+    S.comet.r = radOf(S.comet.m);
+    S.lv = levelOf(S.comet.m);
+    S.enemies = [];
+    fillField();
+  }
+  ovTitle.hidden = true; ovOver.hidden = true;
+  Snd.play('ui'); Snd.bgm('field');
+}
+
+$('btnStart').onclick = () => { Snd.boot(); startRun(0); };
+$('btnAgain').onclick = () => { Snd.boot(); startRun(0); };
+for (const id of ['btnResume', 'btnResume2'])
+  $(id).onclick = () => { Snd.boot(); startRun(loadSave().wave); };
+
+// 到達した宙域があるときだけ「つづきから」と記録を出す
+function paintSave() {
+  const p = loadSave();
+  for (const id of ['btnResume', 'btnResume2']) {
+    $(id).hidden = p.wave <= 0;
+    $(id).textContent = '宙域 ' + (p.wave + 1) + ' から';
+  }
+  const rec = $('rec');
+  rec.hidden = p.wave <= 0 && p.kills <= 0;
+  rec.textContent = '最高記録　宙域 ' + (p.wave + 1) + '　撃破 ' + p.kills;
+}
+paintSave();
 
 const btnMute = $('btnMute');
 function paintMute() { btnMute.textContent = Snd.isMuted() ? '🔇' : '🔊'; }
