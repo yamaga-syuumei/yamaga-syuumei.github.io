@@ -458,7 +458,7 @@
   }
 
   // ------------------------------------------------------------------ 描画
-  let acc = 0, last = 0, flowT = 0;
+  let acc = 0, last = 0, flowT = 0, paused = false;
 
   function frame(now) {
     requestAnimationFrame(frame);
@@ -472,6 +472,7 @@
   // 時間を渡せば進む形にしておく。requestAnimationFrame が止まる場所でも
   // 同じ道筋を通して確認できるようにするため（__osf.advance）。
   function advance(dt) {
+    if (paused) { acc = 0; SND.amb('belt', 0); draw(0); return; }
     acc += dt;
     while (acc >= DT) { acc -= DT; step(); }
     if (titleMode) stepDemo(dt);
@@ -777,14 +778,6 @@
       b.onclick = () => { SND.unlock(); SND.se('ui'); el('ovStages').hidden = true; hideTitle(); load(i); };
       box.appendChild(b);
     });
-
-    // 素材をもらったら sound.js の CREDITS に足す。ここにそのまま出る。
-    const cr = SND.credits();
-    const line = el('credits');
-    line.hidden = !cr.length;
-    line.innerHTML = cr.map((c) =>
-      c.url ? c.what + '：<a href="' + c.url + '" target="_blank" rel="noopener">' + c.who + '</a>'
-            : c.what + '：' + c.who).join(' ／ ');
   }
 
   // ------------------------------------------------------------------ 進行
@@ -890,13 +883,43 @@
   el('btnTitleStages').onclick = uiClick(() => { buildStageList(); SND.bgm('select'); el('ovStages').hidden = false; });
   el('btnTitle').onclick = uiClick(() => { el('ovStages').hidden = true; showTitle(); });
 
-  // 音量ボタンは素材が1つでも入るまで出さない（押しても何も起きないので）
-  const btnMute = el('btnMute');
+  // 音は右上のボタンひとつから。開いている間は盤面を止める（時間も測っているため）
+  // 素材が1つでも入るまでボタンを出さない（押しても何も起きないので）
+  const btnSound = el('btnSound');
+  const VOLS = [['vBgm', 'bgm'], ['vSe', 'se']];
+  const paintMute = () => { btnSound.textContent = SND.muted() ? '🔇' : '🔊'; };
+  function syncVol() {
+    const v = SND.vol();
+    for (const [id, kind] of VOLS) {
+      el(id).value = v[kind];
+      el(id + 'V').textContent = Math.round(v[kind] * 100) + '%';
+    }
+    paintMute();
+  }
+  function closeSound() { paused = false; el('ovSound').hidden = true; }
+
   if (SND.ready()) {
-    btnMute.hidden = false;
-    const paint = () => { btnMute.textContent = SND.muted() ? '🔇' : '🔊'; };
-    paint();
-    btnMute.onclick = () => { SND.unlock(); SND.toggleMute(); paint(); };
+    btnSound.hidden = false;
+    for (const [id, kind] of VOLS) {
+      el(id).oninput = () => {
+        SND.unlock();
+        SND.setVol(kind, parseFloat(el(id).value));
+        el(id + 'V').textContent = Math.round(parseFloat(el(id).value) * 100) + '%';
+        paintMute();
+      };
+    }
+    btnSound.onclick = uiClick(() => { syncVol(); paused = true; el('ovSound').hidden = false; });
+    el('btnMute').onclick = () => { SND.unlock(); SND.setMute(!SND.muted()); syncVol(); };
+    el('btnSoundClose').onclick = uiClick(closeSound);
+    syncVol();
+
+    // 素材をもらったら sound.js の CREDITS に足す。ここにそのまま出る。
+    const cr = SND.credits();
+    const line = el('credits');
+    line.hidden = !cr.length;
+    line.innerHTML = cr.map((c) =>
+      c.url ? c.what + '：<a href="' + c.url + '" target="_blank" rel="noopener">' + c.who + '</a>'
+            : c.what + '：' + c.who).join(' ／ ');
   }
 
   cv.addEventListener('pointerdown', onDown);
@@ -911,7 +934,7 @@
   window.addEventListener('keydown', (e) => {
     SND.unlock();
     if (!titleMode && (e.key === 'r' || e.key === 'R')) load(stageIdx);
-    if (e.key === 'Escape') { el('ovStages').hidden = true; }
+    if (e.key === 'Escape') { el('ovStages').hidden = true; closeSound(); }
   });
 
   /* dev:start */

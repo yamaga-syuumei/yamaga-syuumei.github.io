@@ -10,7 +10,7 @@
    ブラウザは利用者が触るより前に音を鳴らすことを禁じているので、
    最初のクリックかタップまで再生を試みない。
 
-   出どころ（素材提供者）は CREDITS に書く。ステージ選択の下に出る。
+   出どころ（素材提供者）は CREDITS に書く。設定パネルにそのまま出る。
    ========================================================== */
 window.OSSND = (function () {
   'use strict';
@@ -52,7 +52,7 @@ window.OSSND = (function () {
   };
 
   /* ---------- 素材の出どころ ----------
-     もらったらここに足す。ステージ選択の下にそのまま出る。
+     もらったらここに足す。設定パネルにそのまま出る。
      例： { what: '効果音', who: '〇〇工房', url: 'https://example.com' } */
   var CREDITS = [
   	{ what: 'BGM・SFX', who: 'Springin’ Sound Stock', url: 'https://www.springin.org/' }
@@ -202,11 +202,16 @@ window.OSSND = (function () {
 
   function muted() { return vol.se <= 0 && vol.bgm <= 0; }
 
-  function toggleMute() {
-    if (muted()) { setVol('se', 0.7); setVol('bgm', 0.4); }
-    else {
+  /* ミュートを解いたときに戻す音量。つまみで決めた値をそのまま返す */
+  var last = { se: vol.se || 0.7, bgm: vol.bgm || 0.4 };
+
+  function setMute(m) {
+    if (m) {
+      last.se = vol.se; last.bgm = vol.bgm;
       for (var k in ambEls) { try { ambEls[k].el.pause(); ambEls[k].playing = false; ambEls[k].cur = 0; } catch (e) {} }
       setVol('se', 0); setVol('bgm', 0);
+    } else {
+      setVol('se', last.se || 0.7); setVol('bgm', last.bgm || 0.4);
     }
     return muted();
   }
@@ -222,7 +227,7 @@ window.OSSND = (function () {
 
   return {
     se: se, bgm: bgm, amb: amb, unlock: unlock,
-    setVol: setVol, toggleMute: toggleMute, muted: muted,
+    setVol: setVol, setMute: setMute, muted: muted,
     vol: function () { return { se: vol.se, bgm: vol.bgm }; },
     credits: function () { return CREDITS.slice(); },
     ready: ready,
