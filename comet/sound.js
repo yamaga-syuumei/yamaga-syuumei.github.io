@@ -16,19 +16,19 @@
 const Snd = (() => {
   /* ---------- BGM ---------- */
   const BGM_FILES = {
-    title: '',   // タイトル画面。裏でデモが飛んでいる
-    field: '',   // 宙域。隕石を砕いて育てている間
-    boss:  '',   // 惑星が現れてから倒すまで
-    burn:  '',   // 燃焼中。空なら現行のまま
-    clear: '',   // 1周クリア。空なら field のまま
-    over:  '',   // ゲームオーバー
+    title: 'bgm/Free!Free!.mp3', // タイトル画面。裏でデモが飛んでいる
+    field: 'bgm/Donut.mp3',      // 宙域。隕石を砕いて育てている間
+    boss:  'bgm/bpm150.mp3',     // 惑星が現れてから倒すまで
+    burn:  'bgm/',   // 燃焼中。空なら現行のまま
+    clear: 'bgm/',   // 1周クリア。空なら field のまま
+    over:  'bgm/GAME OVER.mp3',  // ゲームオーバー
   };
 
   /* ---------- 素材の出どころ ----------
      もらったらここに足す。設定パネルにそのまま出る。
      例： { what: 'BGM', who: '〇〇工房', url: 'https://example.com' } */
   const CREDITS = [
-    { what: 'BGM', who: '魔王魂', url: 'https://maou.audio/' }
+    { what: 'BGM', who: 'Moeru Music', url: 'https://moerumusic.com/' }
   ];
 
   /* ---------- ここから下は素材が決まっても触らなくていい ---------- */
