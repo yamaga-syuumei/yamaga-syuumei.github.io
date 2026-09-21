@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>コリジョン・シューティングスター（ベータ 0.5） | ヒノガタリ</title>
+<meta name="description" content="マウスを慣性で追う彗星を操り、体当たりで隕石を砕いて育つアクション。大きく回って速度を乗せるほど重いものを砕けます。惑星8体のブラウザゲーム。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="コリジョン・シューティングスター（ベータ 0.5） | ヒノガタリ">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/comet/">
+<meta property="og:description" content="彗星はマウスをすぐには追いません。大きく回って速度を乗せてからぶつけます。尾が伸びきっているほど重いものを砕ける、慣性の体当たりアクション。">
+<meta property="og:image" content="https://yamaga-syuumei.github.io/img/thumbnail-comet.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="675">
+<meta name="twitter:image" content="https://yamaga-syuumei.github.io/img/thumbnail-comet.jpg">
+<link rel="canonical" href="https://yamaga-syuumei.github.io/comet/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css?v=b91e32ad">
+</head>
+<body>
+
+<div class="cs-frame">
+  <canvas id="cv"></canvas>
+
+  <div class="cs-hud">
+    <div class="cs-left">
+      <div class="cs-row"><b id="lv">Lv 1</b><span class="cs-bar"><i id="core"></i></span><span id="mass">12.0</span></div>
+      <div class="cs-row"><span>速さ</span><span class="cs-bar"><i id="spd"></i></span></div>
+    </div>
+
+    <div class="cs-mid">
+      <div class="cs-wave" id="wave">宙域 1</div>
+      <div class="cs-prog" id="prog">0 / 10</div>
+      <div id="bosswrap" hidden><span class="cs-bar"><i id="bossbar"></i></span></div>
+    </div>
+
+    <div class="cs-right">
+      <button class="cs-btn" id="btnMute">🔊</button>
+    </div>
+  </div>
+
+  <div class="cs-banner" id="banner" hidden>
+    <b id="banA"></b><span id="banB"></span>
+  </div>
+
+  <p class="cs-note">マウスを動かすだけで遊べます。</p>
+
+  <!-- タイトル。裏で勝手に飛んでいる -->
+  <div class="cs-ov cs-title-ov" id="ovTitle">
+    <div class="cs-panel">
+      <h1>コリジョン・シューティングスター</h1>
+      <p class="cs-tag">
+        彗星はマウスをすぐには追いません。<em>大きく回って速度を乗せてから</em>ぶつけます。<br>
+        尾が伸びきっているほど、重いものを砕けます。
+      </p>
+      <div class="cs-btns">
+        <button class="cs-btn cs-btn-p" id="btnStart">はじめる</button>
+        <button class="cs-btn" id="btnResume" hidden></button>
+        <button class="cs-btn" id="btnSound">音</button>
+      </div>
+      <p class="cs-rec" id="rec" hidden></p>
+      <a class="cs-home" href="../">← ヒノガタリ</a>
+    </div>
+  </div>
+
+  <!-- 音量 -->
+  <div class="cs-ov" id="ovSound" hidden>
+    <div class="cs-panel">
+      <h2>音</h2>
+      <div class="cs-vols">
+        <label class="cs-vol"><span>BGM</span>
+          <input type="range" id="vBgm" min="0" max="1" step="0.05"><b id="vBgmV"></b></label>
+        <label class="cs-vol"><span>効果音</span>
+          <input type="range" id="vSe" min="0" max="1" step="0.05"><b id="vSeV"></b></label>
+      </div>
+      <div class="cs-credits" id="csCredits"></div>
+      <div class="cs-btns">
+        <button class="cs-btn cs-btn-p" id="btnSoundClose">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ボス撃破後の成長 -->
+  <div class="cs-ov" id="ovChoice" hidden>
+    <div class="cs-panel">
+      <h2 id="choiceHead"></h2>
+      <p class="cs-tag">ひとつ選ぶ</p>
+      <div class="cs-cards" id="choiceBox"></div>
+    </div>
+  </div>
+
+  <!-- 終わり -->
+  <div class="cs-ov" id="ovOver" hidden>
+    <div class="cs-panel">
+      <h2 id="overHead"></h2>
+      <p class="cs-tag" id="overBody"></p>
+      <div class="cs-btns">
+        <button class="cs-btn cs-btn-p" id="btnAgain">はじめから</button>
+        <button class="cs-btn" id="btnResume2" hidden></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="sound.js?v=dfbff73a"></script>
+<script src="art.js?v=a9f137eb"></script>
+<script src="game.js?v=884930da"></script>
+</body>
+</html>
