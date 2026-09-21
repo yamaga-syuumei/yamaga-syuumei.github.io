@@ -111,8 +111,10 @@ body{
 .cs-tag em{color:var(--warm);font-style:normal}
 .cs-btns{display:flex;gap:10px;justify-content:center;margin-top:8px}
 
-.cs-title-ov{background:transparent;backdrop-filter:none}
-.cs-title-ov .cs-panel{background:rgba(8,12,20,.72)}
+/* タイトルの覆いは透けている。盤面いっぱいでクリックを受けると、
+   下にある右上のボタンが押せなくなるので、札の上だけで受ける */
+.cs-title-ov{background:transparent;backdrop-filter:none;pointer-events:none}
+.cs-title-ov .cs-panel{background:rgba(8,12,20,.72);pointer-events:auto}
 
 /* ---- 成長の3択 ---- */
 .cs-cards{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:6px 0 4px}
