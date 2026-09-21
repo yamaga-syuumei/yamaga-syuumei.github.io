@@ -19,8 +19,8 @@ const Snd = (() => {
     title: 'bgm/Free!Free!.mp3', // タイトル画面。裏でデモが飛んでいる
     field: 'bgm/Donut.mp3',      // 宙域。隕石を砕いて育てている間
     boss:  'bgm/bpm150.mp3',     // 惑星が現れてから倒すまで
-    burn:  'bgm/',   // 燃焼中。空なら現行のまま
-    clear: 'bgm/',   // 1周クリア。空なら field のまま
+    burn:  '',   // 燃焼中。空なら現行のまま
+    clear: '',   // 1周クリア。空なら field のまま
     over:  'bgm/GAME OVER.mp3',  // ゲームオーバー
   };
 
@@ -189,7 +189,7 @@ const Snd = (() => {
   function bgm(name) {
     if (!unlocked) { wantBgm = name; return; }
     if (name === curBgm) return;
-    if (name && !BGM_FILES[name]) return;
+    if (name && !isFile(BGM_FILES[name])) return;
     const prev = curBgm ? bgmEls[curBgm] : null;
     if (prev) fade(prev, 0, 500, true);
     curBgm = name;
@@ -239,8 +239,11 @@ const Snd = (() => {
     else { setVol('se', last.se || 0.7); setVol('bgm', last.bgm || 0.4); }
   }
 
+  // 素材が入っているキーか。'' も、置き場所だけ書いた 'bgm/' も「まだ無い」とみなす
+  function isFile(v) { return !!v && !v.endsWith('/'); }
+
   // BGM の素材が1つでも入っているか（設定パネルの出し分けに使う）
-  function ready() { for (const k in BGM_FILES) if (BGM_FILES[k]) return true; return false; }
+  function ready() { for (const k in BGM_FILES) if (isFile(BGM_FILES[k])) return true; return false; }
 
   return {
     boot, play, trail, bgm, unlock,
