@@ -1091,14 +1091,4 @@ reset(true);
 Snd.bgm('title');
 requestAnimationFrame(loop);
 
-// 調整用。コンソールから触る
-window.__cs = {
-  get C() { return C; },
-  get S() { return S; },
-  boss: () => startBoss(),
-  meteor: () => startMeteor(),
-  tick: n => { for (let i = 0; i < (n || 1); i++) step(TICK); },
-  grow: m => { S.comet.m = m; S.lv = levelOf(m); },
-};
-
 })();

@@ -3,8 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>コリジョン・シューティングスター（試作）</title>
+<title>コリジョン・シューティングスター（ベータ 0.5） | ヒノガタリ</title>
+<meta name="description" content="マウスを慣性で追う彗星を操り、体当たりで隕石を砕いて育つアクション。大きく回って速度を乗せるほど重いものを砕けます。惑星8体のブラウザゲーム。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="コリジョン・シューティングスター（ベータ 0.5） | ヒノガタリ">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/comet/">
+<meta property="og:description" content="彗星はマウスをすぐには追いません。大きく回って速度を乗せてからぶつけます。尾が伸びきっているほど重いものを砕ける、慣性の体当たりアクション。">
+<meta property="og:image" content="https://yamaga-syuumei.github.io/img/thumbnail-comet.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="675">
+<meta name="twitter:image" content="https://yamaga-syuumei.github.io/img/thumbnail-comet.jpg">
+<link rel="canonical" href="https://yamaga-syuumei.github.io/comet/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css?v=b91e32ad">
 </head>
 <body>
@@ -33,7 +47,7 @@
     <b id="banA"></b><span id="banB"></span>
   </div>
 
-  <p class="cs-note">試作。マウスを動かすだけで遊べます。</p>
+  <p class="cs-note">マウスを動かすだけで遊べます。</p>
 
   <!-- タイトル。裏で勝手に飛んでいる -->
   <div class="cs-ov cs-title-ov" id="ovTitle">
@@ -49,6 +63,7 @@
         <button class="cs-btn" id="btnSound">音</button>
       </div>
       <p class="cs-rec" id="rec" hidden></p>
+      <a class="cs-home" href="../">← ヒノガタリ</a>
     </div>
   </div>
 
@@ -93,6 +108,6 @@
 
 <script src="sound.js?v=dfbff73a"></script>
 <script src="art.js?v=a9f137eb"></script>
-<script src="game.js?v=0b4c363e"></script>
+<script src="game.js?v=884930da"></script>
 </body>
 </html>
