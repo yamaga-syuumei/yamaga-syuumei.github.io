@@ -33,7 +33,7 @@ body{
   display:flex;
   align-items:center;
   gap:14px;
-  padding:8px 14px;
+  padding:8px 58px 8px 14px;   /* 右は、上に重ねた音のボタンのぶん空ける */
   background:var(--bg2);
   border-bottom:1px solid var(--line);
   flex-wrap:wrap;
@@ -141,7 +141,15 @@ canvas#cv{
 .of-titlenote{margin:14px 0 0;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
 .of-home{display:inline-block;margin:18px 0 0;font-size:12px;font-weight:700;color:var(--dim);text-decoration:none}
 .of-home:hover{color:#fff}
-body.title .of-bar,body.title .of-hint{visibility:hidden}
+/* 音のボタンは右上に重ねる。バーが折り返しても位置が動かない */
+#btnSound{position:absolute;top:8px;right:14px}
+
+/* タイトル中はバーを消す。ただし音の設定だけは残す。
+   タイトルでもBGMが鳴っているので、ここで絞れないと逃げ場がない。
+   タイトルの覆いは盤面いっぱいに敷いてあるので、その上まで持ち上げる。 */
+body.title .of-bar{background:transparent;border-bottom-color:transparent}
+body.title .of-bar > *,body.title .of-hint{visibility:hidden}
+body.title #btnSound{visibility:visible;z-index:11}
 
 .of-ov{
   position:absolute;inset:0;
@@ -173,10 +181,18 @@ body.title .of-bar,body.title .of-hint{visibility:hidden}
 .of-score .kept i{font-style:normal;font-size:11px;margin-left:6px;color:var(--gold);opacity:.75}
 .of-ov-btns{display:flex;gap:10px;justify-content:center}
 
-/* ---- ステージ選択 ---- */
+/* ---- 音 ---- */
 .of-btn-i{padding:6px 9px;line-height:1}
-.of-credits{margin:-8px 0 16px;font-size:11.5px;color:var(--dim);text-align:center}
+#ovSound .of-panel{min-width:min(380px,90vw)}
+.of-vols{display:flex;flex-direction:column;gap:12px;margin:2px 0 16px}
+.of-vol{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--dim)}
+.of-vol > span{width:56px;flex:none;white-space:nowrap;text-align:left}
+.of-vol input{flex:1;accent-color:var(--accent);cursor:pointer}
+.of-vol b{width:44px;text-align:right;color:var(--fg);font-variant-numeric:tabular-nums}
+.of-credits{margin:-4px 0 16px;font-size:11.5px;color:var(--dim);text-align:center}
 .of-credits a{color:var(--accent)}
+
+/* ---- ステージ選択 ---- */
 
 .of-sel{
   display:grid;
