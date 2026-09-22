@@ -36,7 +36,7 @@
   const BUILDS = {};
   SOURCES.forEach((s) => {
     BUILDS[s.key] = { key: s.key, k: 'src', tab: 'prod', name: s.name,
-      sub: ITEMS[s.item].name, item: s.item, secs: s.secs, cost: s.cost };
+      sub: s.secs.toFixed(1) + '秒に1つ', item: s.item, secs: s.secs, cost: s.cost };
   });
   RECIPES.forEach((r) => {
     BUILDS[r.key] = { key: r.key, k: 'fac', tab: 'fac', name: ITEMS[r.make].name + '工場',
@@ -163,7 +163,7 @@
     n.ins.concat(n.outs).forEach((p) => { if (p.belt) removeBelt(p.belt, true); });
     at(n.x, n.y).node = null;
     st.nodes.splice(st.nodes.indexOf(n), 1);
-    if (sel === n) closeDetail();
+    if (sel === n) closeMenu();
     resolve();
   }
 
@@ -439,16 +439,20 @@
     SND.unlock();
     const pc = pointerAt(e);
 
+    // 右クリックはメニュー。設置中なら設置の取り消し
     if (e.button === 2) {
       e.preventDefault();
-      if (placing) { placing.rot = (placing.rot + 1) & 3; return; }
+      if (placing) { placing = null; refreshPalette(); SND.se('ui'); return; }
+      closeMenu();
       if (!inBoard(pc.x, pc.y)) return;
-      const n = at(pc.x, pc.y).node;
-      if (n) { rotate(n); return; }
+      const c = at(pc.x, pc.y);
+      if (c.node) { openMenu('node', { node: c.node }, e.clientX, e.clientY); return; }
+      if (c.rock) { openMenu('rock', { x: pc.x, y: pc.y }, e.clientX, e.clientY); return; }
       const b = beltAt(pc.x, pc.y);
-      if (b) removeBelt(b);
+      if (b) openMenu('belt', { belt: b }, e.clientX, e.clientY);
       return;
     }
+    closeMenu();
 
     const ex = expandAt(pc);
     if (ex) { buyLand(ex); return; }
@@ -469,13 +473,32 @@
     }
 
     const node = at(pc.x, pc.y).node;
-    if (node) { moving = { node, from: { x: node.x, y: node.y }, moved: false }; return; }
+    if (node) { moving = { node, moved: false, px: e.clientX, py: e.clientY }; return; }
 
-    const c = at(pc.x, pc.y);
-    if (c.rock) { breakRock(pc.x, pc.y); return; }
+    if (at(pc.x, pc.y).rock) { openMenu('rock', { x: pc.x, y: pc.y }, e.clientX, e.clientY); return; }
     const hit = beltAt(pc.x, pc.y);
-    if (hit) { removeBelt(hit); return; }
-    closeDetail();
+    if (hit) removeBelt(hit);
+  }
+
+  // ホイールで回転。設置中はゴースト、盤面では下にある設備
+  let wheelAt = 0;
+  function onWheel(e) {
+    const dir = e.deltaY > 0 ? 1 : 3;
+    if (placing) {
+      e.preventDefault();
+      if (performance.now() - wheelAt < 80) return;
+      wheelAt = performance.now();
+      placing.rot = (placing.rot + dir) & 3;
+      return;
+    }
+    const pc = pointerAt(e);
+    if (!inBoard(pc.x, pc.y)) return;
+    const n = at(pc.x, pc.y).node;
+    if (!n) return;
+    e.preventDefault();
+    if (performance.now() - wheelAt < 140) return;   // 一振りで何回も回らないように
+    wheelAt = performance.now();
+    rotate(n, dir);
   }
 
   let denyAt = 0;
@@ -558,7 +581,7 @@
   function onUp() {
     if (moving) {
       const m = moving; moving = null;
-      if (!m.moved) { openDetail(m.node); return; }
+      if (!m.moved) { openMenu('node', { node: m.node }, m.px, m.py); return; }
       if (m.to && free(m.to.x, m.to.y)) moveNode(m.node, m.to.x, m.to.y);
       return;
     }
@@ -593,9 +616,9 @@
     save();
   }
 
-  function rotate(n) {
+  function rotate(n, dir) {
     n.ins.concat(n.outs).forEach((p) => { if (p.belt) removeBelt(p.belt, true); });
-    n.rot = (n.rot + 1) & 3;
+    n.rot = (n.rot + (dir || 1)) & 3;
     resolve();
     SND.se('place');
     save();
@@ -616,7 +639,6 @@
     st.money -= c;
     n.lv++;
     SND.se('levelup');
-    openDetail(n);
     save();
   }
 
@@ -979,14 +1001,26 @@
     if (st.money !== lastMoney) {
       lastMoney = st.money;
       el('money').textContent = st.money.toLocaleString();
+      buildMenu();          // 買えるようになった項目を押せるようにする
     }
+    updateHint();
     el('total').textContent = st.total.toLocaleString();
     const y = years();
     el('years').textContent = y > 0 ? y.toFixed(1) + '年' : '釈放';
     el('sentFill').style.width = (100 - y / TIERS[0].years * 100).toFixed(1) + '%';
     const next = TIERS[st.tier + 1];
     el('tierName').textContent = next ? ('次: ' + next.name + '　' + st.total.toLocaleString() + ' / ' + next.need.toLocaleString() + 'G') : '刑期満了';
-    if (sel) updateDetail();
+  }
+
+  const HINT = '出口から入口へドラッグしてベルトを引く　／　右クリックでメニュー　／　ホイールで回転　／　盤面の外の ＋ で土地を買う';
+
+  function updateHint() {
+    const h = el('hint');
+    const txt = placing
+      ? '設置中：' + placing.def.name + '　左クリックで置く　／　右クリックで取り消し　／　ホイールで回転'
+      : HINT;
+    if (h.textContent !== txt) h.textContent = txt;
+    h.classList.toggle('on', !!placing);
   }
 
   // ---------------------------------------------------------------- 購入パレット
@@ -1086,29 +1120,63 @@
     buildPalette();
   }
 
-  // ---------------------------------------------------------------- 設備の詳細
-  function openDetail(n) {
-    sel = n;
-    el('detail').hidden = false;
-    updateDetail();
-  }
-  function closeDetail() { sel = null; el('detail').hidden = true; }
+  // ---------------------------------------------------------------- メニュー
+  // 右クリックで開く。設備・ベルト・岩で中身が変わる。
+  // 金を使う操作はここに集めてある（左クリックで黙って減らない）。
+  let menu = null;
 
-  function updateDetail() {
-    const n = sel;
-    if (!n) return;
-    const r = cv.getBoundingClientRect();
-    const box = el('detail');
-    box.style.left = (r.left + window.scrollX + midX(n.x)) + 'px';
-    box.style.top = (r.top + window.scrollY + cellY(n.y) - 8) + 'px';
-    const maxed = n.lv >= LEVEL.max - 1;
-    const per = n.k === 'shop' ? sellTicks(n.def, n.lv) / TPS : nodeTicks(n.def, n.lv) / TPS;
-    el('dName').textContent = n.def.name;
-    el('dInfo').textContent = 'Lv' + (n.lv + 1) + '　' + per.toFixed(1) + '秒に1つ';
-    const up = el('dUp');
-    up.textContent = maxed ? 'レベル最大' : 'レベルアップ ' + lvCost(n) + 'G';
-    up.disabled = maxed || st.money < lvCost(n);
-    el('dSell').textContent = '売却 +' + Math.round(n.def.cost / 2) + 'G';
+  function closeMenu() {
+    if (!menu) return;
+    menu = null;
+    sel = null;
+    el('menu').hidden = true;
+  }
+
+  function openMenu(kind, t, px, py) {
+    menu = Object.assign({ kind }, t);
+    sel = t.node || null;
+    const box = el('menu');
+    box.hidden = false;
+    buildMenu();
+    const r = box.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(px + 4, window.innerWidth - r.width - 8)) + 'px';
+    box.style.top = Math.max(8, Math.min(py + 4, window.innerHeight - r.height - 8)) + 'px';
+    SND.se('ui');
+  }
+
+  function menuItem(label, on, dis) {
+    const b = document.createElement('button');
+    b.className = 'cl-btn';
+    b.textContent = label;
+    b.disabled = !!dis;
+    b.onclick = on;
+    el('mItems').appendChild(b);
+  }
+
+  function buildMenu() {
+    if (!menu) return;
+    el('mItems').innerHTML = '';
+    if (menu.kind === 'node') {
+      const n = menu.node;
+      const per = n.k === 'shop' ? sellTicks(n.def, n.lv) / TPS : nodeTicks(n.def, n.lv) / TPS;
+      el('mName').textContent = n.def.name;
+      el('mInfo').textContent = 'Lv' + (n.lv + 1) + '　' + per.toFixed(1) + '秒に1つ';
+      const maxed = n.lv >= LEVEL.max - 1;
+      menuItem(maxed ? 'レベル最大' : 'レベルアップ ' + lvCost(n) + 'G',
+        () => { levelUp(n); buildMenu(); }, maxed || st.money < lvCost(n));
+      menuItem('回転（ホイールでも回る）', () => { rotate(n); buildMenu(); });
+      menuItem('売却 +' + Math.round(n.def.cost / 2) + 'G', () => { sellNode(n); closeMenu(); });
+    } else if (menu.kind === 'belt') {
+      el('mName').textContent = 'ベルト';
+      el('mInfo').textContent = menu.belt.cells.length + 'マス';
+      menuItem('撤去', () => { removeBelt(menu.belt); closeMenu(); });
+    } else {
+      el('mName').textContent = '岩';
+      el('mInfo').textContent = 'ベルトも設備も置けない';
+      menuItem('撤去 ' + rockCost() + 'G',
+        () => { breakRock(menu.x, menu.y); closeMenu(); }, st.money < rockCost());
+    }
+    menuItem('閉じる', closeMenu);
   }
 
   // ---------------------------------------------------------------- 研究
@@ -1308,24 +1376,25 @@
     cv.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
+    cv.addEventListener('wheel', onWheel, { passive: false });
     cv.addEventListener('pointerleave', () => { hoverCell = null; hoverExpand = null; });
     window.addEventListener('resize', layout);
     window.addEventListener('beforeunload', writeSave);
+    // メニューの外を触ったら閉じる
+    document.addEventListener('pointerdown', (e) => {
+      if (menu && !el('menu').contains(e.target) && e.target !== cv) closeMenu();
+    }, true);
 
     overlay('res', 'btnRes', 'btnResClose', buildResearch);
     overlay('codex', 'btnCodex', 'btnCodexClose', buildCodex);
     overlay('cert', null, 'btnCertClose');
     el('btnNewsClose').onclick = () => { SND.se('ui'); el('news').hidden = true; };
     el('btnNewsEnd').onclick = () => { el('news').hidden = true; showCert(); };
-    el('dUp').onclick = () => levelUp(sel);
-    el('dSell').onclick = () => sellNode(sel);
-    el('dRot').onclick = () => { rotate(sel); };
-    el('dClose').onclick = () => { SND.se('ui'); closeDetail(); };
 
     el('btnReset').onclick = () => {
       if (!confirm('最初からやり直します。よろしいですか？')) return;
       try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
-      reset(); layout(); buildPalette(); buildResearch(); buildCodex(); closeDetail();
+      reset(); layout(); buildPalette(); buildResearch(); buildCodex(); closeMenu();
     };
 
     setupSound();

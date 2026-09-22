@@ -32,7 +32,7 @@
 
   <div class="cl-board"><canvas id="cv"></canvas></div>
 
-  <p class="cl-hint">出口から入口へドラッグしてベルトを引く　／　右クリックで設備を回転・ベルトを撤去　／　盤面の外の ＋ で土地を買う</p>
+  <p class="cl-hint" id="hint"></p>
 
   <div class="cl-pal">
     <div class="cl-tabs" id="tabs"></div>
@@ -41,13 +41,10 @@
 
 </div>
 
-<!-- 設備の詳細 -->
-<div class="cl-detail" id="detail" hidden>
-  <div class="cl-dhead"><b id="dName"></b><button id="dClose">×</button></div>
-  <div class="cl-dinfo" id="dInfo"></div>
-  <button class="cl-btn cl-btn-p" id="dUp"></button>
-  <button class="cl-btn" id="dRot">回転</button>
-  <button class="cl-btn" id="dSell"></button>
+<!-- 右クリックのメニュー。設備・ベルト・岩で中身が変わる -->
+<div class="cl-menu" id="menu" hidden>
+  <div class="cl-mhead"><b id="mName"></b><i id="mInfo"></i></div>
+  <div class="cl-mitems" id="mItems"></div>
 </div>
 
 <!-- 研究 -->

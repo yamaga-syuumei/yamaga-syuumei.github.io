@@ -40,13 +40,13 @@
   // ---------------------------------------------------------------- 生産所
   // 原料の入口。ここは4種類のまま増やさない（産出違いでカードは分ける）。
   const SOURCES = [
-    { key: 'src_ore',    name: '採掘機',  item: 'ore',    secs: 1.8, cost: 40 },
-    { key: 'src_coal',   name: '採掘機',  item: 'coal',   secs: 1.8, cost: 40 },
-    { key: 'src_water',  name: 'ポンプ',  item: 'water',  secs: 1.4, cost: 40 },
-    { key: 'src_oil',    name: 'ポンプ',  item: 'oil',    secs: 2.2, cost: 60 },
-    { key: 'src_grain',  name: '農場',    item: 'grain',  secs: 1.8, cost: 40 },
-    { key: 'src_wood',   name: '樹林',    item: 'wood',   secs: 1.8, cost: 40 },
-    { key: 'src_cattle', name: '牧場',    item: 'cattle', secs: 2.6, cost: 90 },
+    { key: 'src_ore',    name: '鉄鉱石',item: 'ore',    secs: 1.8, cost: 40 },
+    { key: 'src_coal',   name: '石炭',  item: 'coal',   secs: 1.8, cost: 40 },
+    { key: 'src_water',  name: '水',    item: 'water',  secs: 1.4, cost: 40 },
+    { key: 'src_oil',    name: '原油',  item: 'oil',    secs: 2.2, cost: 60 },
+    { key: 'src_grain',  name: '穀物',  item: 'grain',  secs: 1.8, cost: 40 },
+    { key: 'src_wood',   name: '木材',  item: 'wood',   secs: 1.8, cost: 40 },
+    { key: 'src_cattle', name: '家畜',  item: 'cattle', secs: 2.6, cost: 90 },
   ];
 
   // ---------------------------------------------------------------- 工場
