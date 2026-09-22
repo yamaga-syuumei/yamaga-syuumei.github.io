@@ -1,0 +1,1371 @@
+// ワンストローク・コロニー（試作）
+//
+// 動かし方: index.html を file:// で直接開くだけ。ビルド工程はない。
+//
+// 設計
+//  * ベルトと一筆書きの判定は onestroke から持ってきて、ステージ制を外したもの。
+//  * ノードの処理は固定tick（TPS）。ベルトだけは別の歩調で進む（ベルト強化で速くなる）。
+//    描画はベルトの位相 beltPhase で補間する。
+//  * ポートの buf は「個数」ではなく品目の待ち行列。複製機と倉庫が品目を選ばないため。
+//  * 複製機と倉庫の扱う品目は、繋いだ上流から resolve() で伝える。
+//    伝えた結果おかしくなる繋ぎ方は、繋いだ瞬間に取り消す。
+(function () {
+  'use strict';
+
+  const D = window.COLONY;
+  const { ITEMS, RECIPES, SOURCES, LOGI, SHOP, RESEARCH, PILLARS, TIERS, BOARD, LEVEL } = D;
+  const { drawItem, drawBridge, drawSpeed, drawGlyph, roundRect } = window.ART;
+  const SND = window.CLSND;
+
+  const TPS = 12;
+  const DT = 1000 / TPS;
+  const PAD = 26;                       // 盤面の外。拡張ボタンを描く帯
+  const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];   // E S W N
+  const SAVE_KEY = 'colony.save1';
+
+  const SKIN = {
+    src:   { fill: '#17293a', edge: '#3d6b8e' },
+    fac:   { fill: '#241f33', edge: '#584d80' },
+    dup:   { fill: '#15302a', edge: '#357a63' },
+    store: { fill: '#2b2718', edge: '#7d7040' },
+    shop:  { fill: '#332618', edge: '#8a6a37' },
+  };
+
+  // ---------------------------------------------------------------- 設備表
+  // 購入パレットのカードは全部ここから作る。データを足せばカードが増える。
+  const BUILDS = {};
+  SOURCES.forEach((s) => {
+    BUILDS[s.key] = { key: s.key, k: 'src', tab: 'prod', name: s.name,
+      sub: ITEMS[s.item].name, item: s.item, secs: s.secs, cost: s.cost };
+  });
+  RECIPES.forEach((r) => {
+    BUILDS[r.key] = { key: r.key, k: 'fac', tab: 'fac', name: ITEMS[r.make].name + '工場',
+      sub: r.in.map((i) => ITEMS[i].name).join('＋'), make: r.make, in: r.in,
+      secs: r.secs, cost: r.cost };
+  });
+  LOGI.forEach((l) => {
+    BUILDS[l.key] = { key: l.key, k: l.key, tab: 'logi', name: l.name,
+      sub: l.key === 'dup' ? '1つを2つに' : '詰まりを吸収', secs: l.secs, hold: l.hold, cost: l.cost };
+  });
+  // 販売所は品目ごと。作れるようになった品目の店が自動で並ぶ。
+  Object.keys(ITEMS).forEach((key) => {
+    BUILDS['shop_' + key] = { key: 'shop_' + key, k: 'shop', tab: 'shop',
+      name: ITEMS[key].name + '屋', sub: ITEMS[key].price + 'G', item: key,
+      secs: SHOP.secs, cost: SHOP.baseCost + ITEMS[key].price * SHOP.costPerPrice };
+  });
+
+  // その品目を作れるか（＝販売所を並べてよいか）
+  function producible(item) {
+    if (SOURCES.some((s) => s.item === item && st.unlock[s.key])) return true;
+    return RECIPES.some((r) => r.make === item && st.unlock[r.key]);
+  }
+
+  // ---------------------------------------------------------------- 状態
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const el = (id) => document.getElementById(id);
+
+  let st = null;
+  let cs = 46, ox = PAD, oy = PAD;
+  let drag = null;          // ベルトを引いている
+  let moving = null;        // 設備をつまんでいる
+  let placing = null;       // 購入パレットから選んだ設備
+  let hoverBelt = null, hoverCell = null, hoverExpand = null;
+  let sel = null;           // 詳細を開いている設備
+  let pops = [];            // 売れた金額の浮き文字
+
+  const idx = (x, y) => y * st.w + x;
+  const inBoard = (x, y) => x >= 0 && y >= 0 && x < st.w && y < st.h;
+  const at = (x, y) => st.cell[idx(x, y)];
+  const canDraw = (x, y) => inBoard(x, y) && !at(x, y).rock && !at(x, y).node && !at(x, y).belts.length;
+  const free = (x, y) => inBoard(x, y) && !at(x, y).rock && !at(x, y).node && !at(x, y).belts.length;
+  const beltAt = (x, y) => { const l = at(x, y).belts; return l.length ? l[l.length - 1] : null; };
+
+  const priceOf = (item) => Math.round(ITEMS[item].price * (1 + st.bonus.price));
+  const sellTicks = (b, lv) => Math.max(2, Math.round(b.secs * TPS * Math.pow(LEVEL.speedMul, lv) / (1 + st.bonus.sellRate)));
+  const nodeTicks = (b, lv) => Math.max(2, Math.round(b.secs * TPS * Math.pow(LEVEL.speedMul, lv)));
+  const cellsPerSec = () => 6 + st.bonus.belt * 2;
+  const landCost = () => Math.round(BOARD.landBase * Math.pow(BOARD.landStep, st.landBuys) * (1 - st.bonus.land));
+  const rockCost = () => Math.round(BOARD.rockCost * (1 - st.bonus.rock));
+  const lvCost = (n) => Math.round(n.def.cost * Math.pow(LEVEL.costMul, n.lv));
+
+  // ---------------------------------------------------------------- 組み立て
+  function blank() {
+    return {
+      w: BOARD.w, h: BOARD.h, cell: [], nodes: [], belts: [],
+      money: BOARD.startMoney, total: 0, tier: 0, landBuys: 0, bridges: 0,
+      unlock: {}, done: {}, sold: {},
+      bonus: { belt: 0, sellRate: 0, price: 0, land: 0, rock: 0 },
+      beltPhase: 0, acc: 0, flowT: 0, boom: false,
+    };
+  }
+
+  function makeCells(w, h) {
+    const a = [];
+    for (let i = 0; i < w * h; i++) a.push({ rock: false, node: null, belts: [] });
+    return a;
+  }
+
+  function applyResearch() {
+    st.bonus = { belt: 0, sellRate: 0, price: 0, land: 0, rock: 0 };
+    st.unlock = {};
+    D.START_UNLOCK.forEach((k) => { st.unlock[k] = true; });
+    RESEARCH.forEach((r) => {
+      if (!st.done[r.key]) return;
+      (r.unlock || []).forEach((k) => { st.unlock[k] = true; });
+      ['belt', 'sellRate', 'price', 'land', 'rock'].forEach((b) => {
+        if (r[b]) st.bonus[b] += r[b];
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- ノード
+  // 出力は rot の辺。入力は「反対 → 横 → 横」の順に必要なぶんだけ。
+  function sidesOf(def, n) {
+    if (def.k === 'src')   return { out: [0], in: [] };
+    if (def.k === 'shop')  return { out: [], in: [0] };
+    if (def.k === 'dup')   return { out: [0, 2], in: [1] };
+    if (def.k === 'store') return { out: [0], in: [2] };
+    return { out: [0], in: [2, 1, 3].slice(0, def.in.length) };
+  }
+
+  function mkNode(def, x, y, rot, lv) {
+    const n = { def, k: def.k, x, y, rot: rot || 0, lv: lv || 0,
+      ins: [], outs: [], t: 0, craftT: -1, pending: null, hold: [], flow: null, lit: 0 };
+    const s = sidesOf(def, n);
+    s.in.forEach((side, i) => {
+      const item = def.k === 'fac' ? def.in[i] : def.k === 'shop' ? def.item : null;
+      n.ins.push(mkPort(n, side, 'in', item));
+    });
+    s.out.forEach((side) => {
+      const item = def.k === 'src' ? def.item : def.k === 'fac' ? def.make : null;
+      n.outs.push(mkPort(n, side, 'out', item));
+    });
+    return n;
+  }
+
+  function mkPort(node, side, io, item) {
+    return { node, side, io, item, buf: [], belt: null,
+      cap: io === 'in' ? (node.k === 'shop' ? 4 : 2) : 2 };
+  }
+
+  const portDir = (p) => (p.side + p.node.rot) & 3;
+  const portAX = (p) => p.node.x + DIRS[portDir(p)][0];
+  const portAY = (p) => p.node.y + DIRS[portDir(p)][1];
+  const allPorts = () => { const a = []; st.nodes.forEach((n) => { a.push.apply(a, n.ins); a.push.apply(a, n.outs); }); return a; };
+
+  function addNode(n) {
+    st.nodes.push(n);
+    at(n.x, n.y).node = n;
+  }
+
+  function dropNode(n) {
+    n.ins.concat(n.outs).forEach((p) => { if (p.belt) removeBelt(p.belt, true); });
+    at(n.x, n.y).node = null;
+    st.nodes.splice(st.nodes.indexOf(n), 1);
+    if (sel === n) closeDetail();
+    resolve();
+  }
+
+  // ---------------------------------------------------------------- 品目の伝搬
+  // 複製機と倉庫は品目を持たない。繋いだ上流から流れてくる物で決まる。
+  function resolve() {
+    st.nodes.forEach((n) => {
+      if (n.k !== 'dup' && n.k !== 'store') return;
+      n.flow = null;
+      n.ins.concat(n.outs).forEach((p) => { p.item = null; });
+    });
+    for (let pass = 0; pass < st.nodes.length + 2; pass++) {
+      let changed = false;
+      for (const n of st.nodes) {
+        if (n.k !== 'dup' && n.k !== 'store') continue;
+        const up = n.ins[0].belt ? n.ins[0].belt.from.item : null;
+        if (up && n.flow !== up) {
+          n.flow = up;
+          n.ins[0].item = up;
+          n.outs.forEach((p) => { p.item = up; });
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+  }
+
+  const conflicted = () => st.belts.some((b) => b.from.item && b.to.item && b.from.item !== b.to.item);
+
+  // ---------------------------------------------------------------- ベルト
+  function addBelt(from, to, cells) {
+    const b = { from, to, cells, slots: new Array(cells.length).fill(null), ghosts: [], flow: 0, jam: false };
+    from.belt = b; to.belt = b;
+    cells.forEach((c) => { at(c.x, c.y).belts.push(b); });
+    st.belts.push(b);
+    resolve();
+    if (conflicted()) { removeBelt(b, true); SND.se('deny'); return false; }
+    flushCarriers();
+    SND.se('link');
+    save();
+    return true;
+  }
+
+  function removeBelt(b, quiet) {
+    b.from.belt = null; b.to.belt = null;
+    b.cells.forEach((c) => {
+      const list = at(c.x, c.y).belts;
+      const i = list.indexOf(b);
+      if (i >= 0) list.splice(i, 1);
+    });
+    st.belts.splice(st.belts.indexOf(b), 1);
+    if (hoverBelt === b) hoverBelt = null;
+    resolve();
+    flushCarriers();
+    save();
+    if (!quiet) SND.se('erase');
+  }
+
+  // 品目が変わった複製機・倉庫の中身は捨てる。前の品が混ざったままになるため。
+  function flushCarriers() {
+    st.nodes.forEach((n) => {
+      if (n.k !== 'dup' && n.k !== 'store') return;
+      n.hold.length = 0;
+      n.ins.concat(n.outs).forEach((p) => { p.buf.length = 0; });
+    });
+  }
+
+  // ---------------------------------------------------------------- シミュレーション
+  function stepBelts() {
+    for (const b of st.belts) {
+      const s = b.slots, n = s.length;
+      for (let i = 0; i < n; i++) if (s[i]) s[i].prev = i;
+      b.ghosts.length = 0;
+      b.moved = false;
+
+      const head = s[n - 1];
+      b.jam = !!(head && b.to.buf.length >= b.to.cap);
+      if (head && b.to.buf.length < b.to.cap) {
+        b.to.buf.push(head.item);
+        s[n - 1] = null;
+        b.ghosts.push(head);
+        b.moved = true;
+      }
+      for (let i = n - 2; i >= 0; i--) {
+        if (s[i] && !s[i + 1]) { s[i + 1] = s[i]; s[i] = null; b.moved = true; }
+      }
+      if (!s[0] && b.from.buf.length) {
+        s[0] = { item: b.from.buf.shift(), prev: -1 };
+        b.moved = true;
+      }
+    }
+  }
+
+  function stepNode(n) {
+    if (n.k === 'src') {
+      const o = n.outs[0];
+      if (o.buf.length < o.cap) {
+        n.t++;
+        if (n.t >= nodeTicks(n.def, n.lv)) { n.t = 0; o.buf.push(n.def.item); }
+      }
+      return;
+    }
+    if (n.k === 'fac') {
+      if (n.craftT < 0 && !n.pending && n.ins.every((p) => p.buf.length > 0)) {
+        n.ins.forEach((p) => p.buf.shift());
+        n.craftT = nodeTicks(n.def, n.lv);
+        n.span = n.craftT;
+      }
+      if (n.craftT > 0) { n.craftT--; if (n.craftT === 0) { n.pending = n.def.make; n.craftT = -1; } }
+      if (n.pending) {
+        const o = n.outs[0];
+        if (o.buf.length < o.cap) { o.buf.push(n.pending); n.pending = null; n.lit = 1; SND.se('craft'); }
+      }
+      return;
+    }
+    if (n.k === 'dup') {
+      const live = n.outs.filter((p) => p.belt);
+      if (n.ins[0].buf.length && live.length && live.every((p) => p.buf.length < p.cap)) {
+        const it = n.ins[0].buf.shift();
+        live.forEach((p) => p.buf.push(it));
+      }
+      return;
+    }
+    if (n.k === 'store') {
+      const inp = n.ins[0], o = n.outs[0];
+      if (inp.buf.length && n.hold.length < n.def.hold) n.hold.push(inp.buf.shift());
+      if (n.hold.length && o.buf.length < o.cap) o.buf.push(n.hold.shift());
+      return;
+    }
+    if (n.k === 'shop') {
+      const p = n.ins[0];
+      n.t++;
+      if (p.buf.length && n.t >= sellTicks(n.def, n.lv)) {
+        n.t = 0;
+        const item = p.buf.shift();
+        const g = priceOf(item);
+        st.money += g;
+        st.total += g;
+        st.sold[item] = (st.sold[item] || 0) + g;
+        n.lit = 1;
+        pops.push({ x: n.x, y: n.y, g, t: 0 });
+        SND.se('sell', { rate: 1 + Math.min(1, g / 60) * 0.6 });
+        checkTier();
+      }
+    }
+  }
+
+  function tick() {
+    for (const n of st.nodes) { stepNode(n); if (n.lit > 0) n.lit -= 0.08; }
+    if (!st.boom && st.nodes.some((n) => n.k === 'fac' && ITEMS[n.def.make].tier >= 3 && n.outs[0].belt)) {
+      st.boom = true;
+      SND.bgm('boom');
+    }
+  }
+
+  // ---------------------------------------------------------------- 段（減刑）
+  function checkTier() {
+    const next = TIERS[st.tier + 1];
+    if (!next || st.total < next.need) return;
+    st.tier++;
+    SND.se('news');
+    showNews(TIERS[st.tier]);
+    buildResearch();
+    save();
+  }
+
+  function years() {
+    const cur = TIERS[st.tier], next = TIERS[st.tier + 1];
+    if (!next) return 0;
+    const f = Math.max(0, Math.min(1, (st.total - cur.need) / (next.need - cur.need)));
+    return cur.years + (next.years - cur.years) * f;
+  }
+
+  // ---------------------------------------------------------------- 座標
+  function layout() {
+    const box = document.querySelector('.cl-board');
+    const availW = box.clientWidth - 12;
+    const availH = box.clientHeight - 12;
+    cs = Math.max(22, Math.min(58, Math.floor(Math.min(
+      (availW - PAD * 2) / st.w, (availH - PAD * 2) / st.h))));
+    const w = st.w * cs + PAD * 2, h = st.h * cs + PAD * 2;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    cv.style.width = w + 'px';
+    cv.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  const cellX = (x) => ox + x * cs;
+  const cellY = (y) => oy + y * cs;
+  const midX = (x) => ox + (x + 0.5) * cs;
+  const midY = (y) => oy + (y + 0.5) * cs;
+
+  function jointOf(p) {
+    const d = DIRS[portDir(p)];
+    return { x: midX(p.node.x) + d[0] * cs * 0.5, y: midY(p.node.y) + d[1] * cs * 0.5 };
+  }
+
+  function beltPts(b) {
+    const pts = [jointOf(b.from)];
+    b.cells.forEach((c) => pts.push({ x: midX(c.x), y: midY(c.y) }));
+    pts.push(jointOf(b.to));
+    return pts;
+  }
+
+  function pointerAt(e) {
+    const r = cv.getBoundingClientRect();
+    const sx = parseFloat(cv.style.width) / r.width;
+    const px = (e.clientX - r.left) * sx, py = (e.clientY - r.top) * sx;
+    return { px, py, x: Math.floor((px - ox) / cs), y: Math.floor((py - oy) / cs) };
+  }
+
+  // ---------------------------------------------------------------- 陸橋
+  function straightDirAt(b, x, y) {
+    const i = b.cells.findIndex((c) => c.x === x && c.y === y);
+    if (i < 0) return null;
+    const prev = i > 0 ? b.cells[i - 1] : { x: b.from.node.x, y: b.from.node.y };
+    const next = i < b.cells.length - 1 ? b.cells[i + 1] : { x: b.to.node.x, y: b.to.node.y };
+    const ax = x - prev.x, ay = y - prev.y;
+    const bx = next.x - x, by = next.y - y;
+    return (ax === bx && ay === by) ? { x: ax, y: ay } : null;
+  }
+
+  function usedBridges() {
+    let n = 0;
+    for (const c of st.cell) if (c.belts.length > 1) n++;
+    return n;
+  }
+  const dragBridges = () => (drag ? drag.cells.filter((c) => at(c.x, c.y).belts.length > 0).length : 0);
+
+  function bridgeThrough(x, y, sx, sy) {
+    if (usedBridges() + dragBridges() >= st.bridges) return null;
+    const list = at(x, y).belts;
+    if (list.length !== 1) return null;
+    const d = straightDirAt(list[0], x, y);
+    if (!d || d.x * sx + d.y * sy !== 0) return null;
+    const ex = x + sx, ey = y + sy;
+    return canDraw(ex, ey) ? { x: ex, y: ey } : null;
+  }
+
+  // ---------------------------------------------------------------- 入力
+  function compatible(a, b) {
+    if (a.io === b.io || a.node === b.node || b.belt) return false;
+    return !a.item || !b.item || a.item === b.item;
+  }
+
+  function portAtPointer(pc) {
+    let best = null, bestD = cs * 0.42;
+    for (const p of allPorts()) {
+      const j = jointOf(p);
+      const d = Math.hypot(j.x - pc.px, j.y - pc.py);
+      if (d < bestD) { bestD = d; best = p; }
+    }
+    return best;
+  }
+
+  // 盤面の外の帯。どの辺の拡張ボタンの上にいるか
+  function expandAt(pc) {
+    const W = st.w * cs, H = st.h * cs;
+    if (pc.px >= ox && pc.px <= ox + W) {
+      if (pc.py < oy && pc.py > oy - PAD && st.h < BOARD.maxH) return 'N';
+      if (pc.py > oy + H && pc.py < oy + H + PAD && st.h < BOARD.maxH) return 'S';
+    }
+    if (pc.py >= oy && pc.py <= oy + H) {
+      if (pc.px < ox && pc.px > ox - PAD && st.w < BOARD.maxW) return 'W';
+      if (pc.px > ox + W && pc.px < ox + W + PAD && st.w < BOARD.maxW) return 'E';
+    }
+    return null;
+  }
+
+  function onDown(e) {
+    SND.unlock();
+    const pc = pointerAt(e);
+
+    if (e.button === 2) {
+      e.preventDefault();
+      if (placing) { placing.rot = (placing.rot + 1) & 3; return; }
+      if (!inBoard(pc.x, pc.y)) return;
+      const n = at(pc.x, pc.y).node;
+      if (n) { rotate(n); return; }
+      const b = beltAt(pc.x, pc.y);
+      if (b) removeBelt(b);
+      return;
+    }
+
+    const ex = expandAt(pc);
+    if (ex) { buyLand(ex); return; }
+    if (!inBoard(pc.x, pc.y)) return;
+
+    if (placing) { place(pc.x, pc.y); return; }
+
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 合成イベントでは失敗する */ }
+
+    const p = portAtPointer(pc);
+    if (p) {
+      if (p.belt) removeBelt(p.belt);
+      if (!canDraw(portAX(p), portAY(p))) return;
+      drag = { port: p, cells: [{ x: portAX(p), y: portAY(p) }], snap: null, px: pc.px, py: pc.py };
+      SND.se('grab');
+      updateSnap();
+      return;
+    }
+
+    const node = at(pc.x, pc.y).node;
+    if (node) { moving = { node, from: { x: node.x, y: node.y }, moved: false }; return; }
+
+    const c = at(pc.x, pc.y);
+    if (c.rock) { breakRock(pc.x, pc.y); return; }
+    const hit = beltAt(pc.x, pc.y);
+    if (hit) { removeBelt(hit); return; }
+    closeDetail();
+  }
+
+  let denyAt = 0;
+
+  function onMove(e) {
+    const pc = pointerAt(e);
+    hoverCell = inBoard(pc.x, pc.y) ? { x: pc.x, y: pc.y } : null;
+    hoverExpand = expandAt(pc);
+
+    if (moving) {
+      if (pc.x !== moving.node.x || pc.y !== moving.node.y) moving.moved = true;
+      moving.to = inBoard(pc.x, pc.y) ? { x: pc.x, y: pc.y } : null;
+      return;
+    }
+    if (!drag) {
+      hoverBelt = inBoard(pc.x, pc.y) ? beltAt(pc.x, pc.y) : null;
+      cv.style.cursor = placing ? 'copy' : hoverExpand ? 'pointer' : hoverBelt ? 'pointer' : 'crosshair';
+      return;
+    }
+    if (!inBoard(pc.x, pc.y)) return;
+    drag.px = pc.px; drag.py = pc.py;
+    let drew = 0, backed = 0;
+    for (let guard = 0; guard < 120; guard++) {
+      const r = stepTowards(pc.x, pc.y);
+      if (!r) break;
+      if (r === 'push' || r === 'bridge') drew++; else backed++;
+    }
+    for (let i = 0; i < Math.min(drew, 3); i++) {
+      const len = drag.cells.length - (drew - 1 - i);
+      SND.se('draw', { rate: 1 + Math.min(len, 20) * 0.02 });
+    }
+    if (backed) SND.se('undo');
+    if (!drew && !backed) {
+      const head = drag.cells[drag.cells.length - 1];
+      if ((head.x !== pc.x || head.y !== pc.y) && performance.now() - denyAt > 220) {
+        denyAt = performance.now(); SND.se('deny');
+      }
+    }
+    updateSnap();
+  }
+
+  function stepTowards(tx, ty) {
+    const head = drag.cells[drag.cells.length - 1];
+    const dx = tx - head.x, dy = ty - head.y;
+    if (!dx && !dy) return null;
+    const order = Math.abs(dx) >= Math.abs(dy)
+      ? [[Math.sign(dx), 0], [0, Math.sign(dy)]]
+      : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
+    for (const [sx, sy] of order) {
+      if (!sx && !sy) continue;
+      const nx = head.x + sx, ny = head.y + sy;
+      const i = drag.cells.findIndex((c) => c.x === nx && c.y === ny);
+      if (i >= 0) {
+        drag.cells.length = i + 1;
+        const last = drag.cells[drag.cells.length - 1];
+        if (drag.cells.length > 1 && at(last.x, last.y).belts.length) drag.cells.pop();
+        return 'back';
+      }
+      if (canDraw(nx, ny)) { drag.cells.push({ x: nx, y: ny }); return 'push'; }
+      const exit = bridgeThrough(nx, ny, sx, sy);
+      if (exit) { drag.cells.push({ x: nx, y: ny }, exit); return 'bridge'; }
+    }
+    return null;
+  }
+
+  // 同じマスを2つのポートが向いていることがある（工場の横と販売所の横が重なる等）。
+  // そのときはポインタに近い方を選ぶ。先に作った方が勝つと繋ぎたい相手に届かない。
+  function updateSnap() {
+    const head = drag.cells[drag.cells.length - 1];
+    let best = null, bestD = Infinity;
+    for (const p of allPorts()) {
+      if (!compatible(drag.port, p) || portAX(p) !== head.x || portAY(p) !== head.y) continue;
+      const j = jointOf(p);
+      const d = drag.px === undefined ? 0 : Math.hypot(j.x - drag.px, j.y - drag.py);
+      if (d < bestD) { bestD = d; best = p; }
+    }
+    drag.snap = best;
+  }
+
+  function onUp() {
+    if (moving) {
+      const m = moving; moving = null;
+      if (!m.moved) { openDetail(m.node); return; }
+      if (m.to && free(m.to.x, m.to.y)) moveNode(m.node, m.to.x, m.to.y);
+      return;
+    }
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (!d.snap) { if (d.cells.length > 1) SND.se('cancel'); return; }
+    const cells = d.cells.slice();
+    if (d.port.io === 'out') addBelt(d.port, d.snap, cells);
+    else addBelt(d.snap, d.port, cells.reverse());
+  }
+
+  // ---------------------------------------------------------------- 設備の売買
+  function place(x, y) {
+    const def = placing.def;
+    if (!free(x, y)) { SND.se('deny'); return; }
+    if (st.money < def.cost) { SND.se('deny'); return; }
+    st.money -= def.cost;
+    addNode(mkNode(def, x, y, placing.rot, 0));
+    resolve();
+    SND.se('place');
+    save();
+    buildPalette();
+  }
+
+  function moveNode(n, x, y) {
+    n.ins.concat(n.outs).forEach((p) => { if (p.belt) removeBelt(p.belt, true); });
+    at(n.x, n.y).node = null;
+    n.x = x; n.y = y;
+    at(x, y).node = n;
+    resolve();
+    SND.se('place');
+    save();
+  }
+
+  function rotate(n) {
+    n.ins.concat(n.outs).forEach((p) => { if (p.belt) removeBelt(p.belt, true); });
+    n.rot = (n.rot + 1) & 3;
+    resolve();
+    SND.se('place');
+    save();
+  }
+
+  function sellNode(n) {
+    st.money += Math.round(n.def.cost / 2);
+    dropNode(n);
+    SND.se('ui');
+    save();
+    buildPalette();
+  }
+
+  function levelUp(n) {
+    if (n.lv >= LEVEL.max - 1) return;
+    const c = lvCost(n);
+    if (st.money < c) { SND.se('deny'); return; }
+    st.money -= c;
+    n.lv++;
+    SND.se('levelup');
+    openDetail(n);
+    save();
+  }
+
+  function buyLand(side) {
+    const c = landCost();
+    if (st.money < c) { SND.se('deny'); return; }
+    st.money -= c;
+    st.landBuys++;
+    expand(side);
+    SND.se('expand');
+    layout();
+    save();
+  }
+
+  // 行／列を1本足す。西と北に伸ばすときは中身をずらす。
+  function expand(side) {
+    const oldW = st.w, oldH = st.h, old = st.cell;
+    const dx = side === 'W' ? 1 : 0, dy = side === 'N' ? 1 : 0;
+    st.w += (side === 'W' || side === 'E') ? 1 : 0;
+    st.h += (side === 'N' || side === 'S') ? 1 : 0;
+    st.cell = makeCells(st.w, st.h);
+    for (let y = 0; y < oldH; y++) {
+      for (let x = 0; x < oldW; x++) {
+        const c = old[y * oldW + x];
+        st.cell[(y + dy) * st.w + (x + dx)] = c;
+      }
+    }
+    st.nodes.forEach((n) => { n.x += dx; n.y += dy; });
+    st.belts.forEach((b) => b.cells.forEach((c) => { c.x += dx; c.y += dy; }));
+    // 新しい帯に岩を撒く。買った土地がそのまま使えるとは限らない。
+    const strip = [];
+    if (side === 'W') for (let y = 0; y < st.h; y++) strip.push([0, y]);
+    if (side === 'E') for (let y = 0; y < st.h; y++) strip.push([st.w - 1, y]);
+    if (side === 'N') for (let x = 0; x < st.w; x++) strip.push([x, 0]);
+    if (side === 'S') for (let x = 0; x < st.w; x++) strip.push([x, st.h - 1]);
+    strip.forEach(([x, y]) => {
+      const c = at(x, y);
+      if (!c.node && !c.belts.length && Math.random() < BOARD.rockRate) c.rock = true;
+    });
+  }
+
+  function breakRock(x, y) {
+    const c = rockCost();
+    if (st.money < c) { SND.se('deny'); return; }
+    st.money -= c;
+    at(x, y).rock = false;
+    SND.se('expand');
+    save();
+  }
+
+  // ---------------------------------------------------------------- 描画
+  let last = 0;
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (!st) return;
+    if (!last) last = now;
+    const dt = Math.min(250, now - last);
+    last = now;
+    advance(dt);
+  }
+
+  // 研究・図鑑・音のパネルを開いている間は盤面を止める
+  const paused = () => !el('res').hidden || !el('codex').hidden || !el('ovSound').hidden || !el('cert').hidden;
+
+  function advance(dt) {
+    if (paused()) { st.acc = 0; SND.amb('belt', 0); draw(); updateHud(); return; }
+    st.acc += dt;
+    while (st.acc >= DT) { st.acc -= DT; tick(); }
+
+    // ベルトはノードと別の歩調。研究で速くなる
+    st.beltPhase += dt / 1000 * cellsPerSec();
+    let guard = 0;
+    while (st.beltPhase >= 1 && guard++ < 4) { st.beltPhase -= 1; stepBelts(); }
+
+    st.flowT += dt;
+    let running = 0;
+    st.belts.forEach((b) => { b.flow += dt / 1000 * cellsPerSec() * cs; if (b.moved) running += b.cells.length; });
+    SND.amb('belt', Math.min(1, running / 40));
+
+    pops.forEach((p) => { p.t += dt; });
+    pops = pops.filter((p) => p.t < 900);
+
+    draw();
+    updateHud();
+  }
+
+  function draw() {
+    const W = st.w * cs + PAD * 2, H = st.h * cs + PAD * 2;
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.fillStyle = '#131922';
+    roundRect(ctx, PAD - 6, PAD - 6, st.w * cs + 12, st.h * cs + 12, 10); ctx.fill();
+    ctx.strokeStyle = '#1d2631';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= st.w; x++) {
+      ctx.beginPath(); ctx.moveTo(cellX(x) + .5, oy); ctx.lineTo(cellX(x) + .5, oy + st.h * cs); ctx.stroke();
+    }
+    for (let y = 0; y <= st.h; y++) {
+      ctx.beginPath(); ctx.moveTo(ox, cellY(y) + .5); ctx.lineTo(ox + st.w * cs, cellY(y) + .5); ctx.stroke();
+    }
+
+    for (let y = 0; y < st.h; y++) for (let x = 0; x < st.w; x++) {
+      if (at(x, y).rock) drawGlyph(ctx, 'rock', midX(x), midY(y), cs * 0.38);
+    }
+
+    drawExpand();
+    st.belts.forEach(drawBelt);
+    if (drag) drawDrag();
+    st.nodes.forEach(drawNode);
+    st.belts.forEach(drawItems);
+    if (drag) drawPortHints();
+    if (placing) drawGhost();
+    if (moving && moving.moved) drawMoveGhost();
+    drawPops();
+  }
+
+  function drawExpand() {
+    const W = st.w * cs, H = st.h * cs;
+    const c = landCost();
+    const can = st.money >= c;
+    const bands = [];
+    if (st.h < BOARD.maxH) bands.push(['N', ox, oy - PAD + 2, W, PAD - 6]);
+    if (st.h < BOARD.maxH) bands.push(['S', ox, oy + H + 4, W, PAD - 6]);
+    if (st.w < BOARD.maxW) bands.push(['W', ox - PAD + 2, oy, PAD - 6, H]);
+    if (st.w < BOARD.maxW) bands.push(['E', ox + W + 4, oy, PAD - 6, H]);
+    bands.forEach(([side, x, y, w, h]) => {
+      const hot = hoverExpand === side;
+      ctx.save();
+      roundRect(ctx, x, y, w, h, 5);
+      ctx.fillStyle = hot ? (can ? 'rgba(84,200,232,.26)' : 'rgba(200,90,90,.2)') : 'rgba(120,150,180,.09)';
+      ctx.fill();
+      ctx.fillStyle = hot ? (can ? '#8fe0f6' : '#e08a8a') : 'rgba(180,205,230,.45)';
+      ctx.font = '600 ' + Math.round(Math.min(13, PAD * 0.52)) + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(hot ? c + 'G' : '＋', x + w / 2, y + h / 2);
+      ctx.restore();
+    });
+  }
+
+  function strokePts(pts, width, color, dash, off) {
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.lineWidth = width; ctx.strokeStyle = color;
+    if (dash) { ctx.setLineDash(dash); ctx.lineDashOffset = off || 0; }
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBelt(b) {
+    const pts = b.pts = beltPts(b);
+    for (const c of b.cells) {
+      const list = at(c.x, c.y).belts;
+      if (list.length < 2 || list[list.length - 1] !== b) continue;
+      const d = straightDirAt(b, c.x, c.y) || { x: 1, y: 0 };
+      const mx = midX(c.x), my = midY(c.y);
+      const ex = d.x * cs * .56, ey = d.y * cs * .56;
+      strokePts([{ x: mx - ex, y: my - ey }, { x: mx + ex, y: my + ey }], cs * .74, 'rgba(8,11,16,.72)');
+    }
+    const hot = hoverBelt === b;
+    strokePts(pts, cs * .54, hot ? '#5b2f31' : '#2b3543');
+    strokePts(pts, cs * .40, hot ? '#7a3e40' : '#3a4657');
+    strokePts(pts, cs * .30, 'rgba(176,203,229,0.22)', [cs * .20, cs * .30], -b.flow);
+  }
+
+  function under(b, i) {
+    const c = b.cells[i];
+    const list = at(c.x, c.y).belts;
+    return list.length > 1 && list[list.length - 1] !== b;
+  }
+
+  function drawItems(b) {
+    const pts = b.pts || beltPts(b);
+    const n = b.slots.length;
+    const r = cs * .26;
+    const alpha = st.beltPhase;
+    const posAt = (t) => {
+      const i = Math.floor(t), f = t - i;
+      const a = pts[Math.max(0, Math.min(pts.length - 1, i + 1))];
+      const c = pts[Math.max(0, Math.min(pts.length - 1, i + 2))];
+      return { x: a.x + (c.x - a.x) * f, y: a.y + (c.y - a.y) * f };
+    };
+    for (let i = 0; i < n; i++) {
+      const o = b.slots[i];
+      if (!o || under(b, i)) continue;
+      const prev = o.prev === undefined ? i : o.prev;
+      const p = posAt(prev + (i - prev) * alpha);
+      pad(p.x, p.y, r);
+      drawItem(ctx, o.item, p.x, p.y, r);
+    }
+    b.ghosts.forEach((o) => {
+      const p = posAt((n - 1) + alpha);
+      ctx.save(); ctx.globalAlpha = 1 - alpha * .6;
+      pad(p.x, p.y, r);
+      drawItem(ctx, o.item, p.x, p.y, r);
+      ctx.restore();
+    });
+  }
+
+  function pad(x, y, r) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(12,17,24,.72)';
+    ctx.beginPath(); ctx.arc(x, y, r * 1.18, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawDrag() {
+    const pts = [jointOf(drag.port)];
+    drag.cells.forEach((c) => pts.push({ x: midX(c.x), y: midY(c.y) }));
+    if (drag.snap) pts.push(jointOf(drag.snap));
+    strokePts(pts, cs * .44, drag.snap ? 'rgba(84,200,232,.55)' : 'rgba(140,160,185,.30)');
+    strokePts(pts, cs * .24, drag.snap ? '#8fe0f6' : 'rgba(190,210,232,.45)');
+  }
+
+  function drawPortHints() {
+    const t = (Math.sin(st.flowT / 220) + 1) / 2;
+    allPorts().forEach((p) => {
+      if (!compatible(drag.port, p)) return;
+      const j = jointOf(p);
+      ctx.save();
+      ctx.strokeStyle = p === drag.snap ? '#f2c94c' : 'rgba(84,200,232,' + (.35 + t * .4) + ')';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(j.x, j.y, cs * (p === drag.snap ? .34 : .28 + t * .05), 0, 7);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  function nodeBody(def, x, y, rot, lv, n) {
+    const skin = SKIN[def.k];
+    const px = cellX(x), py = cellY(y);
+    const mx = midX(x), my = midY(y);
+
+    ctx.save();
+    roundRect(ctx, px + 3, py + 3, cs - 6, cs - 6, cs * .16);
+    ctx.fillStyle = skin.fill; ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = (n && n.lit > 0) ? '#f2e2a0' : (sel === n ? '#8fe0f6' : skin.edge);
+    ctx.stroke();
+    ctx.restore();
+
+    if (def.k === 'src') {
+      drawItem(ctx, def.item, mx, my - cs * .1, cs * .22);
+      drawSpeed(ctx, mx, my + cs * .40, cs * .58, cs * .2, lv + 1);
+    } else if (def.k === 'fac') {
+      drawItem(ctx, def.make, mx, my - cs * .08, cs * .22);
+      drawSpeed(ctx, mx, my + cs * .40, cs * .58, cs * .2, lv + 1);
+      if (n && (n.craftT > 0 || n.pending)) {
+        const prog = n.pending ? 1 : 1 - n.craftT / n.span;
+        ctx.save();
+        ctx.strokeStyle = '#a99bf0'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(mx, my, cs * .37, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * prog);
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else if (def.k === 'shop') {
+      drawItem(ctx, def.item, mx, my - cs * .1, cs * .22);
+      ctx.fillStyle = 'rgba(240,222,180,.92)';
+      ctx.font = '700 ' + Math.round(cs * .2) + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(priceOf(def.item) + 'G', mx, my + cs * .12);
+    } else {
+      drawGlyph(ctx, def.k, mx, my, cs * .24);
+      if (def.k === 'store' && n) {
+        ctx.fillStyle = 'rgba(215,228,242,.7)';
+        ctx.font = '600 ' + Math.round(cs * .18) + 'px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText(n.hold.length + '/' + def.hold, mx, my + cs * .2);
+      }
+    }
+  }
+
+  function drawNode(n) {
+    n.ins.concat(n.outs).forEach((p) => drawPort(p));
+    nodeBody(n.def, n.x, n.y, n.rot, n.lv, n);
+  }
+
+  function drawPort(p) {
+    const skin = SKIN[p.node.k];
+    const j = jointOf(p);
+    const s = cs * .38;
+    ctx.save();
+    roundRect(ctx, j.x - s / 2, j.y - s / 2, s, s, s * .3);
+    ctx.fillStyle = p.belt ? skin.edge : skin.fill;
+    ctx.fill();
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = skin.edge;
+    ctx.stroke();
+    ctx.restore();
+    if (p.io === 'in' && p.item) {
+      drawItem(ctx, p.item, j.x, j.y, cs * .12);
+    } else {
+      ctx.save();
+      ctx.fillStyle = p.belt ? 'rgba(225,238,252,.9)' : 'rgba(225,238,252,.4)';
+      ctx.beginPath(); ctx.arc(j.x, j.y, cs * .07, 0, 7); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawGhost() {
+    if (!hoverCell) return;
+    const ok = free(hoverCell.x, hoverCell.y) && st.money >= placing.def.cost;
+    ctx.save();
+    ctx.globalAlpha = ok ? .8 : .3;
+    nodeBody(placing.def, hoverCell.x, hoverCell.y, placing.rot, 0, null);
+    // 仮のポートも描く。どの向きに口が出るか置く前に分かる
+    const s = sidesOf(placing.def, null);
+    ctx.globalAlpha = ok ? .6 : .2;
+    s.in.concat(s.out).forEach((side) => {
+      const d = DIRS[(side + placing.rot) & 3];
+      const x = midX(hoverCell.x) + d[0] * cs * .5, y = midY(hoverCell.y) + d[1] * cs * .5;
+      const w = cs * .3;
+      roundRect(ctx, x - w / 2, y - w / 2, w, w, w * .3);
+      ctx.fillStyle = SKIN[placing.def.k].edge; ctx.fill();
+    });
+    ctx.restore();
+    if (!ok) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(220,90,90,.8)'; ctx.lineWidth = 2;
+      const px = cellX(hoverCell.x), py = cellY(hoverCell.y);
+      ctx.beginPath();
+      ctx.moveTo(px + 6, py + 6); ctx.lineTo(px + cs - 6, py + cs - 6);
+      ctx.moveTo(px + cs - 6, py + 6); ctx.lineTo(px + 6, py + cs - 6);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawMoveGhost() {
+    if (!moving.to) return;
+    const ok = free(moving.to.x, moving.to.y);
+    ctx.save();
+    ctx.globalAlpha = ok ? .7 : .25;
+    nodeBody(moving.node.def, moving.to.x, moving.to.y, moving.node.rot, moving.node.lv, null);
+    ctx.restore();
+  }
+
+  function drawPops() {
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    pops.forEach((p) => {
+      const f = p.t / 900;
+      ctx.globalAlpha = 1 - f;
+      ctx.fillStyle = '#f2d98c';
+      ctx.font = '700 ' + Math.round(cs * .26) + 'px sans-serif';
+      ctx.fillText('+' + p.g, midX(p.x), midY(p.y) - cs * (.4 + f * .8));
+    });
+    ctx.restore();
+  }
+
+  // ---------------------------------------------------------------- HUD
+  let lastMoney = -1;
+
+  function updateHud() {
+    if (st.money !== lastMoney) {
+      lastMoney = st.money;
+      el('money').textContent = st.money.toLocaleString();
+    }
+    el('total').textContent = st.total.toLocaleString();
+    const y = years();
+    el('years').textContent = y > 0 ? y.toFixed(1) + '年' : '釈放';
+    el('sentFill').style.width = (100 - y / TIERS[0].years * 100).toFixed(1) + '%';
+    const next = TIERS[st.tier + 1];
+    el('tierName').textContent = next ? ('次: ' + next.name + '　' + st.total.toLocaleString() + ' / ' + next.need.toLocaleString() + 'G') : '刑期満了';
+    if (sel) updateDetail();
+  }
+
+  // ---------------------------------------------------------------- 購入パレット
+  const TABS = [
+    { key: 'prod', name: '生産' },
+    { key: 'fac', name: '工場' },
+    { key: 'shop', name: '販売' },
+    { key: 'logi', name: '物流' },
+  ];
+  let tab = 'prod';
+
+  function cardIcon(def) {
+    const c = document.createElement('canvas');
+    c.width = 56; c.height = 56; c.style.width = '28px'; c.style.height = '28px';
+    const cc = c.getContext('2d');
+    cc.scale(2, 2);
+    if (def.k === 'src' || def.k === 'shop') drawItem(cc, def.item, 14, 14, 11);
+    else if (def.k === 'fac') drawItem(cc, def.make, 14, 14, 11);
+    else if (def.bridge) drawBridge(cc, 14, 14, 9);
+    else drawGlyph(cc, def.k, 14, 14, 10);
+    return c;
+  }
+
+  function paletteList() {
+    const out = [];
+    if (tab === 'shop') {
+      Object.keys(ITEMS).forEach((k) => { if (producible(k)) out.push(BUILDS['shop_' + k]); });
+    } else {
+      Object.keys(BUILDS).forEach((k) => {
+        const b = BUILDS[k];
+        if (b.tab === tab && st.unlock[b.key]) out.push(b);
+      });
+      if (tab === 'logi' && st.unlock.bridge) {
+        out.push({ key: 'bridge', k: 'bridge', bridge: true, name: '陸橋の許可',
+          sub: '交差を1回ぶん', cost: 400 + st.bridges * 260 });
+      }
+    }
+    return out;
+  }
+
+  let palSig = '';
+
+  function refreshPalette() {
+    const sig = tab + '|' + paletteList().map((d) => d.key + (st.money >= d.cost ? '1' : '0')).join(',')
+      + '|' + (placing ? placing.def.key : '');
+    if (sig === palSig) return;
+    palSig = sig;
+    buildPalette();
+  }
+
+  function buildPalette() {
+    const bar = el('tabs');
+    bar.innerHTML = '';
+    TABS.forEach((t) => {
+      const b = document.createElement('button');
+      b.className = 'cl-tab' + (tab === t.key ? ' on' : '');
+      b.textContent = t.name;
+      b.onclick = () => { SND.unlock(); SND.se('ui'); tab = t.key; refreshPalette(); };
+      bar.appendChild(b);
+    });
+
+    const box = el('cards');
+    box.innerHTML = '';
+    const list = paletteList();
+    if (!list.length) {
+      const p = document.createElement('p');
+      p.className = 'cl-empty';
+      p.textContent = '研究すると増える';
+      box.appendChild(p);
+      return;
+    }
+    list.forEach((def) => {
+      const d = document.createElement('button');
+      d.className = 'cl-card';
+      d.appendChild(cardIcon(def));
+      const t = document.createElement('span');
+      t.innerHTML = '<b>' + def.name + '</b><i>' + (def.sub || '') + '</i><em>' + def.cost + 'G</em>';
+      d.appendChild(t);
+      const afford = st.money >= def.cost;
+      d.classList.toggle('poor', !afford);
+      d.classList.toggle('on', !!placing && placing.def.key === def.key);
+      d.onclick = () => {
+        SND.unlock(); SND.se('ui');
+        if (def.bridge) { buyBridge(def.cost); return; }
+        placing = (placing && placing.def.key === def.key) ? null : { def, rot: 0 };
+        refreshPalette();
+      };
+      box.appendChild(d);
+    });
+  }
+
+  function buyBridge(cost) {
+    if (st.money < cost) { SND.se('deny'); return; }
+    st.money -= cost;
+    st.bridges++;
+    save();
+    buildPalette();
+  }
+
+  // ---------------------------------------------------------------- 設備の詳細
+  function openDetail(n) {
+    sel = n;
+    el('detail').hidden = false;
+    updateDetail();
+  }
+  function closeDetail() { sel = null; el('detail').hidden = true; }
+
+  function updateDetail() {
+    const n = sel;
+    if (!n) return;
+    const r = cv.getBoundingClientRect();
+    const box = el('detail');
+    box.style.left = (r.left + window.scrollX + midX(n.x)) + 'px';
+    box.style.top = (r.top + window.scrollY + cellY(n.y) - 8) + 'px';
+    const maxed = n.lv >= LEVEL.max - 1;
+    const per = n.k === 'shop' ? sellTicks(n.def, n.lv) / TPS : nodeTicks(n.def, n.lv) / TPS;
+    el('dName').textContent = n.def.name;
+    el('dInfo').textContent = 'Lv' + (n.lv + 1) + '　' + per.toFixed(1) + '秒に1つ';
+    const up = el('dUp');
+    up.textContent = maxed ? 'レベル最大' : 'レベルアップ ' + lvCost(n) + 'G';
+    up.disabled = maxed || st.money < lvCost(n);
+    el('dSell').textContent = '売却 +' + Math.round(n.def.cost / 2) + 'G';
+  }
+
+  // ---------------------------------------------------------------- 研究
+  function buildResearch() {
+    const box = el('resBody');
+    const keep = box.parentElement ? box.parentElement.scrollTop : 0;
+    box.innerHTML = '';
+    PILLARS.forEach((p) => {
+      const col = document.createElement('div');
+      col.className = 'cl-col';
+      const h = document.createElement('h4');
+      h.textContent = p.name;
+      col.appendChild(h);
+      RESEARCH.filter((r) => r.p === p.key).forEach((r) => {
+        const done = !!st.done[r.key];
+        const locked = r.tier > st.tier;
+        const b = document.createElement('button');
+        b.className = 'cl-res' + (done ? ' done' : locked ? ' locked' : '');
+        b.innerHTML = '<b>' + r.name + '</b><i>' + (done ? '解放済み' : locked ? TIERS[r.tier].name + 'から' : r.cost + 'G') + '</i>';
+        b.disabled = done || locked || st.money < r.cost;
+        b.onclick = () => buyResearch(r);
+        col.appendChild(b);
+      });
+      box.appendChild(col);
+    });
+    if (box.parentElement) box.parentElement.scrollTop = keep;
+  }
+
+  function buyResearch(r) {
+    if (st.done[r.key] || r.tier > st.tier || st.money < r.cost) { SND.se('deny'); return; }
+    st.money -= r.cost;
+    st.done[r.key] = true;
+    applyResearch();
+    SND.se('research');
+    buildResearch();
+    buildPalette();
+    buildCodex();
+    save();
+  }
+
+  // ---------------------------------------------------------------- 図鑑
+  // 深くなると「これ何に使うのか」が分からなくなる。作り方と使い道を出す。
+  function buildCodex() {
+    const box = el('codexBody');
+    box.innerHTML = '';
+    for (let t = 0; t <= 3; t++) {
+      const known = Object.keys(ITEMS).filter((k) => ITEMS[k].tier === t && producible(k));
+      if (!known.length) continue;
+      const sec = document.createElement('div');
+      sec.className = 'cl-cosec';
+      const h = document.createElement('h4');
+      h.textContent = t === 0 ? '原料' : t + '段';
+      sec.appendChild(h);
+      known.forEach((k) => {
+        const row = document.createElement('div');
+        row.className = 'cl-corow';
+        const c = document.createElement('canvas');
+        c.width = 48; c.height = 48; c.style.width = '24px'; c.style.height = '24px';
+        const cc = c.getContext('2d'); cc.scale(2, 2);
+        drawItem(cc, k, 12, 12, 9);
+        row.appendChild(c);
+        const from = RECIPES.filter((r) => r.make === k && st.unlock[r.key])
+          .map((r) => r.in.map((i) => ITEMS[i].name).join('＋'));
+        const src = SOURCES.filter((s) => s.item === k && st.unlock[s.key]).map((s) => s.name);
+        const use = RECIPES.filter((r) => r.in.indexOf(k) >= 0 && st.unlock[r.key])
+          .map((r) => ITEMS[r.make].name);
+        const txt = document.createElement('span');
+        txt.innerHTML = '<b>' + ITEMS[k].name + '</b><em>' + priceOf(k) + 'G</em>'
+          + '<i>作り方: ' + (src.concat(from).join(' ／ ') || '—') + '</i>'
+          + '<i>使い道: ' + (use.join('・') || 'まだ無い（売る）') + '</i>';
+        row.appendChild(txt);
+        sec.appendChild(row);
+      });
+      box.appendChild(sec);
+    }
+  }
+
+  // ---------------------------------------------------------------- 通信
+  function showNews(t) {
+    el('newsHead').textContent = t.name;
+    const b = el('newsBody');
+    b.innerHTML = '';
+    t.msg.forEach((line) => {
+      const p = document.createElement('p');
+      p.textContent = line;
+      b.appendChild(p);
+    });
+    const n = el('news');
+    n.hidden = false;
+    n.classList.remove('in');
+    void n.offsetWidth;
+    n.classList.add('in');
+    if (!TIERS[st.tier + 1]) el('newsEnd').hidden = false;
+  }
+
+  // ---------------------------------------------------------------- 釈放証明書
+  function showCert() {
+    const top = Object.keys(st.sold).sort((a, b) => st.sold[b] - st.sold[a])[0];
+    el('certBody').innerHTML =
+      '<dl>'
+      + '<dt>囚人番号</dt><dd>7741</dd>'
+      + '<dt>総売上</dt><dd>' + st.total.toLocaleString() + ' G</dd>'
+      + '<dt>主力商品</dt><dd>' + (top ? ITEMS[top].name : '—') + '</dd>'
+      + '<dt>設備</dt><dd>' + st.nodes.length + ' 基</dd>'
+      + '<dt>ベルト</dt><dd>' + st.belts.reduce((a, b) => a + b.cells.length, 0) + ' マス</dd>'
+      + '<dt>称号</dt><dd>' + title(top) + '</dd>'
+      + '</dl>';
+    el('cert').hidden = false;
+  }
+
+  function title(top) {
+    if (!top) return 'ただの囚人';
+    if (ITEMS[top].tier === 0) return '原石だけで出所した人';
+    if (st.bridges >= 8) return '陸橋を' + st.bridges + '本架けた男';
+    if (ITEMS[top].tier === 3) return ITEMS[top].name + '王';
+    return ITEMS[top].name + '商';
+  }
+
+  // ---------------------------------------------------------------- 保存
+  let saveT = 0;
+  function save() {
+    clearTimeout(saveT);
+    saveT = setTimeout(writeSave, 400);
+  }
+
+  function writeSave() {
+    try {
+      const pi = new Map();
+      st.nodes.forEach((n, i) => {
+        n.ins.forEach((p, j) => pi.set(p, [i, 'i', j]));
+        n.outs.forEach((p, j) => pi.set(p, [i, 'o', j]));
+      });
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        w: st.w, h: st.h, money: st.money, total: st.total, tier: st.tier,
+        landBuys: st.landBuys, bridges: st.bridges, done: st.done, sold: st.sold,
+        rocks: st.cell.map((c, i) => (c.rock ? i : -1)).filter((i) => i >= 0),
+        nodes: st.nodes.map((n) => ({ d: n.def.key, x: n.x, y: n.y, r: n.rot, l: n.lv })),
+        belts: st.belts.map((b) => ({ f: pi.get(b.from), t: pi.get(b.to), c: b.cells.map((c) => [c.x, c.y]) })),
+      }));
+    } catch (e) { /* file:// で弾かれても遊べる */ }
+  }
+
+  function load() {
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return false; }
+    if (!raw || !raw.nodes) return false;
+    st = blank();
+    st.w = raw.w; st.h = raw.h;
+    st.cell = makeCells(st.w, st.h);
+    (raw.rocks || []).forEach((i) => { if (st.cell[i]) st.cell[i].rock = true; });
+    st.money = raw.money; st.total = raw.total; st.tier = raw.tier || 0;
+    st.landBuys = raw.landBuys || 0; st.bridges = raw.bridges || 0;
+    st.done = raw.done || {}; st.sold = raw.sold || {};
+    applyResearch();
+    raw.nodes.forEach((n) => {
+      const def = BUILDS[n.d];
+      if (def) addNode(mkNode(def, n.x, n.y, n.r, n.l));
+    });
+    const port = (ref) => {
+      const n = st.nodes[ref[0]];
+      return n ? (ref[1] === 'i' ? n.ins[ref[2]] : n.outs[ref[2]]) : null;
+    };
+    (raw.belts || []).forEach((b) => {
+      const f = port(b.f), t = port(b.t);
+      if (!f || !t || f.belt || t.belt) return;
+      addBelt(f, t, b.c.map(([x, y]) => ({ x, y })));
+    });
+    return true;
+  }
+
+  function reset() {
+    st = blank();
+    st.cell = makeCells(st.w, st.h);
+    applyResearch();
+    // 開始時、盤面には採掘機1と鉄鉱石屋1が置いてある。ベルトは1本も引いてない。
+    addNode(mkNode(BUILDS.src_ore, 2, Math.floor(st.h / 2), 0, 0));
+    addNode(mkNode(BUILDS.shop_ore, st.w - 3, Math.floor(st.h / 2), 2, 0));
+    resolve();
+    save();
+  }
+
+  // ---------------------------------------------------------------- 起動
+  function overlay(id, openBtn, closeBtn, onOpen) {
+    const o = el(id);
+    if (openBtn) el(openBtn).onclick = () => { SND.unlock(); SND.se('ui'); if (onOpen) onOpen(); o.hidden = false; };
+    if (closeBtn) el(closeBtn).onclick = () => { SND.se('ui'); o.hidden = true; };
+  }
+
+  function init() {
+    if (!load()) reset();
+    layout();
+    buildPalette();
+    buildResearch();
+    buildCodex();
+
+    cv.addEventListener('pointerdown', onDown);
+    cv.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    cv.addEventListener('contextmenu', (e) => e.preventDefault());
+    cv.addEventListener('pointerleave', () => { hoverCell = null; hoverExpand = null; });
+    window.addEventListener('resize', layout);
+    window.addEventListener('beforeunload', writeSave);
+
+    overlay('res', 'btnRes', 'btnResClose', buildResearch);
+    overlay('codex', 'btnCodex', 'btnCodexClose', buildCodex);
+    overlay('cert', null, 'btnCertClose');
+    el('btnNewsClose').onclick = () => { SND.se('ui'); el('news').hidden = true; };
+    el('btnNewsEnd').onclick = () => { el('news').hidden = true; showCert(); };
+    el('dUp').onclick = () => levelUp(sel);
+    el('dSell').onclick = () => sellNode(sel);
+    el('dRot').onclick = () => { rotate(sel); };
+    el('dClose').onclick = () => { SND.se('ui'); closeDetail(); };
+
+    el('btnReset').onclick = () => {
+      if (!confirm('最初からやり直します。よろしいですか？')) return;
+      try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+      reset(); layout(); buildPalette(); buildResearch(); buildCodex(); closeDetail();
+    };
+
+    setupSound();
+    setInterval(refreshPalette, 600);   // 買えるようになったカードを光らせる
+    SND.bgm('play');
+    requestAnimationFrame(frame);
+  }
+
+  // 盤面の中身をブラウザから覗くための口。動作確認に使う
+  window.__cl = {
+    st: () => st,
+    ports: () => allPorts().map((p) => ({ n: p.node.def.key, io: p.io, item: p.item,
+      side: p.side, dir: portDir(p), ax: portAX(p), ay: portAY(p), belt: !!p.belt })),
+    belts: () => st.belts.map((b) => ({ from: b.from.node.def.key, to: b.to.node.def.key,
+      item: b.from.item, cells: b.cells.length })),
+    money: (v) => { st.money = v; },
+  };
+
+  // ---------------------------------------------------------------- 音のパネル
+  function setupSound() {
+    if (!SND.ready()) return;
+    el('btnSound').hidden = false;
+    const sync = () => {
+      const v = SND.vol();
+      el('vBgm').value = v.bgm; el('vBgmV').textContent = Math.round(v.bgm * 100) + '%';
+      el('vSe').value = v.se; el('vSeV').textContent = Math.round(v.se * 100) + '%';
+      el('btnMute').textContent = SND.muted() ? 'ミュート解除' : 'ミュート';
+    };
+    el('btnSound').onclick = () => { SND.unlock(); sync(); el('ovSound').hidden = false; };
+    el('btnSoundClose').onclick = () => { el('ovSound').hidden = true; };
+    el('btnMute').onclick = () => { SND.setMute(!SND.muted()); sync(); };
+    el('vBgm').oninput = (e) => { SND.setVol('bgm', +e.target.value); sync(); };
+    el('vSe').oninput = (e) => { SND.setVol('se', +e.target.value); sync(); };
+    const cr = SND.credits();
+    if (cr.length) {
+      el('credits').hidden = false;
+      el('credits').innerHTML = cr.map((c) => c.what + '：' + (c.url
+        ? '<a href="' + c.url + '" target="_blank" rel="noopener">' + c.who + '</a>' : c.who)).join('　');
+    }
+  }
+
+  init();
+})();
