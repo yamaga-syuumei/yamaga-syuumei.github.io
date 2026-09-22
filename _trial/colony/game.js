@@ -26,7 +26,7 @@
   const SKIN = {
     src:   { fill: '#17293a', edge: '#3d6b8e' },
     fac:   { fill: '#241f33', edge: '#584d80' },
-    dup:   { fill: '#15302a', edge: '#357a63' },
+    split: { fill: '#15302a', edge: '#357a63' },
     store: { fill: '#2b2718', edge: '#7d7040' },
     shop:  { fill: '#332618', edge: '#8a6a37' },
   };
@@ -45,7 +45,7 @@
   });
   LOGI.forEach((l) => {
     BUILDS[l.key] = { key: l.key, k: l.key, tab: 'logi', name: l.name,
-      sub: l.key === 'dup' ? '1つを2つに' : '詰まりを吸収', secs: l.secs, hold: l.hold, cost: l.cost };
+      sub: l.key === 'split' ? '交互に振り分ける' : '詰まりを吸収', hold: l.hold, cost: l.cost };
   });
   // 販売所は品目ごと。作れるようになった品目の店が自動で並ぶ。
   Object.keys(ITEMS).forEach((key) => {
@@ -124,14 +124,14 @@
   function sidesOf(def, n) {
     if (def.k === 'src')   return { out: [0], in: [] };
     if (def.k === 'shop')  return { out: [], in: [0] };
-    if (def.k === 'dup')   return { out: [0, 2], in: [1] };
+    if (def.k === 'split') return { out: [0, 2], in: [1] };
     if (def.k === 'store') return { out: [0], in: [2] };
     return { out: [0], in: [2, 1, 3].slice(0, def.in.length) };
   }
 
   function mkNode(def, x, y, rot, lv) {
     const n = { def, k: def.k, x, y, rot: rot || 0, lv: lv || 0,
-      ins: [], outs: [], t: 0, craftT: -1, pending: null, hold: [], flow: null, lit: 0 };
+      ins: [], outs: [], t: 0, craftT: -1, pending: null, hold: [], turn: 0, flow: null, lit: 0 };
     const s = sidesOf(def, n);
     s.in.forEach((side, i) => {
       const item = def.k === 'fac' ? def.in[i] : def.k === 'shop' ? def.item : null;
@@ -171,14 +171,14 @@
   // 複製機と倉庫は品目を持たない。繋いだ上流から流れてくる物で決まる。
   function resolve() {
     st.nodes.forEach((n) => {
-      if (n.k !== 'dup' && n.k !== 'store') return;
+      if (n.k !== 'split' && n.k !== 'store') return;
       n.flow = null;
       n.ins.concat(n.outs).forEach((p) => { p.item = null; });
     });
     for (let pass = 0; pass < st.nodes.length + 2; pass++) {
       let changed = false;
       for (const n of st.nodes) {
-        if (n.k !== 'dup' && n.k !== 'store') continue;
+        if (n.k !== 'split' && n.k !== 'store') continue;
         const up = n.ins[0].belt ? n.ins[0].belt.from.item : null;
         if (up && n.flow !== up) {
           n.flow = up;
@@ -225,7 +225,7 @@
   // 品目が変わった複製機・倉庫の中身は捨てる。前の品が混ざったままになるため。
   function flushCarriers() {
     st.nodes.forEach((n) => {
-      if (n.k !== 'dup' && n.k !== 'store') return;
+      if (n.k !== 'split' && n.k !== 'store') return;
       n.hold.length = 0;
       n.ins.concat(n.outs).forEach((p) => { p.buf.length = 0; });
     });
@@ -279,11 +279,17 @@
       }
       return;
     }
-    if (n.k === 'dup') {
+    // 分配機。物は増えない。繋がっている出口へ順番に1つずつ振り分ける。
+    // 片方が詰まっていたら飛ばす。両方止まるのを避けるため。
+    if (n.k === 'split') {
       const live = n.outs.filter((p) => p.belt);
-      if (n.ins[0].buf.length && live.length && live.every((p) => p.buf.length < p.cap)) {
-        const it = n.ins[0].buf.shift();
-        live.forEach((p) => p.buf.push(it));
+      if (!n.ins[0].buf.length || !live.length) return;
+      for (let i = 0; i < live.length; i++) {
+        const k = (n.turn + i) % live.length;
+        if (live[k].buf.length >= live[k].cap) continue;
+        live[k].buf.push(n.ins[0].buf.shift());
+        n.turn = (k + 1) % live.length;
+        break;
       }
       return;
     }
@@ -1158,12 +1164,17 @@
     el('mItems').innerHTML = '';
     if (menu.kind === 'node') {
       const n = menu.node;
+      const rated = n.k === 'src' || n.k === 'fac' || n.k === 'shop';
       const per = n.k === 'shop' ? sellTicks(n.def, n.lv) / TPS : nodeTicks(n.def, n.lv) / TPS;
       el('mName').textContent = n.def.name;
-      el('mInfo').textContent = 'Lv' + (n.lv + 1) + '　' + per.toFixed(1) + '秒に1つ';
+      el('mInfo').textContent = rated
+        ? 'Lv' + (n.lv + 1) + '　' + per.toFixed(1) + '秒に1つ'
+        : n.def.sub;
       const maxed = n.lv >= LEVEL.max - 1;
-      menuItem(maxed ? 'レベル最大' : 'レベルアップ ' + lvCost(n) + 'G',
-        () => { levelUp(n); buildMenu(); }, maxed || st.money < lvCost(n));
+      if (rated) {
+        menuItem(maxed ? 'レベル最大' : 'レベルアップ ' + lvCost(n) + 'G',
+          () => { levelUp(n); buildMenu(); }, maxed || st.money < lvCost(n));
+      }
       menuItem('回転（ホイールでも回る）', () => { rotate(n); buildMenu(); });
       menuItem('売却 +' + Math.round(n.def.cost / 2) + 'G', () => { sellNode(n); closeMenu(); });
     } else if (menu.kind === 'belt') {

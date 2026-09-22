@@ -316,7 +316,7 @@
     c.translate(cx, cy);
     c.lineCap = 'round'; c.lineJoin = 'round';
     c.lineWidth = Math.max(1.6, r * .22);
-    if (kind === 'dup') {
+    if (kind === 'split') {
       c.strokeStyle = '#6fd6ae';
       c.beginPath();
       c.moveTo(-r, 0); c.lineTo(0, 0);

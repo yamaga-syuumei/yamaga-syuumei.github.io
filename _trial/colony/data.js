@@ -75,8 +75,8 @@
 
   // ---------------------------------------------------------------- 物流
   const LOGI = [
-    { key: 'dup',   name: '複製機', cost: 60,  secs: 0.5 },
-    { key: 'store', name: '倉庫',   cost: 90,  secs: 0.3, hold: 8 },
+    { key: 'split', name: '分配機', cost: 60 },
+    { key: 'store', name: '倉庫',   cost: 90, hold: 8 },
   ];
 
   // ---------------------------------------------------------------- 販売所
@@ -102,7 +102,7 @@
     { key: 'r_power',  p: 'prod',  tier: 4, cost: 16000, name: '電動化',       unlock: ['f_tool'] },
 
     // 物流
-    { key: 'r_dup',    p: 'logi',  tier: 1, cost: 300,   name: '複製機',       unlock: ['dup'] },
+    { key: 'r_split',  p: 'logi',  tier: 1, cost: 300,   name: '分配機',       unlock: ['split'] },
     { key: 'r_belt1',  p: 'logi',  tier: 1, cost: 500,   name: 'ベルト強化',   belt: 1 },
     { key: 'r_store',  p: 'logi',  tier: 2, cost: 700,   name: '倉庫',         unlock: ['store'] },
     { key: 'r_bridge', p: 'logi',  tier: 2, cost: 1600,  name: '陸橋',         unlock: ['bridge'] },
