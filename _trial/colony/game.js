@@ -1191,6 +1191,55 @@
   }
 
   // ---------------------------------------------------------------- 研究
+  // 研究の説明は data.js から組み立てる。表を別に持つと必ずずれるため。
+  const RES_EFFECT = {
+    belt:     (v) => '全部のベルトが速くなる（+' + (v * 2) + ' マス/秒）',
+    sellRate: (v) => '全部の販売所が速く捌ける（+' + Math.round(v * 100) + '%）',
+    price:    (v) => '全部の売値が上がる（+' + Math.round(v * 100) + '%）',
+    land:     (v) => '土地の値段が下がる（−' + Math.round(v * 100) + '%）',
+    rock:     (v) => '岩の撤去費が下がる（−' + Math.round(v * 100) + '%）',
+  };
+
+  function unlockName(k) {
+    if (k === 'bridge') return '陸橋';
+    const b = BUILDS[k];
+    if (!b) return k;
+    return b.k === 'fac' ? b.name + '（' + b.sub + '）' : b.name;
+  }
+
+  function resLines(r) {
+    const out = [];
+    if (r.unlock) out.push(['買えるようになる：' + r.unlock.map(unlockName).join('、'), '']);
+    Object.keys(RES_EFFECT).forEach((k) => {
+      if (r[k]) out.push([RES_EFFECT[k](r[k]), '']);
+    });
+    if (st.done[r.key]) out.push(['解放済み', 'dim']);
+    else if (r.tier > st.tier) out.push([TIERS[r.tier].name + 'に届くまで買えない', 'dim']);
+    else if (st.money < r.cost) out.push(['あと ' + (r.cost - st.money).toLocaleString() + 'G 足りない', 'dim']);
+    return out;
+  }
+
+  // 説明の吹き出し。押せない項目にも出したいので disabled は使わない
+  function showTip(anchor, lines) {
+    const t = el('tip');
+    t.innerHTML = '';
+    lines.forEach(([txt, cls]) => {
+      const sp = document.createElement('span');
+      sp.textContent = txt;
+      if (cls) sp.className = cls;
+      t.appendChild(sp);
+    });
+    t.hidden = false;
+    const a = anchor.getBoundingClientRect();
+    const r = t.getBoundingClientRect();
+    let y = a.bottom + 6;
+    if (y + r.height > window.innerHeight - 8) y = a.top - r.height - 6;
+    t.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + 'px';
+    t.style.top = Math.max(8, y) + 'px';
+  }
+
+  function hideTip() { el('tip').hidden = true; }
+
   function buildResearch() {
     const box = el('resBody');
     const keep = box.parentElement ? box.parentElement.scrollTop : 0;
@@ -1205,15 +1254,18 @@
         const done = !!st.done[r.key];
         const locked = r.tier > st.tier;
         const b = document.createElement('button');
-        b.className = 'cl-res' + (done ? ' done' : locked ? ' locked' : '');
+        const off = done || locked || st.money < r.cost;
+        b.className = 'cl-res' + (done ? ' done' : locked ? ' locked' : '') + (off ? ' off' : '');
         b.innerHTML = '<b>' + r.name + '</b><i>' + (done ? '解放済み' : locked ? TIERS[r.tier].name + 'から' : r.cost + 'G') + '</i>';
-        b.disabled = done || locked || st.money < r.cost;
         b.onclick = () => buyResearch(r);
+        b.onmouseenter = () => showTip(b, resLines(r));
+        b.onmouseleave = hideTip;
         col.appendChild(b);
       });
       box.appendChild(col);
     });
     if (box.parentElement) box.parentElement.scrollTop = keep;
+    hideTip();
   }
 
   function buyResearch(r) {
@@ -1373,7 +1425,7 @@
   function overlay(id, openBtn, closeBtn, onOpen) {
     const o = el(id);
     if (openBtn) el(openBtn).onclick = () => { SND.unlock(); SND.se('ui'); if (onOpen) onOpen(); o.hidden = false; };
-    if (closeBtn) el(closeBtn).onclick = () => { SND.se('ui'); o.hidden = true; };
+    if (closeBtn) el(closeBtn).onclick = () => { SND.se('ui'); o.hidden = true; hideTip(); };
   }
 
   function init() {
