@@ -837,7 +837,7 @@
     const hot = hoverBelt === b;
     strokePts(pts, cs * .54, hot ? '#d8a0a8' : '#d9cdbb');
     strokePts(pts, cs * .40, hot ? '#e8bcc2' : '#efe6d8');
-    strokePts(pts, cs * .30, 'rgba(122,95,168,0.30)', [cs * .20, cs * .30], -b.flow);
+    strokePts(pts, cs * .26, 'rgba(122,95,168,0.20)', [cs * .16, cs * .34], -b.flow);
   }
 
   function under(b, i) {
@@ -876,8 +876,11 @@
 
   function pad(x, y, r) {
     ctx.save();
-    ctx.fillStyle = 'rgba(255,253,248,.85)';
-    ctx.beginPath(); ctx.arc(x, y, r * 1.18, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fffdf8';
+    ctx.beginPath(); ctx.arc(x, y, r * 1.2, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(70,58,90,.28)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
     ctx.restore();
   }
 
