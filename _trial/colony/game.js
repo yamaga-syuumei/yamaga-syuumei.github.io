@@ -1440,6 +1440,14 @@
     window.addEventListener('pointerup', onUp);
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
     cv.addEventListener('wheel', onWheel, { passive: false });
+
+    // 購入パレットは横に並ぶ。ホイールは縦に回すので、そのまま横送りに割り当てる
+    el('cards').addEventListener('wheel', (e) => {
+      const box = el('cards');
+      if (box.scrollWidth <= box.clientWidth) return;
+      e.preventDefault();
+      box.scrollLeft += e.deltaY || e.deltaX;
+    }, { passive: false });
     cv.addEventListener('pointerleave', () => { hoverCell = null; hoverExpand = null; });
     window.addEventListener('resize', layout);
     window.addEventListener('beforeunload', writeSave);
