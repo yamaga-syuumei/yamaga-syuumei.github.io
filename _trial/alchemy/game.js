@@ -1,4 +1,4 @@
-// ワンストローク・コロニー（試作）
+// 錬金工場と魔法のお店（試作）
 //
 // 動かし方: index.html を file:// で直接開くだけ。ビルド工程はない。
 //
@@ -12,45 +12,47 @@
 (function () {
   'use strict';
 
-  const D = window.COLONY;
+  const D = window.ALCHEMY;
   const { ITEMS, RECIPES, SOURCES, LOGI, SHOP, RESEARCH, PILLARS, TIERS, BOARD, LEVEL } = D;
   const { drawItem, drawBridge, drawSpeed, drawGlyph, roundRect } = window.ART;
-  const SND = window.CLSND;
+  const SND = window.ALSND;
 
   const TPS = 12;
   const DT = 1000 / TPS;
   const PAD = 26;                       // 盤面の外。拡張ボタンを描く帯
   const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];   // E S W N
-  const SAVE_KEY = 'colony.save1';
+  const SAVE_KEY = 'alchemy.save1';
 
+  // 明るい盤面の上に置くので、面は淡く・縁だけ濃くする
   const SKIN = {
-    src:   { fill: '#17293a', edge: '#3d6b8e' },
-    fac:   { fill: '#241f33', edge: '#584d80' },
-    split: { fill: '#15302a', edge: '#357a63' },
-    store: { fill: '#2b2718', edge: '#7d7040' },
-    shop:  { fill: '#332618', edge: '#8a6a37' },
+    src:   { fill: '#e4f0f7', edge: '#4e87a8' },
+    fac:   { fill: '#ece4f7', edge: '#7a5fa8' },
+    split: { fill: '#dff1ea', edge: '#2e8b6f' },
+    store: { fill: '#f5ecd8', edge: '#a3833c' },
+    shop:  { fill: '#fbe7d8', edge: '#c07a3c' },
   };
 
   // ---------------------------------------------------------------- 設備表
   // 購入パレットのカードは全部ここから作る。データを足せばカードが増える。
   const BUILDS = {};
   SOURCES.forEach((s) => {
-    BUILDS[s.key] = { key: s.key, k: 'src', tab: 'prod', name: s.name,
-      sub: s.secs.toFixed(1) + '秒に1つ', item: s.item, secs: s.secs, cost: s.cost };
+    BUILDS[s.key] = { key: s.key, k: 'src', tab: 'prod', name: ITEMS[s.item].name,
+      kind: '採取地', sub: s.secs.toFixed(1) + '秒に1つ',
+      item: s.item, secs: s.secs, cost: s.cost };
   });
   RECIPES.forEach((r) => {
-    BUILDS[r.key] = { key: r.key, k: 'fac', tab: 'fac', name: ITEMS[r.make].name + '工場',
-      sub: r.in.map((i) => ITEMS[i].name).join('＋'), make: r.make, in: r.in,
-      secs: r.secs, cost: r.cost };
+    BUILDS[r.key] = { key: r.key, k: 'fac', tab: 'fac', name: ITEMS[r.make].name,
+      kind: '錬成陣', sub: r.in.map((i) => ITEMS[i].name).join('＋'),
+      make: r.make, in: r.in, secs: r.secs, cost: r.cost };
   });
   LOGI.forEach((l) => {
-    BUILDS[l.key] = { key: l.key, k: l.key, tab: 'logi', name: l.name,
+    BUILDS[l.key] = { key: l.key, k: l.key, tab: 'logi', name: l.name, kind: l.name,
       sub: l.key === 'split' ? '交互に振り分ける' : '詰まりを吸収', hold: l.hold, cost: l.cost };
   });
   // 販売所は品目ごと。作れるようになった品目の店が自動で並ぶ。
   Object.keys(ITEMS).forEach((key) => {
     BUILDS['shop_' + key] = { key: 'shop_' + key, k: 'shop', tab: 'shop',
-      name: ITEMS[key].name + '屋', sub: ITEMS[key].price + 'G', item: key,
+      name: ITEMS[key].name + '屋', kind: 'お店', sub: ITEMS[key].price + 'G', item: key,
       secs: SHOP.secs, cost: SHOP.baseCost + ITEMS[key].price * SHOP.costPerPrice };
   });
 
@@ -325,7 +327,7 @@
     }
   }
 
-  // ---------------------------------------------------------------- 段（減刑）
+  // ---------------------------------------------------------------- 店の格
   function checkTier() {
     const next = TIERS[st.tier + 1];
     if (!next || st.total < next.need) return;
@@ -336,16 +338,16 @@
     save();
   }
 
-  function years() {
+  // 次の格までどのくらい来たか（0〜1）
+  function rankProgress() {
     const cur = TIERS[st.tier], next = TIERS[st.tier + 1];
-    if (!next) return 0;
-    const f = Math.max(0, Math.min(1, (st.total - cur.need) / (next.need - cur.need)));
-    return cur.years + (next.years - cur.years) * f;
+    if (!next) return 1;
+    return Math.max(0, Math.min(1, (st.total - cur.need) / (next.need - cur.need)));
   }
 
   // ---------------------------------------------------------------- 座標
   function layout() {
-    const box = document.querySelector('.cl-board');
+    const box = document.querySelector('.al-board');
     const availW = box.clientWidth - 12;
     const availH = box.clientHeight - 12;
     cs = Math.max(22, Math.min(58, Math.floor(Math.min(
@@ -738,9 +740,9 @@
     const W = st.w * cs + PAD * 2, H = st.h * cs + PAD * 2;
     ctx.clearRect(0, 0, W, H);
 
-    ctx.fillStyle = '#131922';
+    ctx.fillStyle = '#fbf6ec';
     roundRect(ctx, PAD - 6, PAD - 6, st.w * cs + 12, st.h * cs + 12, 10); ctx.fill();
-    ctx.strokeStyle = '#1d2631';
+    ctx.strokeStyle = '#e4dbcb';
     ctx.lineWidth = 1;
     for (let x = 0; x <= st.w; x++) {
       ctx.beginPath(); ctx.moveTo(cellX(x) + .5, oy); ctx.lineTo(cellX(x) + .5, oy + st.h * cs); ctx.stroke();
@@ -750,7 +752,7 @@
     }
 
     for (let y = 0; y < st.h; y++) for (let x = 0; x < st.w; x++) {
-      if (at(x, y).rock) drawGlyph(ctx, 'rock', midX(x), midY(y), cs * 0.38);
+      if (at(x, y).rock) drawGlyph(ctx, 'rubble', midX(x), midY(y), cs * 0.38);
     }
     drawRockPrice();
 
@@ -779,10 +781,10 @@
     const w = ctx.measureText(txt).width + cs * 0.3;
     const h = cs * 0.42;
     roundRect(ctx, x - w / 2, y - cs * 0.62 - h / 2, w, h, 5);
-    ctx.fillStyle = 'rgba(12,17,24,.88)'; ctx.fill();
-    ctx.strokeStyle = can ? 'rgba(84,200,232,.5)' : 'rgba(200,90,90,.5)';
+    ctx.fillStyle = 'rgba(255,252,246,.94)'; ctx.fill();
+    ctx.strokeStyle = can ? 'rgba(122,95,168,.55)' : 'rgba(190,80,80,.55)';
     ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = can ? '#8fe0f6' : '#e08a8a';
+    ctx.fillStyle = can ? '#6a4f8a' : '#b44a4a';
     ctx.fillText(txt, x, y - cs * 0.62);
     ctx.restore();
   }
@@ -800,9 +802,9 @@
       const hot = hoverExpand === side;
       ctx.save();
       roundRect(ctx, x, y, w, h, 5);
-      ctx.fillStyle = hot ? (can ? 'rgba(84,200,232,.26)' : 'rgba(200,90,90,.2)') : 'rgba(120,150,180,.09)';
+      ctx.fillStyle = hot ? (can ? 'rgba(122,95,168,.22)' : 'rgba(190,80,80,.16)') : 'rgba(150,130,180,.12)';
       ctx.fill();
-      ctx.fillStyle = hot ? (can ? '#8fe0f6' : '#e08a8a') : 'rgba(180,205,230,.45)';
+      ctx.fillStyle = hot ? (can ? '#6a4f8a' : '#b44a4a') : 'rgba(110,92,140,.6)';
       ctx.font = '600 ' + Math.round(Math.min(13, PAD * 0.52)) + 'px sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(hot ? c + 'G' : '＋', x + w / 2, y + h / 2);
@@ -830,12 +832,12 @@
       const d = straightDirAt(b, c.x, c.y) || { x: 1, y: 0 };
       const mx = midX(c.x), my = midY(c.y);
       const ex = d.x * cs * .56, ey = d.y * cs * .56;
-      strokePts([{ x: mx - ex, y: my - ey }, { x: mx + ex, y: my + ey }], cs * .74, 'rgba(8,11,16,.72)');
+      strokePts([{ x: mx - ex, y: my - ey }, { x: mx + ex, y: my + ey }], cs * .74, 'rgba(251,246,236,.95)');
     }
     const hot = hoverBelt === b;
-    strokePts(pts, cs * .54, hot ? '#5b2f31' : '#2b3543');
-    strokePts(pts, cs * .40, hot ? '#7a3e40' : '#3a4657');
-    strokePts(pts, cs * .30, 'rgba(176,203,229,0.22)', [cs * .20, cs * .30], -b.flow);
+    strokePts(pts, cs * .54, hot ? '#d8a0a8' : '#d9cdbb');
+    strokePts(pts, cs * .40, hot ? '#e8bcc2' : '#efe6d8');
+    strokePts(pts, cs * .30, 'rgba(122,95,168,0.30)', [cs * .20, cs * .30], -b.flow);
   }
 
   function under(b, i) {
@@ -874,7 +876,7 @@
 
   function pad(x, y, r) {
     ctx.save();
-    ctx.fillStyle = 'rgba(12,17,24,.72)';
+    ctx.fillStyle = 'rgba(255,253,248,.85)';
     ctx.beginPath(); ctx.arc(x, y, r * 1.18, 0, 7); ctx.fill();
     ctx.restore();
   }
@@ -883,8 +885,8 @@
     const pts = [jointOf(drag.port)];
     drag.cells.forEach((c) => pts.push({ x: midX(c.x), y: midY(c.y) }));
     if (drag.snap) pts.push(jointOf(drag.snap));
-    strokePts(pts, cs * .44, drag.snap ? 'rgba(84,200,232,.55)' : 'rgba(140,160,185,.30)');
-    strokePts(pts, cs * .24, drag.snap ? '#8fe0f6' : 'rgba(190,210,232,.45)');
+    strokePts(pts, cs * .44, drag.snap ? 'rgba(122,95,168,.45)' : 'rgba(150,140,170,.28)');
+    strokePts(pts, cs * .24, drag.snap ? '#8a63c4' : 'rgba(120,110,140,.45)');
   }
 
   function drawPortHints() {
@@ -893,7 +895,7 @@
       if (!compatible(drag.port, p)) return;
       const j = jointOf(p);
       ctx.save();
-      ctx.strokeStyle = p === drag.snap ? '#f2c94c' : 'rgba(84,200,232,' + (.35 + t * .4) + ')';
+      ctx.strokeStyle = p === drag.snap ? '#e0962c' : 'rgba(122,95,168,' + (.4 + t * .45) + ')';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.arc(j.x, j.y, cs * (p === drag.snap ? .34 : .28 + t * .05), 0, 7);
@@ -911,7 +913,7 @@
     roundRect(ctx, px + 3, py + 3, cs - 6, cs - 6, cs * .16);
     ctx.fillStyle = skin.fill; ctx.fill();
     ctx.lineWidth = 2;
-    ctx.strokeStyle = (n && n.lit > 0) ? '#f2e2a0' : (sel === n ? '#8fe0f6' : skin.edge);
+    ctx.strokeStyle = (n && n.lit > 0) ? '#e0962c' : (sel === n ? '#8a63c4' : skin.edge);
     ctx.stroke();
     ctx.restore();
 
@@ -924,7 +926,7 @@
       if (n && (n.craftT > 0 || n.pending)) {
         const prog = n.pending ? 1 : 1 - n.craftT / n.span;
         ctx.save();
-        ctx.strokeStyle = '#a99bf0'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        ctx.strokeStyle = '#7a5fa8'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.arc(mx, my, cs * .37, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * prog);
         ctx.stroke();
@@ -932,14 +934,14 @@
       }
     } else if (def.k === 'shop') {
       drawItem(ctx, def.item, mx, my - cs * .1, cs * .22);
-      ctx.fillStyle = 'rgba(240,222,180,.92)';
+      ctx.fillStyle = '#a8621f';
       ctx.font = '700 ' + Math.round(cs * .2) + 'px sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillText(priceOf(def.item) + 'G', mx, my + cs * .12);
     } else {
       drawGlyph(ctx, def.k, mx, my, cs * .24);
       if (def.k === 'store' && n) {
-        ctx.fillStyle = 'rgba(215,228,242,.7)';
+        ctx.fillStyle = 'rgba(70,58,90,.75)';
         ctx.font = '600 ' + Math.round(cs * .18) + 'px sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         ctx.fillText(n.hold.length + '/' + def.hold, mx, my + cs * .2);
@@ -968,7 +970,7 @@
       drawItem(ctx, p.item, j.x, j.y, cs * .12);
     } else {
       ctx.save();
-      ctx.fillStyle = p.belt ? 'rgba(225,238,252,.9)' : 'rgba(225,238,252,.4)';
+      ctx.fillStyle = p.belt ? 'rgba(70,58,90,.75)' : 'rgba(70,58,90,.3)';
       ctx.beginPath(); ctx.arc(j.x, j.y, cs * .07, 0, 7); ctx.fill();
       ctx.restore();
     }
@@ -993,7 +995,7 @@
     ctx.restore();
     if (!ok) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(220,90,90,.8)'; ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(190,70,70,.85)'; ctx.lineWidth = 2;
       const px = cellX(hoverCell.x), py = cellY(hoverCell.y);
       ctx.beginPath();
       ctx.moveTo(px + 6, py + 6); ctx.lineTo(px + cs - 6, py + cs - 6);
@@ -1018,7 +1020,7 @@
     pops.forEach((p) => {
       const f = p.t / 900;
       ctx.globalAlpha = 1 - f;
-      ctx.fillStyle = '#f2d98c';
+      ctx.fillStyle = '#c07a1c';
       ctx.font = '700 ' + Math.round(cs * .26) + 'px sans-serif';
       ctx.fillText('+' + p.g, midX(p.x), midY(p.y) - cs * (.4 + f * .8));
     });
@@ -1036,14 +1038,15 @@
     }
     updateHint();
     el('total').textContent = st.total.toLocaleString();
-    const y = years();
-    el('years').textContent = y > 0 ? y.toFixed(1) + '年' : '釈放';
-    el('sentFill').style.width = (100 - y / TIERS[0].years * 100).toFixed(1) + '%';
+    el('rankName').textContent = TIERS[st.tier].name;
+    el('rankFill').style.width = (rankProgress() * 100).toFixed(1) + '%';
     const next = TIERS[st.tier + 1];
-    el('tierName').textContent = next ? ('次: ' + next.name + '　' + st.total.toLocaleString() + ' / ' + next.need.toLocaleString() + 'G') : '刑期満了';
+    el('rankNote').textContent = next
+      ? ('次は ' + next.name + '　' + st.total.toLocaleString() + ' / ' + next.need.toLocaleString() + 'G')
+      : 'この星のどこでも名が通る';
   }
 
-  const HINT = '出口から入口へドラッグしてベルトを引く　／　右クリックでメニュー　／　ホイールで回転　／　盤面の外の ＋ で土地を買う';
+  const HINT = '出口から入口へドラッグして送り道を引く　／　右クリックでメニュー　／　ホイールで回転　／　敷地の外の ＋ で土地を買う';
 
   function updateHint() {
     const h = el('hint');
@@ -1056,9 +1059,9 @@
 
   // ---------------------------------------------------------------- 購入パレット
   const TABS = [
-    { key: 'prod', name: '生産' },
-    { key: 'fac', name: '工場' },
-    { key: 'shop', name: '販売' },
+    { key: 'prod', name: '採取' },
+    { key: 'fac', name: '錬成' },
+    { key: 'shop', name: 'お店' },
     { key: 'logi', name: '物流' },
   ];
   let tab = 'prod';
@@ -1107,7 +1110,7 @@
     bar.innerHTML = '';
     TABS.forEach((t) => {
       const b = document.createElement('button');
-      b.className = 'cl-tab' + (tab === t.key ? ' on' : '');
+      b.className = 'al-tab' + (tab === t.key ? ' on' : '');
       b.textContent = t.name;
       b.onclick = () => { SND.unlock(); SND.se('ui'); tab = t.key; refreshPalette(); };
       bar.appendChild(b);
@@ -1118,14 +1121,14 @@
     const list = paletteList();
     if (!list.length) {
       const p = document.createElement('p');
-      p.className = 'cl-empty';
+      p.className = 'al-empty';
       p.textContent = '研究すると増える';
       box.appendChild(p);
       return;
     }
     list.forEach((def) => {
       const d = document.createElement('button');
-      d.className = 'cl-card';
+      d.className = 'al-card';
       d.appendChild(cardIcon(def));
       const t = document.createElement('span');
       t.innerHTML = '<b>' + def.name + '</b><i>' + (def.sub || '') + '</i><em>' + def.cost + 'G</em>';
@@ -1177,7 +1180,7 @@
 
   function menuItem(label, on, dis) {
     const b = document.createElement('button');
-    b.className = 'cl-btn';
+    b.className = 'al-btn';
     b.textContent = label;
     b.disabled = !!dis;
     b.onclick = on;
@@ -1193,8 +1196,8 @@
       const per = n.k === 'shop' ? sellTicks(n.def, n.lv) / TPS : nodeTicks(n.def, n.lv) / TPS;
       el('mName').textContent = n.def.name;
       el('mInfo').textContent = rated
-        ? 'Lv' + (n.lv + 1) + '　' + per.toFixed(1) + '秒に1つ'
-        : n.def.sub;
+        ? n.def.kind + '　Lv' + (n.lv + 1) + '　' + per.toFixed(1) + '秒に1つ'
+        : n.def.kind + '　' + n.def.sub;
       const maxed = n.lv >= LEVEL.max - 1;
       if (rated) {
         menuItem(maxed ? 'レベル最大' : 'レベルアップ ' + lvCost(n) + 'G',
@@ -1203,12 +1206,12 @@
       menuItem('回転（ホイールでも回る）', () => { rotate(n); buildMenu(); });
       menuItem('売却 +' + Math.round(n.def.cost / 2) + 'G', () => { sellNode(n); closeMenu(); });
     } else if (menu.kind === 'belt') {
-      el('mName').textContent = 'ベルト';
+      el('mName').textContent = '送り道';
       el('mInfo').textContent = menu.belt.cells.length + 'マス';
       menuItem('撤去', () => { removeBelt(menu.belt); closeMenu(); });
     } else {
-      el('mName').textContent = '岩';
-      el('mInfo').textContent = 'ベルトも設備も置けない';
+      el('mName').textContent = '瓦礫';
+      el('mInfo').textContent = '送り道も設備も置けない';
       menuItem('撤去 ' + rockCost() + 'G',
         () => { breakRock(menu.x, menu.y); closeMenu(); }, st.money < rockCost());
     }
@@ -1271,7 +1274,7 @@
     box.innerHTML = '';
     PILLARS.forEach((p) => {
       const col = document.createElement('div');
-      col.className = 'cl-col';
+      col.className = 'al-col';
       const h = document.createElement('h4');
       h.textContent = p.name;
       col.appendChild(h);
@@ -1280,7 +1283,7 @@
         const locked = r.tier > st.tier;
         const b = document.createElement('button');
         const off = done || locked || st.money < r.cost;
-        b.className = 'cl-res' + (done ? ' done' : locked ? ' locked' : '') + (off ? ' off' : '');
+        b.className = 'al-res' + (done ? ' done' : locked ? ' locked' : '') + (off ? ' off' : '');
         b.innerHTML = '<b>' + r.name + '</b><i>' + (done ? '解放済み' : locked ? TIERS[r.tier].name + 'から' : r.cost + 'G') + '</i>';
         b.onclick = () => buyResearch(r);
         b.onmouseenter = () => showTip(b, resLines(r));
@@ -1314,13 +1317,13 @@
       const known = Object.keys(ITEMS).filter((k) => ITEMS[k].tier === t && producible(k));
       if (!known.length) continue;
       const sec = document.createElement('div');
-      sec.className = 'cl-cosec';
+      sec.className = 'al-cosec';
       const h = document.createElement('h4');
       h.textContent = t === 0 ? '原料' : t + '段';
       sec.appendChild(h);
       known.forEach((k) => {
         const row = document.createElement('div');
-        row.className = 'cl-corow';
+        row.className = 'al-corow';
         const c = document.createElement('canvas');
         c.width = 48; c.height = 48; c.style.width = '24px'; c.style.height = '24px';
         const cc = c.getContext('2d'); cc.scale(2, 2);
@@ -1328,7 +1331,7 @@
         row.appendChild(c);
         const from = RECIPES.filter((r) => r.make === k && st.unlock[r.key])
           .map((r) => r.in.map((i) => ITEMS[i].name).join('＋'));
-        const src = SOURCES.filter((s) => s.item === k && st.unlock[s.key]).map((s) => s.name);
+        const src = SOURCES.filter((s) => s.item === k && st.unlock[s.key]).map(() => '採取地');
         const use = RECIPES.filter((r) => r.in.indexOf(k) >= 0 && st.unlock[r.key])
           .map((r) => ITEMS[r.make].name);
         const txt = document.createElement('span');
@@ -1360,27 +1363,27 @@
     if (!TIERS[st.tier + 1]) el('newsEnd').hidden = false;
   }
 
-  // ---------------------------------------------------------------- 釈放証明書
+  // ---------------------------------------------------------------- 世界一の看板
   function showCert() {
     const top = Object.keys(st.sold).sort((a, b) => st.sold[b] - st.sold[a])[0];
     el('certBody').innerHTML =
       '<dl>'
-      + '<dt>囚人番号</dt><dd>7741</dd>'
+      + '<dt>店の格</dt><dd>世界一の魔法のお店</dd>'
       + '<dt>総売上</dt><dd>' + st.total.toLocaleString() + ' G</dd>'
-      + '<dt>主力商品</dt><dd>' + (top ? ITEMS[top].name : '—') + '</dd>'
+      + '<dt>看板商品</dt><dd>' + (top ? ITEMS[top].name : '—') + '</dd>'
       + '<dt>設備</dt><dd>' + st.nodes.length + ' 基</dd>'
-      + '<dt>ベルト</dt><dd>' + st.belts.reduce((a, b) => a + b.cells.length, 0) + ' マス</dd>'
+      + '<dt>送り道</dt><dd>' + st.belts.reduce((a, b) => a + b.cells.length, 0) + ' マス</dd>'
       + '<dt>称号</dt><dd>' + title(top) + '</dd>'
       + '</dl>';
     el('cert').hidden = false;
   }
 
   function title(top) {
-    if (!top) return 'ただの囚人';
-    if (ITEMS[top].tier === 0) return '原石だけで出所した人';
-    if (st.bridges >= 8) return '陸橋を' + st.bridges + '本架けた男';
-    if (ITEMS[top].tier === 3) return ITEMS[top].name + '王';
-    return ITEMS[top].name + '商';
+    if (!top) return '看板だけの店';
+    if (ITEMS[top].tier === 0) return '掘っただけで世界一になった人';
+    if (st.bridges >= 8) return '渡し橋を' + st.bridges + '本架けた錬金術師';
+    if (ITEMS[top].tier === 3) return ITEMS[top].name + 'の名店';
+    return ITEMS[top].name + '専門店';
   }
 
   // ---------------------------------------------------------------- 保存
@@ -1439,9 +1442,9 @@
     st = blank();
     st.cell = makeCells(st.w, st.h);
     applyResearch();
-    // 開始時、盤面には採掘機1と鉄鉱石屋1が置いてある。ベルトは1本も引いてない。
-    addNode(mkNode(BUILDS.src_ore, 2, Math.floor(st.h / 2), 0, 0));
-    addNode(mkNode(BUILDS.shop_ore, st.w - 3, Math.floor(st.h / 2), 2, 0));
+    // 開始時、敷地には魔鉱石の採取地1と魔鉱石屋1が置いてある。送り道は1本も引いてない。
+    addNode(mkNode(BUILDS.src_magicore, 2, Math.floor(st.h / 2), 0, 0));
+    addNode(mkNode(BUILDS.shop_magicore, st.w - 3, Math.floor(st.h / 2), 2, 0));
     resolve();
     save();
   }
@@ -1507,6 +1510,8 @@
     belts: () => st.belts.map((b) => ({ from: b.from.node.def.key, to: b.to.node.def.key,
       item: b.from.item, cells: b.cells.length })),
     money: (v) => { st.money = v; },
+    // 時間を渡せば進む。描画が止まる場所でも同じ道筋で確かめられるようにする
+    advance: (ms, step) => { const d = step || 100; for (let t = 0; t < ms; t += d) advance(d); },
   };
 
   // ---------------------------------------------------------------- 音のパネル

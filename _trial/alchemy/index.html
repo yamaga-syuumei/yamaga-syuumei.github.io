@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>錬金工場と魔法のお店（試作）</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="al-frame">
+
+  <header class="al-bar">
+    <div class="al-money"><i>所持金</i><b id="money">0</b><u>G</u></div>
+
+    <div class="al-rank">
+      <div class="al-rankrow"><span>店の格</span><b id="rankName">露店</b></div>
+      <div class="al-rankbar"><div class="al-rankfill" id="rankFill"></div></div>
+      <div class="al-ranknote" id="rankNote"></div>
+    </div>
+
+    <div class="al-total"><i>累計売上</i><b id="total">0</b><u>G</u></div>
+
+    <div class="al-btns">
+      <button class="al-btn" id="btnRes">研究</button>
+      <button class="al-btn" id="btnCodex">図鑑</button>
+      <button class="al-btn al-btn-i" id="btnSound" hidden>🔊</button>
+      <button class="al-btn al-btn-q" id="btnReset">最初から</button>
+    </div>
+  </header>
+
+  <div class="al-board"><canvas id="cv"></canvas></div>
+
+  <p class="al-hint" id="hint"></p>
+
+  <div class="al-pal">
+    <div class="al-tabs" id="tabs"></div>
+    <div class="al-cards" id="cards"></div>
+  </div>
+
+</div>
+
+<!-- 右クリックのメニュー。設備・送り道・瓦礫で中身が変わる -->
+<div class="al-menu" id="menu" hidden>
+  <div class="al-mhead"><b id="mName"></b><i id="mInfo"></i></div>
+  <div class="al-mitems" id="mItems"></div>
+</div>
+
+<!-- マウスを乗せたときの説明 -->
+<div class="al-tip" id="tip" hidden></div>
+
+<!-- 研究 -->
+<div class="al-ov" id="res" hidden>
+  <div class="al-panel al-panel-w">
+    <div class="al-ovhead">錬金術の研究</div>
+    <div class="al-cols" id="resBody"></div>
+    <div class="al-ovbtns"><button class="al-btn al-btn-p" id="btnResClose">閉じる</button></div>
+  </div>
+</div>
+
+<!-- 図鑑 -->
+<div class="al-ov" id="codex" hidden>
+  <div class="al-panel al-panel-w">
+    <div class="al-ovhead">図鑑</div>
+    <div class="al-codex" id="codexBody"></div>
+    <div class="al-ovbtns"><button class="al-btn al-btn-p" id="btnCodexClose">閉じる</button></div>
+  </div>
+</div>
+
+<!-- 師匠からの手紙 -->
+<div class="al-news" id="news" hidden>
+  <div class="al-newshead" id="newsHead"></div>
+  <div class="al-newsbody" id="newsBody"></div>
+  <div class="al-ovbtns">
+    <button class="al-btn" id="btnNewsClose">閉じる</button>
+    <button class="al-btn al-btn-p" id="btnNewsEnd" hidden>世界一の看板</button>
+  </div>
+</div>
+
+<!-- 釈放証明書 -->
+<div class="al-ov" id="cert" hidden>
+  <div class="al-panel al-cert">
+    <div class="al-ovhead">世界一の看板</div>
+    <div id="certBody"></div>
+    <div class="al-ovbtns"><button class="al-btn al-btn-p" id="btnCertClose">閉じる</button></div>
+  </div>
+</div>
+
+<!-- 音 -->
+<div class="al-ov" id="ovSound" hidden>
+  <div class="al-panel">
+    <div class="al-ovhead">音</div>
+    <div class="al-vols">
+      <label class="al-vol"><span>BGM</span>
+        <input type="range" id="vBgm" min="0" max="1" step="0.05"><b id="vBgmV"></b></label>
+      <label class="al-vol"><span>効果音</span>
+        <input type="range" id="vSe" min="0" max="1" step="0.05"><b id="vSeV"></b></label>
+    </div>
+    <p class="al-credits" id="credits" hidden></p>
+    <div class="al-ovbtns">
+      <button class="al-btn" id="btnMute">ミュート</button>
+      <button class="al-btn al-btn-p" id="btnSoundClose">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="sound.js"></script>
+<script src="art.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

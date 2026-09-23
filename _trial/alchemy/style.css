@@ -1,0 +1,184 @@
+:root{
+  /* 明るい魔法屋。羊皮紙の地に、紫の魔力と金の値札 */
+  --bg:#f3ecdf; --panel:#fffaf0; --line:#e0d3bd; --ink:#3b3050; --dim:#8a7d97;
+  --gold:#b8791c; --magic:#7a5fa8; --magic-lt:#a98fd8; --warn:#b44a4a;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; color:var(--ink);
+  background:
+    radial-gradient(1100px 600px at 12% -10%, #fbf3e4 0%, rgba(251,243,228,0) 60%),
+    radial-gradient(900px 520px at 100% 0%, #efe6f7 0%, rgba(239,230,247,0) 62%),
+    var(--bg);
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;
+  overflow:hidden; user-select:none; -webkit-user-select:none;
+}
+button{font:inherit; color:inherit; cursor:pointer}
+
+.al-frame{height:100%; display:flex; flex-direction:column; gap:6px; padding:8px}
+
+/* ---------------------------------------------------------------- 上の帯 */
+.al-bar{
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:8px 12px;
+  box-shadow:0 1px 0 #fff inset, 0 2px 8px rgba(90,70,120,.07);
+}
+.al-money,.al-total{display:flex; align-items:baseline; gap:5px; white-space:nowrap}
+.al-money i,.al-total i{font-style:normal; font-size:11px; color:var(--dim)}
+.al-money b{font-size:24px; color:var(--gold); font-variant-numeric:tabular-nums}
+.al-total b{font-size:15px; font-variant-numeric:tabular-nums}
+.al-money u,.al-total u{text-decoration:none; font-size:11px; color:var(--dim)}
+
+.al-rank{flex:1; min-width:200px; max-width:420px}
+.al-rankrow{display:flex; justify-content:space-between; align-items:baseline; font-size:11px; color:var(--dim)}
+.al-rankrow b{font-size:15px; color:var(--magic); font-weight:700}
+.al-rankbar{height:7px; background:#e6dccb; border-radius:4px; overflow:hidden; margin:3px 0 2px}
+.al-rankfill{height:100%; width:0; border-radius:4px; transition:width .4s ease;
+  background:linear-gradient(90deg,#a98fd8,#f0c15a)}
+.al-ranknote{font-size:10.5px; color:var(--dim); font-variant-numeric:tabular-nums}
+
+.al-btns{display:flex; gap:6px; margin-left:auto}
+.al-btn{
+  background:#fff; border:1px solid var(--line); border-radius:8px;
+  padding:6px 12px; font-size:12.5px; transition:.12s;
+}
+.al-btn:hover:not(:disabled){background:#f6effd; border-color:var(--magic-lt)}
+.al-btn:disabled{opacity:.4; cursor:default}
+.al-btn-p{background:var(--magic); border-color:#5f4a86; color:#fff}
+.al-btn-p:hover:not(:disabled){background:#8a6bbc; border-color:#5f4a86}
+.al-btn-q{color:var(--dim)}
+.al-btn-i{padding:6px 9px}
+
+/* ---------------------------------------------------------------- 盤面 */
+.al-board{flex:1; min-height:0; display:flex; align-items:center; justify-content:center}
+canvas{touch-action:none; display:block}
+.al-hint{margin:0; text-align:center; font-size:11px; color:var(--dim)}
+
+/* ---------------------------------------------------------------- 購入パレット */
+.al-pal{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:7px 9px;
+  box-shadow:0 1px 0 #fff inset, 0 2px 8px rgba(90,70,120,.07)}
+.al-tabs{display:flex; gap:5px; margin-bottom:7px}
+.al-tab{
+  background:transparent; border:1px solid transparent; border-radius:6px;
+  padding:3px 13px; font-size:12.5px; color:var(--dim);
+}
+.al-tab:hover{color:var(--ink)}
+.al-tab.on{background:#f1e8fb; border-color:var(--magic-lt); color:var(--magic)}
+
+.al-cards{display:flex; gap:7px; overflow-x:auto; padding-bottom:3px; min-height:58px}
+.al-cards::-webkit-scrollbar{height:6px}
+.al-cards::-webkit-scrollbar-thumb{background:#d8ccbb; border-radius:3px}
+.al-card{
+  display:flex; align-items:center; gap:8px; flex:0 0 auto;
+  background:#fff; border:1px solid var(--line); border-radius:9px;
+  padding:6px 11px 6px 8px; text-align:left; transition:.12s;
+}
+.al-card:hover{border-color:var(--magic-lt); background:#faf5ff}
+.al-card.on{border-color:var(--magic); background:#f1e8fb}
+.al-card.poor{opacity:.42}
+.al-card span{display:flex; flex-direction:column; line-height:1.3}
+.al-card b{font-size:12.5px; font-weight:600}
+.al-card i{font-style:normal; font-size:10.5px; color:var(--dim)}
+.al-card em{font-style:normal; font-size:11px; color:var(--gold)}
+.al-empty{margin:14px 0 0 4px; font-size:12px; color:var(--dim)}
+
+/* ---------------------------------------------------------------- 右クリックのメニュー */
+.al-menu{
+  position:fixed; z-index:30;
+  background:var(--panel); border:1px solid var(--magic-lt); border-radius:10px;
+  padding:8px; width:210px; box-shadow:0 10px 28px rgba(70,50,110,.22);
+}
+.al-mhead{display:flex; flex-direction:column; padding:0 3px 7px; margin-bottom:6px;
+  border-bottom:1px solid var(--line)}
+.al-mhead b{font-size:13px}
+.al-mhead i{font-style:normal; font-size:10.5px; color:var(--dim)}
+.al-mitems{display:flex; flex-direction:column; gap:4px}
+.al-mitems .al-btn{padding:5px 9px; font-size:11.5px; text-align:left}
+
+/* 設置中の案内。解除の仕方をその場に出す */
+.al-hint.on{color:var(--magic)}
+
+/* ---------------------------------------------------------------- 覆い */
+.al-ov{
+  position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+  background:rgba(60,44,90,.34); padding:18px;
+}
+.al-panel{
+  background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  padding:16px 18px; width:min(420px,100%); max-height:88vh; overflow:auto;
+  box-shadow:0 18px 50px rgba(60,44,90,.25);
+}
+.al-panel-w{width:min(880px,100%)}
+.al-ovhead{font-size:16px; font-weight:600; margin-bottom:12px}
+.al-ovbtns{display:flex; gap:8px; justify-content:flex-end; margin-top:14px}
+
+.al-cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px}
+.al-col h4{margin:0 0 7px; font-size:12px; color:var(--dim); font-weight:600;
+  border-bottom:1px solid var(--line); padding-bottom:4px}
+.al-res{
+  display:flex; justify-content:space-between; align-items:baseline; gap:8px; width:100%;
+  background:#fff; border:1px solid var(--line); border-radius:8px;
+  padding:6px 9px; margin-bottom:5px; text-align:left;
+}
+.al-res:hover:not(:disabled){border-color:var(--magic-lt); background:#faf5ff}
+.al-res b{font-size:12.5px; font-weight:500}
+.al-res i{font-style:normal; font-size:10.5px; color:var(--gold); white-space:nowrap}
+.al-res.done{opacity:.45}
+.al-res.done i{color:var(--dim)}
+.al-res.locked{opacity:.35}
+.al-res.locked i{color:var(--dim)}
+.al-res.off{opacity:.55; cursor:default}
+
+/* マウスを乗せたときの説明。買う前に効果が読めるようにする */
+.al-tip{
+  position:fixed; z-index:60; max-width:280px;
+  background:#fffaf0; border:1px solid var(--magic-lt); border-radius:9px;
+  padding:8px 10px; box-shadow:0 8px 22px rgba(70,50,110,.22);
+  display:flex; flex-direction:column; gap:4px;
+  font-size:11.5px; line-height:1.5; pointer-events:none;
+}
+.al-tip span{color:var(--ink)}
+.al-tip span.dim{color:var(--dim)}
+
+.al-codex{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px}
+.al-cosec h4{margin:0 0 6px; font-size:12px; color:var(--dim); font-weight:600;
+  border-bottom:1px solid var(--line); padding-bottom:4px}
+.al-corow{display:flex; gap:9px; align-items:flex-start; padding:5px 0}
+.al-corow span{display:flex; flex-direction:column; line-height:1.4; min-width:0}
+.al-corow b{font-size:12.5px; display:inline}
+.al-corow em{font-style:normal; font-size:10.5px; color:var(--gold)}
+.al-corow i{font-style:normal; font-size:10.5px; color:var(--dim)}
+
+.al-cert dl{display:grid; grid-template-columns:auto 1fr; gap:7px 14px; margin:0}
+.al-cert dt{font-size:11px; color:var(--dim)}
+.al-cert dd{margin:0; font-size:13px; font-variant-numeric:tabular-nums}
+
+.al-vols{display:flex; flex-direction:column; gap:10px}
+.al-vol{display:flex; align-items:center; gap:10px; font-size:12px}
+.al-vol span{width:52px; color:var(--dim)}
+.al-vol input{flex:1}
+.al-vol b{width:40px; text-align:right; font-size:11px; color:var(--dim)}
+.al-credits{margin:12px 0 0; font-size:11px; color:var(--dim)}
+.al-credits a{color:var(--magic)}
+
+/* ---------------------------------------------------------------- 通信 */
+/* 盤面は止めない。動いているのを眺める快感を切らないため */
+.al-news{
+  position:fixed; right:14px; top:76px; z-index:35; width:min(320px,calc(100% - 28px));
+  background:var(--panel); border:1px solid var(--magic-lt); border-radius:12px; padding:13px 15px;
+  box-shadow:0 10px 30px rgba(70,50,110,.25);
+}
+.al-news.in{animation:slide .45s cubic-bezier(.2,.9,.3,1)}
+@keyframes slide{from{transform:translateX(120%);opacity:0}to{transform:none;opacity:1}}
+.al-newshead{font-size:14px; font-weight:700; color:var(--magic); margin-bottom:7px}
+.al-newsbody p{margin:0 0 4px; font-size:12px; line-height:1.6}
+
+@media (max-width:620px){
+  .al-money b{font-size:19px}
+  .al-sent{order:9; max-width:none; width:100%}
+  .al-hint{display:none}
+}
+
+/* display を持つ要素にも hidden を効かせる */
+[hidden]{display:none !important}
