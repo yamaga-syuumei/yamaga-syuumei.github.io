@@ -19,36 +19,68 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=14895b96">
+<link rel="stylesheet" href="style.css?v=86c71505">
 </head>
 <body>
 
 <header class="tk-head">
-  <a href="../" class="tk-logo">← ヒノガタリ</a>
   <span class="tk-title">荒野の戦車乗り<b>β0.4</b></span>
-  <span class="tk-resetwrap">
-    <span class="tk-volwrap">
-      <button class="tk-reset" id="volbtn" aria-expanded="false">音量</button>
-      <span class="tk-volpanel" id="vol-panel" hidden>
-        <label class="tk-vol-row">効果音
-          <input type="range" id="opt-sfx" min="0" max="100" step="5">
-          <b id="opt-sfx-v">70</b>
-        </label>
-        <label class="tk-vol-row">BGM
-          <input type="range" id="opt-bgm" min="0" max="100" step="5">
-          <b id="opt-bgm-v">30</b>
-        </label>
-        <em class="tk-vol-note" id="opt-audio-note" hidden>この環境では音を鳴らせません。</em>
-      </span>
-    </span>
-    <button class="tk-reset" id="reset">最初からやり直す</button>
-    <span class="tk-resetask" id="reset-ask" hidden>
-      <em>強化も所持金も消えます。</em>
-      <button class="tk-reset is-danger" id="reset-yes">はい</button>
-      <button class="tk-reset" id="reset-no">やめる</button>
-    </span>
+  <span class="tk-headbtns">
+    <button class="tk-icon tk-icon-gear" id="open-opt" title="オプション" aria-label="オプション"></button>
   </span>
 </header>
+
+<!-- オプション。開いている間は地図を止める -->
+<div class="tk-modal" id="opt-modal" hidden>
+  <div class="tk-modal-box" role="dialog" aria-modal="true" aria-label="オプション">
+    <div class="tk-modal-head">
+      <b class="tk-modal-title">オプション</b>
+      <button class="tk-btn tk-btn-main" id="opt-close">閉じる</button>
+    </div>
+
+    <div class="tk-opt">
+      <label class="tk-opt-row" for="opt-sfx">
+        <span class="tk-opt-k">効果音</span>
+        <input type="range" id="opt-sfx" min="0" max="100" step="5">
+        <b id="opt-sfx-v">70</b>
+      </label>
+      <label class="tk-opt-row" for="opt-bgm">
+        <span class="tk-opt-k">BGM</span>
+        <input type="range" id="opt-bgm" min="0" max="100" step="5">
+        <b id="opt-bgm-v">30</b>
+      </label>
+      <p class="tk-opt-note" id="opt-audio-note" hidden>この環境では音を鳴らせません。</p>
+    </div>
+
+    <h3 class="tk-sub">データ</h3>
+    <div class="tk-opt">
+      <div class="tk-opt-row tk-opt-wide">
+        <div>
+          <b>最初からやり直す</b>
+          <span class="tk-opt-note">強化も所持金も消えます。</span>
+        </div>
+        <button class="tk-btn" id="reset">やり直す</button>
+      </div>
+      <p class="tk-opt-confirm" id="reset-ask" hidden>
+        <em>本当に最初からやり直しますか？</em>
+        <button class="tk-btn tk-btn-danger" id="reset-yes">はい</button>
+        <button class="tk-btn" id="reset-no">やめる</button>
+      </p>
+    </div>
+
+    <h3 class="tk-sub">サイト</h3>
+    <div class="tk-opt">
+      <div class="tk-opt-row tk-opt-wide">
+        <div>
+          <b>ヒノガタリ</b>
+          <span class="tk-opt-note">ほかのブラウザゲームと小説の置き場所です。</span>
+        </div>
+        <a class="tk-btn" href="../">トップへ</a>
+      </div>
+    </div>
+    <p class="tk-opt-ver">荒野の戦車乗り β0.4</p>
+  </div>
+</div>
 
 <main class="tk-main">
 
@@ -201,7 +233,7 @@
 <script src="data.js?v=92526e66"></script>
 <script src="sfx.js?v=9ece86c4"></script>
 <script src="art.js?v=c5a38402"></script>
-<script src="game.js?v=b82d1b8c"></script>
+<script src="game.js?v=c3397472"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
