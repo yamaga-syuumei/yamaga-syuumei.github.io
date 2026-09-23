@@ -1209,6 +1209,7 @@
   document.getElementById('reset-yes').addEventListener('click', function () {
     closeAsk();
     doReset();
+    document.getElementById('opt-close').click();
   });
 
   function closeAsk() {
@@ -1276,10 +1277,10 @@
     });
   });
 
-  /* 音量パネル。ヘッダのボタンで開閉する小さなポップオーバー */
-  var volBtn = document.getElementById('volbtn');
-  var volPanel = document.getElementById('vol-panel');
-  if (volBtn && volPanel) {
+  /* オプション。右上の歯車で開く。開いている間は地図を止める */
+  var optBtn = document.getElementById('open-opt');
+  var optModal = document.getElementById('opt-modal');
+  if (optBtn && optModal) {
     var sfxSlider = document.getElementById('opt-sfx'), sfxVal = document.getElementById('opt-sfx-v');
     var bgmSlider = document.getElementById('opt-bgm'), bgmVal = document.getElementById('opt-bgm-v');
     var audioNote = document.getElementById('opt-audio-note');
@@ -1290,15 +1291,16 @@
       audioNote.hidden = SFX.isUsable();
     }
 
-    function openVol(show) {
-      volPanel.hidden = !show;
-      volBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
-      if (show) syncVolUI();
+    function openOpt(show) {
+      optModal.hidden = !show;
+      if (show) syncVolUI(); else closeAsk();
+      /* 戦闘中は戦闘側が止めているので触らない */
+      if (G && !battleOpen) { if (show) G.scene.pause(); else G.scene.resume(); }
     }
-    volBtn.addEventListener('click', function () { openVol(volPanel.hidden); });
-    // 外側を触ったら閉じる
-    document.addEventListener('pointerdown', function (e) {
-      if (!volPanel.hidden && e.target !== volBtn && !volPanel.contains(e.target)) openVol(false);
+    optBtn.addEventListener('click', function () { openOpt(true); });
+    document.getElementById('opt-close').addEventListener('click', function () { openOpt(false); });
+    optModal.addEventListener('pointerdown', function (e) {
+      if (e.target === optModal) openOpt(false);   // 外側を触ったら閉じる
     });
 
     sfxSlider.addEventListener('input', function () {
