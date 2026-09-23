@@ -883,11 +883,11 @@
   el('btnTitleStages').onclick = uiClick(() => { buildStageList(); SND.bgm('select'); el('ovStages').hidden = false; });
   el('btnTitle').onclick = uiClick(() => { el('ovStages').hidden = true; showTitle(); });
 
-  // 音は右上のボタンひとつから。開いている間は盤面を止める（時間も測っているため）
-  // 素材が1つでも入るまでボタンを出さない（押しても何も起きないので）
+  // オプションは右上の歯車ひとつから。開いている間は盤面を止める（時間も測っているため）
+  // 音の素材が1つも入っていなければ、音量の行だけ出さない
   const btnSound = el('btnSound');
   const VOLS = [['vBgm', 'bgm'], ['vSe', 'se']];
-  const paintMute = () => { btnSound.textContent = SND.muted() ? '🔇' : '🔊'; };
+  const paintMute = () => { btnSound.classList.toggle('is-mute', SND.muted()); };
   function syncVol() {
     const v = SND.vol();
     for (const [id, kind] of VOLS) {
@@ -898,8 +898,15 @@
   }
   function closeSound() { paused = false; el('ovSound').hidden = true; }
 
+  btnSound.onclick = uiClick(() => {
+    if (SND.ready()) syncVol();
+    paused = true; el('ovSound').hidden = false;
+  });
+  el('btnSoundClose').onclick = uiClick(closeSound);
+
+  el('volBox').hidden = !SND.ready();
+  el('btnMute').hidden = !SND.ready();
   if (SND.ready()) {
-    btnSound.hidden = false;
     for (const [id, kind] of VOLS) {
       el(id).oninput = () => {
         SND.unlock();
@@ -908,9 +915,7 @@
         paintMute();
       };
     }
-    btnSound.onclick = uiClick(() => { syncVol(); paused = true; el('ovSound').hidden = false; });
     el('btnMute').onclick = () => { SND.unlock(); SND.setMute(!SND.muted()); syncVol(); };
-    el('btnSoundClose').onclick = uiClick(closeSound);
     syncVol();
 
     // 素材をもらったら sound.js の CREDITS に足す。ここにそのまま出る。
