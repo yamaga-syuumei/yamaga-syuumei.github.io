@@ -222,17 +222,16 @@
     { key: 'r_forbidden', p: 'prod', tier: 4, cost: 120000, name: '禁断の錬成',
       unlock: ['f_philosopher', 'f_elixir', 'f_egg', 'f_wing'] },
 
-    // 物流
+    // 物流（お店まわりもここ）
     { key: 'r_split',  p: 'logi', tier: 1, cost: 800,  name: '分配陣',   unlock: ['split'] },
     { key: 'r_store',  p: 'logi', tier: 2, cost: 2500, name: '保管庫',   unlock: ['store'] },
     { key: 'r_bridge', p: 'logi', tier: 2, cost: 5000, name: '渡し橋',   unlock: ['bridge'] },
     { key: 'r_belt',   p: 'logi', tier: 1, cost: 900,  name: '送り道の強化',
       stat: 'belt', per: 0.25, max: 8, costMul: 1.4 },
 
-    // 販売
-    { key: 'r_sell',   p: 'sell', tier: 1, cost: 700,  name: '店の評判',
+    { key: 'r_sell',   p: 'logi', tier: 1, cost: 700,  name: '店の評判',
       stat: 'sellRate', per: 0.02, max: 20, costMul: 1.25 },
-    { key: 'r_price',  p: 'sell', tier: 2, cost: 1500, name: '値付けの妙',
+    { key: 'r_price',  p: 'logi', tier: 2, cost: 1500, name: '値付けの妙',
       stat: 'price', per: 0.02, max: 20, costMul: 1.27 },
 
     // 敷地
@@ -245,7 +244,6 @@
   const PILLARS = [
     { key: 'prod', name: '錬成' },
     { key: 'logi', name: '物流' },
-    { key: 'sell', name: '販売' },
     { key: 'land', name: '敷地' },
   ];
 
@@ -334,7 +332,7 @@
   const LEVEL = { max: 5, costMul: 1.8, speedMul: 0.78 };
 
   // 初期解放。魔鉱石の採取地1と魔鉱石屋1だけ置いてある状態から始まる。
-  const START_UNLOCK = ['src_magicore'];
+  const START_UNLOCK = ['src_magicore', 'shop'];
 
   global.ALCHEMY = {
     ITEMS, SOURCES, RECIPES, LOGI, SHOP, RESEARCH, PILLARS,

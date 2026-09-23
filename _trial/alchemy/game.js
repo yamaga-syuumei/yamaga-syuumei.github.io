@@ -45,13 +45,14 @@
       kind: '錬成陣', sub: r.in.map((i) => ITEMS[i].name).join('＋'),
       make: r.make, in: r.in, secs: r.secs, cost: r.cost };
   });
+  // お店は1種類。流れてきた物をその値段で売る。値段は持っている数で上がる。
+  // 1枚しか無いのでタブは分けず、物流に混ぜる。
+  BUILDS.shop = { key: 'shop', k: 'shop', tab: 'logi', name: 'お店', kind: 'お店',
+    sub: '流れてきた物を売る', secs: SHOP.secs, cost: SHOP.baseCost };
   LOGI.forEach((l) => {
     BUILDS[l.key] = { key: l.key, k: l.key, tab: 'logi', name: l.name, kind: l.name,
       sub: l.key === 'split' ? '交互に振り分ける' : '詰まりを吸収', hold: l.hold, cost: l.cost };
   });
-  // お店は1種類。流れてきた物をその値段で売る。値段は持っている数で上がる。
-  BUILDS.shop = { key: 'shop', k: 'shop', tab: 'shop', name: 'お店', kind: 'お店',
-    sub: '流れてきた物を売る', secs: SHOP.secs, cost: SHOP.baseCost };
   const shopCount = () => st.nodes.filter((n) => n.k === 'shop').length;
   const shopCost = (n) => Math.round(SHOP.baseCost * Math.pow(SHOP.step, Math.max(0, n)));
   // 買うときも売るときも、その軒数のときの値段で数える
@@ -1175,7 +1176,6 @@
   const TABS = [
     { key: 'prod', name: '採取' },
     { key: 'fac', name: '錬成' },
-    { key: 'shop', name: 'お店' },
     { key: 'logi', name: '物流' },
   ];
   let tab = 'prod';
@@ -1187,7 +1187,7 @@
     c.width = 56; c.height = 56; c.style.width = '28px'; c.style.height = '28px';
     const cc = c.getContext('2d');
     cc.scale(2, 2);
-    if (def.k === 'src' || def.k === 'shop') drawItem(cc, def.item, 14, 14, 11);
+    if (def.k === 'src') drawItem(cc, def.item, 14, 14, 11);
     else if (def.k === 'fac') drawItem(cc, def.make, 14, 14, 11);
     else if (def.bridge) drawBridge(cc, 14, 14, 9);
     else drawGlyph(cc, def.k, 14, 14, 10);
@@ -1216,9 +1216,7 @@
   // そのタブに出せるもの全部（格で絞る前）
   function tabList() {
     const out = [];
-    if (tab === 'shop') {
-      out.push(BUILDS.shop);
-    } else {
+    {
       Object.keys(BUILDS).forEach((k) => {
         const b = BUILDS[k];
         if (b.tab === tab && st.unlock[b.key]) out.push(b);
