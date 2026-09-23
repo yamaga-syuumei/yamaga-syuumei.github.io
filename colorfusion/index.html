@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=e6bd2f04">
+<link rel="stylesheet" href="style.css?v=18bce7ab">
 </head>
 <body>
 
@@ -27,13 +27,12 @@
 <canvas id="cv2"></canvas>
 
 <div class="hud">
-  <a href="../" class="cf-home">← ヒノガタリ</a>
   <!-- dev:start -->
   <span id="stat"></span>
   <button id="tune">調整</button>
   <button id="bench-btn">計測</button>
   <!-- dev:end -->
-  <button id="gear">設定</button>
+  <button class="cf-icon cf-icon-gear" id="gear" title="オプション" aria-label="オプション"></button>
   <button id="clear">やり直す</button>
 </div>
 
@@ -43,12 +42,25 @@
 <div class="bench" id="bench" hidden></div>
 <!-- dev:end -->
 
-<div class="panel set" id="setting" hidden>
-  <label>BGM<input type="range" id="v-bgm" min="0" max="1" step="0.05"><b id="v-bgm-v"></b></label>
-  <label>効果音<input type="range" id="v-se" min="0" max="1" step="0.05"><b id="v-se-v"></b></label>
-  <hr>
-  <div class="credits" id="credits"></div>
-  <p class="ver" id="ver"></p>
+<!-- オプション。開いている間は盤面を止める -->
+<div class="cf-modal" id="setting" hidden>
+  <div class="cf-modal-box" role="dialog" aria-modal="true" aria-label="オプション">
+    <div class="cf-modal-head">
+      <b class="cf-modal-title">オプション</b>
+      <button class="cf-modal-close" id="set-close">閉じる</button>
+    </div>
+    <label class="cf-row">BGM<input type="range" id="v-bgm" min="0" max="1" step="0.05"><b id="v-bgm-v"></b></label>
+    <label class="cf-row">効果音<input type="range" id="v-se" min="0" max="1" step="0.05"><b id="v-se-v"></b></label>
+    <div class="cf-row cf-row-wide">
+      <div>
+        <b>ヒノガタリ</b>
+        <span class="cf-note">ほかのブラウザゲームと小説の置き場所です。</span>
+      </div>
+      <a class="cf-modal-close" href="../">トップへ</a>
+    </div>
+    <div class="credits" id="credits"></div>
+    <p class="ver" id="ver"></p>
+  </div>
 </div>
 
 <div class="over" id="over" hidden><button id="copy">結果をコピー</button></div>
@@ -98,7 +110,7 @@
 <!-- dev:end -->
 
 <script src="sound.js?v=0c3c6cc1"></script>
-<script src="game.js?v=416cacd9"></script>
+<script src="game.js?v=4f588072"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

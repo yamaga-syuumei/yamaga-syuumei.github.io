@@ -242,6 +242,7 @@
   var core = { t: 0, pulse: 0, light: 0, flick: 0 };
   var heat = 0;
   var state = 'title';                // title / play / over
+  var optOpen = false;                // オプションを開いている間は時計を止める
   /* タイトルの裏では誰も触っていないのに勝手に遊んでいる。
      説明文を読ませずに「きれい」と「こうやるのか」を同時に見せるため */
   var demo = { t: 0, next: 0 };
@@ -1699,11 +1700,16 @@
   }
   /* dev:end */
 
-  /* 設定（音量と素材の出どころ） */
+  /* オプション（音量・サイト・素材の出どころ）。開いている間は盤面を止める */
   var setPanel = document.getElementById('setting');
+  function openSet(show) { setPanel.hidden = !show; optOpen = show; }
   document.getElementById('gear').addEventListener('click', function () {
     SFX.unlock();
-    setPanel.hidden = !setPanel.hidden;
+    openSet(setPanel.hidden);
+  });
+  document.getElementById('set-close').addEventListener('click', function () { openSet(false); });
+  setPanel.addEventListener('pointerdown', function (e) {
+    if (e.target === setPanel) openSet(false);   // 外側を触ったら閉じる
   });
   (function () {
     var v = SFX.vol();
@@ -1846,6 +1852,7 @@
     var now = ts / 1000;
     var dt = tPrev ? Math.min(now - tPrev, 0.05) : 0;
     tPrev = now;
+    if (optOpen) { render(); requestAnimationFrame(frame); return; }
     tNow += dt;
     if (dt > 0) stat.fps += (1 / dt - stat.fps) * 0.06;
     var _u0 = performance.now();
