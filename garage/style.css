@@ -88,6 +88,11 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
   transition: background .12s, color .12s, border-color .12s;
 }
 .ss-icon:hover { background: #2a333c; color: var(--ink); border-color: #46525d; }
+.ss-icon-gear::before {
+  content: ""; width: 20px; height: 20px; background: currentColor;
+  -webkit-mask: url(/img/icon-settings.png) center / contain no-repeat;
+  mask: url(/img/icon-settings.png) center / contain no-repeat;
+}
 .ss-plain {
   background: none; border: 0; padding: 5px 7px;
   color: #5c6873; font-size: 11.5px; cursor: pointer; white-space: nowrap;
@@ -754,9 +759,10 @@ html.no-motion .ss-battleboard .ss-item.is-firing { animation: none; filter: bri
 .ss-seg button.is-on { background: var(--amber); color: #241c08; font-weight: 800; }
 
 /* データ削除まわり */
-.ss-opt-danger { justify-content: space-between; align-items: flex-start; }
-.ss-opt-danger b { display: block; font-size: 13.5px; }
-.ss-opt-danger .ss-opt-note { margin: 2px 0 0; }
+.ss-opt-danger, .ss-opt-link { justify-content: space-between; align-items: flex-start; }
+.ss-opt-danger b, .ss-opt-link b { display: block; font-size: 13.5px; }
+.ss-opt-danger .ss-opt-note, .ss-opt-link .ss-opt-note { margin: 2px 0 0; }
+.ss-opt-link a.ss-btn { text-decoration: none; }
 .ss-btn-danger { background: var(--red); border-color: var(--red); color: #1a0704; font-weight: 800; }
 .ss-opt-confirm {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -905,6 +911,6 @@ html.no-motion .ss-node.is-open:hover { transform: none; }
   .ss-tabs-modal { gap: 2px; }
   .ss-tabs-modal .ss-tab { padding: 8px 3px; font-size: 12.5px; }
   .ss-opt-k { width: 70px; font-size: 13px; }
-  .ss-opt-danger { flex-direction: column; gap: 8px; }
+  .ss-opt-danger, .ss-opt-link { flex-direction: column; gap: 8px; }
   .ss-legend { gap: 8px 12px; }
 }
