@@ -56,7 +56,20 @@
       secs: SHOP.secs, cost: SHOP.baseCost + ITEMS[key].price * SHOP.costPerPrice };
   });
 
-  // その品目を作れるか（＝販売所を並べてよいか）
+  // 設備がどの格で解放されるか。購入パレットの並べ替えに使う。
+  const RANK_OF = {};
+  D.START_UNLOCK.forEach((k) => { RANK_OF[k] = 0; });
+  RESEARCH.forEach((r) => (r.unlock || []).forEach((k) => { RANK_OF[k] = r.tier; }));
+  // お店はその品を作れるようになった格に並ぶ
+  Object.keys(ITEMS).forEach((key) => {
+    const from = SOURCES.filter((x) => x.item === key).map((x) => RANK_OF[x.key])
+      .concat(RECIPES.filter((x) => x.make === key).map((x) => RANK_OF[x.key]))
+      .filter((v) => v !== undefined);
+    if (from.length) RANK_OF['shop_' + key] = Math.min.apply(null, from);
+  });
+  const rankOf = (key) => (RANK_OF[key] === undefined ? 0 : RANK_OF[key]);
+
+  // その品目を作れるか（＝お店を並べてよいか）
   function producible(item) {
     if (SOURCES.some((s) => s.item === item && st.unlock[s.key])) return true;
     return RECIPES.some((r) => r.make === item && st.unlock[r.key]);
@@ -1154,6 +1167,8 @@
     { key: 'logi', name: '物流' },
   ];
   let tab = 'prod';
+  const GROUPED = { fac: 1, shop: 1 };        // 数が多いタブは格で分ける
+  const groupSel = { fac: 0, shop: 0 };
 
   function cardIcon(def) {
     const c = document.createElement('canvas');
@@ -1167,7 +1182,8 @@
     return c;
   }
 
-  function paletteList() {
+  // そのタブに出せるもの全部（格で絞る前）
+  function tabList() {
     const out = [];
     if (tab === 'shop') {
       Object.keys(ITEMS).forEach((k) => { if (producible(k)) out.push(BUILDS['shop_' + k]); });
@@ -1177,17 +1193,33 @@
         if (b.tab === tab && st.unlock[b.key]) out.push(b);
       });
       if (tab === 'logi' && st.unlock.bridge) {
-        out.push({ key: 'bridge', k: 'bridge', bridge: true, name: '陸橋の許可',
+        out.push({ key: 'bridge', k: 'bridge', bridge: true, name: '渡し橋の許し',
           sub: '交差を1回ぶん', cost: 400 + st.bridges * 260 });
       }
     }
     return out;
   }
 
+  // 出せるものがある格だけ。無い格の札は出さない（進むほど札が増える）
+  function groupsOf(list) {
+    const seen = {};
+    list.forEach((b) => { seen[rankOf(b.key)] = 1; });
+    return TIERS.map((t, i) => i).filter((i) => seen[i]);
+  }
+
+  function paletteList() {
+    const list = tabList();
+    if (!GROUPED[tab]) return list;
+    const gs = groupsOf(list);
+    if (gs.indexOf(groupSel[tab]) < 0) groupSel[tab] = gs[0] || 0;
+    return list.filter((b) => rankOf(b.key) === groupSel[tab]);
+  }
+
   let palSig = '';
 
   function refreshPalette() {
-    const sig = tab + '|' + paletteList().map((d) => d.key + (st.money >= d.cost ? '1' : '0')).join(',')
+    const sig = tab + ':' + groupSel[tab] + '|' + groupsOf(tabList()).join('.')
+      + '|' + paletteList().map((d) => d.key + (st.money >= d.cost ? '1' : '0')).join(',')
       + '|' + (placing ? placing.def.key : '');
     if (sig === palSig) return;
     palSig = sig;
@@ -1204,6 +1236,22 @@
       b.onclick = () => { SND.unlock(); SND.se('ui'); tab = t.key; refreshPalette(); };
       bar.appendChild(b);
     });
+    // 錬成とお店は数が多いので、解放された格で分ける。札は同じ行に続けて出す
+    if (GROUPED[tab]) {
+      const gs = groupsOf(tabList());
+      if (gs.length > 1) {
+        const sep = document.createElement('span');
+        sep.className = 'al-tabsep';
+        bar.appendChild(sep);
+        gs.forEach((i) => {
+          const b = document.createElement('button');
+          b.className = 'al-grp' + (groupSel[tab] === i ? ' on' : '');
+          b.textContent = TIERS[i].name;
+          b.onclick = () => { SND.unlock(); SND.se('ui'); groupSel[tab] = i; refreshPalette(); };
+          bar.appendChild(b);
+        });
+      }
+    }
 
     const box = el('cards');
     box.innerHTML = '';
@@ -1402,6 +1450,8 @@
     st.money -= r.cost;
     st.done[r.key] = true;
     applyResearch();
+    // 増えたカードが埋もれないよう、その格へ寄せておく
+    if (r.unlock) { groupSel.fac = r.tier; groupSel.shop = r.tier; }
     SND.se('research');
     buildResearch();
     buildPalette();

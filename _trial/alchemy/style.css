@@ -58,16 +58,33 @@ canvas{touch-action:none; display:block}
 /* ---------------------------------------------------------------- 購入パレット */
 .al-pal{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:7px 9px;
   box-shadow:0 1px 0 #fff inset, 0 2px 8px rgba(90,70,120,.07)}
-.al-tabs{display:flex; gap:5px; margin-bottom:7px}
+/* タブ行と札の行はどちらも高さを固定する。
+   スクロールバーの出る出ないでパレット全体の高さが動くのを止めるため。 */
+.al-tabs{
+  display:flex; gap:5px; margin-bottom:6px; align-items:center;
+  height:26px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none;
+}
+.al-tabs::-webkit-scrollbar{display:none}
 .al-tab{
+  flex:0 0 auto;
   background:transparent; border:1px solid transparent; border-radius:6px;
   padding:3px 13px; font-size:12.5px; color:var(--dim);
 }
 .al-tab:hover{color:var(--ink)}
 .al-tab.on{background:#f1e8fb; border-color:var(--magic-lt); color:var(--magic)}
 
-.al-cards{display:flex; gap:7px; overflow-x:auto; padding-bottom:3px; min-height:58px}
-.al-cards::-webkit-scrollbar{height:6px}
+/* 格の札。錬成とお店が多くなりすぎるので解放された格で分ける */
+.al-tabsep{flex:0 0 auto; width:1px; height:15px; background:var(--line); margin:0 5px}
+.al-grp{
+  flex:0 0 auto;
+  background:transparent; border:1px solid transparent; border-radius:11px;
+  padding:2px 10px; font-size:11px; color:var(--dim);
+}
+.al-grp:hover{color:var(--ink)}
+.al-grp.on{background:#fdf0dc; border-color:#e0b878; color:#a8621f}
+
+.al-cards{display:flex; gap:7px; overflow-x:auto; overflow-y:hidden; height:62px; align-items:flex-start}
+.al-cards::-webkit-scrollbar{height:5px}
 .al-cards::-webkit-scrollbar-thumb{background:#d8ccbb; border-radius:3px}
 .al-card{
   display:flex; align-items:center; gap:8px; flex:0 0 auto;
@@ -81,7 +98,7 @@ canvas{touch-action:none; display:block}
 .al-card b{font-size:12.5px; font-weight:600}
 .al-card i{font-style:normal; font-size:10.5px; color:var(--dim)}
 .al-card em{font-style:normal; font-size:11px; color:var(--gold)}
-.al-empty{margin:14px 0 0 4px; font-size:12px; color:var(--dim)}
+.al-empty{margin:0; align-self:center; font-size:12px; color:var(--dim)}
 
 /* ---------------------------------------------------------------- 右クリックのメニュー */
 .al-menu{
