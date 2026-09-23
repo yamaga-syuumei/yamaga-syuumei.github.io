@@ -83,7 +83,9 @@ canvas{touch-action:none; display:block}
 .al-grp:hover{color:var(--ink)}
 .al-grp.on{background:#fdf0dc; border-color:#e0b878; color:#a8621f}
 
-.al-cards{display:flex; gap:7px; overflow-x:auto; overflow-y:hidden; height:62px; align-items:flex-start}
+/* 上の余白は NEW の札が はみ出すぶん。overflow で切られないようにする */
+.al-cards{display:flex; gap:7px; overflow-x:auto; overflow-y:hidden;
+  height:72px; padding-top:9px; align-items:flex-start}
 .al-cards::-webkit-scrollbar{height:5px}
 .al-cards::-webkit-scrollbar-thumb{background:#d8ccbb; border-radius:3px}
 .al-card{
