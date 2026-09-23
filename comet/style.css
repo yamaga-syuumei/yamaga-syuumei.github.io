@@ -70,6 +70,14 @@ body{
 .cs-btn:hover{border-color:var(--accent);color:var(--accent)}
 .cs-btn-p{background:#16354d;border-color:#2f6f95}
 .cs-btn-p:hover{background:#1d4563}
+.cs-icon{padding:6px;display:flex;align-items:center;justify-content:center}
+.cs-icon-gear::before{
+  content:"";width:18px;height:18px;background:currentColor;
+  -webkit-mask:url(/img/icon-settings.png) center / contain no-repeat;
+  mask:url(/img/icon-settings.png) center / contain no-repeat;
+}
+/* 消音中は歯車を沈ませ、開かなくても分かるようにする */
+.cs-icon.is-mute{color:var(--dim);opacity:.6}
 
 /* ---- 合図 ---- */
 .cs-banner{
@@ -130,11 +138,6 @@ body{
 .cs-card b{font-size:16px;letter-spacing:.06em}
 .cs-card span{font-size:12px;color:var(--dim);line-height:1.65}
 
-.cs-home{
-  display:inline-block;margin-top:16px;
-  color:var(--dim);font-size:12px;text-decoration:none;
-}
-.cs-home:hover{color:var(--accent)}
 
 .cs-note{
   position:absolute;left:0;right:0;bottom:8px;
@@ -153,6 +156,15 @@ body{
 .cs-vol > span{width:56px;flex:none;white-space:nowrap;text-align:left}
 .cs-vol input{flex:1;accent-color:var(--accent);cursor:pointer}
 .cs-vol b{width:44px;text-align:right;color:var(--fg);font-variant-numeric:tabular-nums}
+.cs-link{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding:12px 0;margin-bottom:12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  text-align:left;
+}
+.cs-link b{display:block;font-size:13px}
+.cs-link span{display:block;margin-top:3px;font-size:12px;color:var(--dim)}
+.cs-link a.cs-btn{text-decoration:none;white-space:nowrap}
+.cs-ver{margin:14px 0 0;font-size:11px;color:#4e5f75;text-align:right}
 .cs-credits{font-size:12px;color:var(--dim);line-height:1.9;margin-bottom:6px}
 .cs-credits a{color:var(--accent)}
 

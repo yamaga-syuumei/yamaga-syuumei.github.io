@@ -1038,9 +1038,9 @@ function paintSave() {
 }
 paintSave();
 
-// 音は右上のボタンひとつから。開いている間は盤面を止める（走っている最中に触るため）
+// オプションは右上の歯車ひとつから。開いている間は盤面を止める（走っている最中に触るため）
 const btnSound = $('btnSound');
-function paintMute() { btnSound.textContent = Snd.isMuted() ? '🔇' : '🔊'; }
+function paintMute() { btnSound.classList.toggle('is-mute', Snd.isMuted()); }
 $('btnMute').onclick = () => { Snd.boot(); Snd.setMute(!Snd.isMuted()); paintMute(); syncVol(); };
 
 const ovSound = $('ovSound');

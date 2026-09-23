@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=7772544d">
+<link rel="stylesheet" href="style.css?v=fae1cfe6">
 </head>
 <body>
 
@@ -39,7 +39,7 @@
     </div>
 
     <div class="cs-right">
-      <button class="cs-btn" id="btnSound">🔊</button>
+      <button class="cs-btn cs-icon cs-icon-gear" id="btnSound" title="オプション" aria-label="オプション"></button>
     </div>
   </div>
 
@@ -62,25 +62,32 @@
         <button class="cs-btn" id="btnResume" hidden></button>
       </div>
       <p class="cs-rec" id="rec" hidden></p>
-      <a class="cs-home" href="../">← ヒノガタリ</a>
     </div>
   </div>
 
-  <!-- 音量 -->
+  <!-- オプション。開いている間は盤面を止める -->
   <div class="cs-ov" id="ovSound" hidden>
     <div class="cs-panel">
-      <h2>音</h2>
+      <h2>オプション</h2>
       <div class="cs-vols">
         <label class="cs-vol"><span>BGM</span>
           <input type="range" id="vBgm" min="0" max="1" step="0.05"><b id="vBgmV"></b></label>
         <label class="cs-vol"><span>効果音</span>
           <input type="range" id="vSe" min="0" max="1" step="0.05"><b id="vSeV"></b></label>
       </div>
+      <div class="cs-link">
+        <div>
+          <b>ヒノガタリ</b>
+          <span>ほかのブラウザゲームと小説の置き場所です。</span>
+        </div>
+        <a class="cs-btn" href="../">トップへ</a>
+      </div>
       <div class="cs-credits" id="csCredits"></div>
       <div class="cs-btns">
         <button class="cs-btn" id="btnMute">ミュート</button>
         <button class="cs-btn cs-btn-p" id="btnSoundClose">閉じる</button>
       </div>
+      <p class="cs-ver">コリジョン・シューティングスター ベータ 0.5</p>
     </div>
   </div>
 
@@ -108,7 +115,7 @@
 
 <script src="sound.js?v=d7a5faf3"></script>
 <script src="art.js?v=a9f137eb"></script>
-<script src="game.js?v=5dbc1f17"></script>
+<script src="game.js?v=5e1a1bff"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
