@@ -87,6 +87,7 @@ canvas{touch-action:none; display:block}
 .al-cards::-webkit-scrollbar{height:5px}
 .al-cards::-webkit-scrollbar-thumb{background:#d8ccbb; border-radius:3px}
 .al-card{
+  position:relative;
   display:flex; align-items:center; gap:8px; flex:0 0 auto;
   background:#fff; border:1px solid var(--line); border-radius:9px;
   padding:6px 11px 6px 8px; text-align:left; transition:.12s;
@@ -94,6 +95,14 @@ canvas{touch-action:none; display:block}
 .al-card:hover{border-color:var(--magic-lt); background:#faf5ff}
 .al-card.on{border-color:var(--magic); background:#f1e8fb}
 .al-card.poor{opacity:.42}
+/* 研究で増えたばかりのカード */
+.al-new{
+  position:absolute; top:-6px; right:-5px;
+  background:#e0962c; color:#fff; border-radius:8px;
+  padding:1px 5px; font-size:8.5px; font-weight:700; letter-spacing:.04em;
+  text-decoration:none; line-height:1.4;
+}
+.al-tab .al-dot,.al-grp .al-dot{margin-left:4px}
 .al-card span{display:flex; flex-direction:column; line-height:1.3}
 .al-card b{font-size:12.5px; font-weight:600}
 .al-card i{font-style:normal; font-size:10.5px; color:var(--dim)}
@@ -121,23 +130,33 @@ canvas{touch-action:none; display:block}
   position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
   background:rgba(60,44,90,.34); padding:18px;
 }
+/* 見出しと閉じるは動かさず、中身だけスクロールさせる。
+   長い一覧で、閉じるまでスクロールしないと届かないのを止めるため。 */
 .al-panel{
   background:var(--panel); border:1px solid var(--line); border-radius:14px;
-  padding:16px 18px; width:min(420px,100%); max-height:88vh; overflow:auto;
+  padding:16px 18px; width:min(420px,100%); max-height:88vh;
+  display:flex; flex-direction:column;
   box-shadow:0 18px 50px rgba(60,44,90,.25);
 }
-.al-panel-w{width:min(880px,100%)}
-.al-ovhead{font-size:16px; font-weight:600; margin-bottom:12px}
-.al-ovbtns{display:flex; gap:8px; justify-content:flex-end; margin-top:14px}
+.al-panel-w{width:min(940px,100%)}
+.al-ovhead{flex:0 0 auto; font-size:16px; font-weight:600; margin-bottom:12px}
+.al-ovbtns{flex:0 0 auto; display:flex; gap:8px; justify-content:flex-end; margin-top:14px}
+.al-panel > .al-cols,
+.al-panel > .al-codex,
+.al-panel > .al-logbody,
+.al-panel > #certBody{flex:1 1 auto; min-height:0; overflow-y:auto; padding-right:4px}
 
-.al-cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px}
-.al-col h4{margin:0 0 7px; font-size:12px; color:var(--dim); font-weight:600;
+.al-cols{display:flex; flex-direction:column; gap:14px}
+.al-resec h4{margin:0 0 7px; font-size:12px; color:var(--dim); font-weight:600;
   border-bottom:1px solid var(--line); padding-bottom:4px}
+.al-resgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(196px,1fr)); gap:5px}
 .al-res{
-  display:flex; justify-content:space-between; align-items:baseline; gap:8px; width:100%;
+  display:flex; justify-content:space-between; align-items:baseline; gap:6px; width:100%;
   background:#fff; border:1px solid var(--line); border-radius:8px;
-  padding:6px 9px; margin-bottom:5px; text-align:left;
+  padding:6px 9px; text-align:left;
 }
+.al-res em{font-style:normal; font-size:10px; color:var(--magic); margin-left:auto; white-space:nowrap}
+.al-res em + i{margin-left:0}
 .al-res:hover:not(:disabled){border-color:var(--magic-lt); background:#faf5ff}
 .al-res b{font-size:12.5px; font-weight:500}
 .al-res i{font-style:normal; font-size:10.5px; color:var(--gold); white-space:nowrap}

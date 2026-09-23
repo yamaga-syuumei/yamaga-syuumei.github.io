@@ -109,7 +109,7 @@
     return {
       w: BOARD.w, h: BOARD.h, cell: [], nodes: [], belts: [],
       money: BOARD.startMoney, total: 0, tier: 0, landBuys: 0, bridges: 0,
-      unlock: {}, done: {}, sold: {}, log: {}, logNew: 0,
+      unlock: {}, done: {}, sold: {}, log: {}, logNew: 0, seen: {},
       bonus: { belt: 0, sellRate: 0, price: 0, land: 0, rock: 0 },
       beltPhase: 0, acc: 0, flowT: 0, boom: false,
     };
@@ -121,16 +121,24 @@
     return a;
   }
 
+  // 研究は「解放（一度きり）」と「強化（レベル）」の2種類。
+  // st.done[key] にはレベルを入れる（古い保存の true は 1 として読む）。
+  const resLv = (r) => {
+    const v = st.done[r.key];
+    return typeof v === 'number' ? v : (v ? 1 : 0);
+  };
+  const resMax = (r) => r.max || 1;
+  const resCost = (r, lv) => Math.round(r.cost * Math.pow(r.costMul || 1, lv === undefined ? resLv(r) : lv));
+
   function applyResearch() {
     st.bonus = { belt: 0, sellRate: 0, price: 0, land: 0, rock: 0 };
     st.unlock = {};
     D.START_UNLOCK.forEach((k) => { st.unlock[k] = true; });
     RESEARCH.forEach((r) => {
-      if (!st.done[r.key]) return;
+      const lv = resLv(r);
+      if (!lv) return;
       (r.unlock || []).forEach((k) => { st.unlock[k] = true; });
-      ['belt', 'sellRate', 'price', 'land', 'rock'].forEach((b) => {
-        if (r[b]) st.bonus[b] += r[b];
-      });
+      if (r.stat) st.bonus[r.stat] += r.per * lv;
     });
   }
 
@@ -1182,6 +1190,25 @@
     return c;
   }
 
+  // 一度も選んでいないカードは NEW。研究で増えた物がどこに出たか分かるようにする。
+  const isNew = (key) => !st.seen[key];
+
+  function seeAll() {
+    ['prod', 'fac', 'shop', 'logi'].forEach((t) => {
+      const keep = tab; tab = t;
+      tabList().forEach((b) => { st.seen[b.key] = 1; });
+      tab = keep;
+    });
+  }
+
+  // そのタブがNEWを抱えているか（格の札にも点を出す）
+  function newIn(tabKey, rank) {
+    const keep = tab; tab = tabKey;
+    const hit = tabList().some((b) => isNew(b.key) && (rank === undefined || rankOf(b.key) === rank));
+    tab = keep;
+    return hit;
+  }
+
   // そのタブに出せるもの全部（格で絞る前）
   function tabList() {
     const out = [];
@@ -1219,7 +1246,8 @@
 
   function refreshPalette() {
     const sig = tab + ':' + groupSel[tab] + '|' + groupsOf(tabList()).join('.')
-      + '|' + paletteList().map((d) => d.key + (st.money >= d.cost ? '1' : '0')).join(',')
+      + '|' + paletteList().map((d) => d.key + (st.money >= d.cost ? '1' : '0') + (isNew(d.key) ? 'n' : '')).join(',')
+      + '|' + TABS.map((t) => (newIn(t.key) ? 1 : 0)).join('')
       + '|' + (placing ? placing.def.key : '');
     if (sig === palSig) return;
     palSig = sig;
@@ -1233,6 +1261,7 @@
       const b = document.createElement('button');
       b.className = 'al-tab' + (tab === t.key ? ' on' : '');
       b.textContent = t.name;
+      if (newIn(t.key)) b.appendChild(dot());
       b.onclick = () => { SND.unlock(); SND.se('ui'); tab = t.key; refreshPalette(); };
       bar.appendChild(b);
     });
@@ -1247,6 +1276,7 @@
           const b = document.createElement('button');
           b.className = 'al-grp' + (groupSel[tab] === i ? ' on' : '');
           b.textContent = TIERS[i].name;
+          if (newIn(tab, i)) b.appendChild(dot());
           b.onclick = () => { SND.unlock(); SND.se('ui'); groupSel[tab] = i; refreshPalette(); };
           bar.appendChild(b);
         });
@@ -1270,17 +1300,31 @@
       const t = document.createElement('span');
       t.innerHTML = '<b>' + def.name + '</b><i>' + (def.sub || '') + '</i><em>' + def.cost + 'G</em>';
       d.appendChild(t);
+      if (isNew(def.key)) {
+        const n = document.createElement('u');
+        n.className = 'al-new';
+        n.textContent = 'NEW';
+        d.appendChild(n);
+      }
       const afford = st.money >= def.cost;
       d.classList.toggle('poor', !afford);
       d.classList.toggle('on', !!placing && placing.def.key === def.key);
       d.onclick = () => {
         SND.unlock(); SND.se('ui');
+        st.seen[def.key] = 1;
+        save();
         if (def.bridge) { buyBridge(def.cost); return; }
         placing = (placing && placing.def.key === def.key) ? null : { def, rot: 0 };
         refreshPalette();
       };
       box.appendChild(d);
     });
+  }
+
+  function dot() {
+    const d = document.createElement('i');
+    d.className = 'al-dot';
+    return d;
   }
 
   function buyBridge(cost) {
@@ -1358,11 +1402,11 @@
   // ---------------------------------------------------------------- 研究
   // 研究の説明は data.js から組み立てる。表を別に持つと必ずずれるため。
   const RES_EFFECT = {
-    belt:     (v) => '全部のベルトが速くなる（+' + (v * 2) + ' マス/秒）',
-    sellRate: (v) => '全部の販売所が速く捌ける（+' + Math.round(v * 100) + '%）',
-    price:    (v) => '全部の売値が上がる（+' + Math.round(v * 100) + '%）',
-    land:     (v) => '土地の値段が下がる（−' + Math.round(v * 100) + '%）',
-    rock:     (v) => '岩の撤去費が下がる（−' + Math.round(v * 100) + '%）',
+    belt:     (v) => ['全部の送り道が速くなる', '+' + (v * 2) + ' マス/秒'],
+    sellRate: (v) => ['全部のお店が速く捌ける', '+' + Math.round(v * 100) + '%'],
+    price:    (v) => ['全部の売値が上がる', '+' + Math.round(v * 100) + '%'],
+    land:     (v) => ['土地の値段が下がる', '−' + Math.round(v * 100) + '%'],
+    rock:     (v) => ['瓦礫の撤去費が下がる', '−' + Math.round(v * 100) + '%'],
   };
 
   function unlockName(k) {
@@ -1374,13 +1418,20 @@
 
   function resLines(r) {
     const out = [];
+    const lv = resLv(r), max = resMax(r);
     if (r.unlock) out.push(['買えるようになる：' + r.unlock.map(unlockName).join('、'), '']);
-    Object.keys(RES_EFFECT).forEach((k) => {
-      if (r[k]) out.push([RES_EFFECT[k](r[k]), '']);
-    });
-    if (st.done[r.key]) out.push(['解放済み', 'dim']);
+    if (r.stat) {
+      const e = RES_EFFECT[r.stat];
+      out.push([e(r.per)[0] + '。1レベルにつき ' + e(r.per)[1], '']);
+      out.push(['いま Lv' + lv + ' / ' + max + '　合計 ' + e(r.per * lv)[1], 'dim']);
+    }
+    if (lv >= max) out.push([r.stat ? 'これ以上は上げられない' : '解放済み', 'dim']);
     else if (r.tier > st.tier) out.push([TIERS[r.tier].name + 'に届くまで買えない', 'dim']);
-    else if (st.money < r.cost) out.push(['あと ' + (r.cost - st.money).toLocaleString() + 'G 足りない', 'dim']);
+    else {
+      const c = resCost(r, lv);
+      out.push([(r.stat ? '次のレベル ' : '') + c.toLocaleString() + 'G', 'dim']);
+      if (st.money < c) out.push(['あと ' + (c - st.money).toLocaleString() + 'G 足りない', 'dim']);
+    }
     return out;
   }
 
@@ -1410,45 +1461,58 @@
   let resEls = [];
   function syncResearch() {
     resEls.forEach(({ r, b }) => {
-      const off = st.done[r.key] || r.tier > st.tier || st.money < r.cost;
+      const lv = resLv(r);
+      const off = lv >= resMax(r) || r.tier > st.tier || st.money < resCost(r, lv);
       b.classList.toggle('off', !!off);
     });
   }
 
   function buildResearch() {
     const box = el('resBody');
-    const keep = box.parentElement ? box.parentElement.scrollTop : 0;
+    const keep = box.scrollTop;
     box.innerHTML = '';
     resEls = [];
+    // 柱を列で並べると錬成だけ極端に長くなるので、柱ごとの帯にして折り返す
     PILLARS.forEach((p) => {
       const col = document.createElement('div');
-      col.className = 'al-col';
+      col.className = 'al-resec';
       const h = document.createElement('h4');
       h.textContent = p.name;
       col.appendChild(h);
+      const grid = document.createElement('div');
+      grid.className = 'al-resgrid';
+      col.appendChild(grid);
       RESEARCH.filter((r) => r.p === p.key).forEach((r) => {
-        const done = !!st.done[r.key];
+        const done = resLv(r) >= resMax(r);
         const locked = r.tier > st.tier;
         const b = document.createElement('button');
-        const off = done || locked || st.money < r.cost;
+        const off = done || locked || st.money < resCost(r);
         b.className = 'al-res' + (done ? ' done' : locked ? ' locked' : '') + (off ? ' off' : '');
-        b.innerHTML = '<b>' + r.name + '</b><i>' + (done ? '解放済み' : locked ? TIERS[r.tier].name + 'から' : r.cost + 'G') + '</i>';
+        const lv = resLv(r), max = resMax(r);
+        const right = done ? (r.stat ? '最大' : '解放済み')
+          : locked ? TIERS[r.tier].name + 'から'
+            : resCost(r).toLocaleString() + 'G';
+        b.innerHTML = '<b>' + r.name + '</b>'
+          + (max > 1 ? '<em>Lv' + lv + '/' + max + '</em>' : '')
+          + '<i>' + right + '</i>';
         b.onclick = () => buyResearch(r);
         b.onmouseenter = () => showTip(b, resLines(r));
         b.onmouseleave = hideTip;
         resEls.push({ r, b });
-        col.appendChild(b);
+        grid.appendChild(b);
       });
       box.appendChild(col);
     });
-    if (box.parentElement) box.parentElement.scrollTop = keep;
+    box.scrollTop = keep;
     hideTip();
   }
 
   function buyResearch(r) {
-    if (st.done[r.key] || r.tier > st.tier || st.money < r.cost) { SND.se('deny'); return; }
-    st.money -= r.cost;
-    st.done[r.key] = true;
+    const lv = resLv(r);
+    const c = resCost(r, lv);
+    if (lv >= resMax(r) || r.tier > st.tier || st.money < c) { SND.se('deny'); return; }
+    st.money -= c;
+    st.done[r.key] = lv + 1;
     applyResearch();
     // 増えたカードが埋もれないよう、その格へ寄せておく
     if (r.unlock) { groupSel.fac = r.tier; groupSel.shop = r.tier; }
@@ -1553,7 +1617,7 @@
       });
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         w: st.w, h: st.h, money: st.money, total: st.total, tier: st.tier,
-        landBuys: st.landBuys, bridges: st.bridges, done: st.done, sold: st.sold, log: st.log,
+        landBuys: st.landBuys, bridges: st.bridges, done: st.done, sold: st.sold, log: st.log, seen: st.seen,
         rocks: st.cell.map((c, i) => (c.rock ? i : -1)).filter((i) => i >= 0),
         nodes: st.nodes.map((n) => ({ d: n.def.key, x: n.x, y: n.y, r: n.rot, l: n.lv })),
         belts: st.belts.map((b) => ({ f: pi.get(b.from), t: pi.get(b.to), c: b.cells.map((c) => [c.x, c.y]) })),
@@ -1571,7 +1635,7 @@
     (raw.rocks || []).forEach((i) => { if (st.cell[i]) st.cell[i].rock = true; });
     st.money = raw.money; st.total = raw.total; st.tier = raw.tier || 0;
     st.landBuys = raw.landBuys || 0; st.bridges = raw.bridges || 0;
-    st.done = raw.done || {}; st.sold = raw.sold || {}; st.log = raw.log || {};
+    st.done = raw.done || {}; st.sold = raw.sold || {}; st.log = raw.log || {}; st.seen = raw.seen || {};
     applyResearch();
     raw.nodes.forEach((n) => {
       const def = BUILDS[n.d];
@@ -1593,6 +1657,7 @@
     st = blank();
     st.cell = makeCells(st.w, st.h);
     applyResearch();
+    seeAll();
     // 開始時、敷地には魔鉱石の採取地1と魔鉱石屋1が置いてある。送り道は1本も引いてない。
     addNode(mkNode(BUILDS.src_magicore, 2, Math.floor(st.h / 2), 0, 0));
     addNode(mkNode(BUILDS.shop_magicore, st.w - 3, Math.floor(st.h / 2), 2, 0));
