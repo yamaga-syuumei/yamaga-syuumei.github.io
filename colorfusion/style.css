@@ -30,19 +30,12 @@ html, body {
   top: max(10px, env(safe-area-inset-top));
   left: max(12px, env(safe-area-inset-left));
   right: max(12px, env(safe-area-inset-right));
-  display: flex; gap: 8px; align-items: center;
+  display: flex; gap: 8px; align-items: center; justify-content: flex-end;
   font-size: 12px; letter-spacing: .04em;
   color: rgba(180,215,255,.6);
   pointer-events: none;
 }
 .hud span { flex: 1; }
-/* .hud は遊んでいる間 .bare（右寄せ）になるので、戻り先は左に固定する */
-.cf-home {
-  pointer-events: auto; margin-right: auto;
-  color: rgba(200,230,255,.7); text-decoration: none;
-  font-weight: 700; white-space: nowrap;
-}
-.cf-home:hover { color: #fff; }
 .hud button {
   pointer-events: auto;
   font: inherit; font-size: 12px;
@@ -54,6 +47,12 @@ html, body {
   cursor: pointer;
 }
 .hud button:hover { background: rgba(45,85,130,.6); }
+.cf-icon { padding: 4px; display: flex; align-items: center; justify-content: center; }
+.cf-icon-gear::before {
+  content: ""; width: 18px; height: 18px; background: currentColor;
+  -webkit-mask: url(/img/icon-settings.png) center / contain no-repeat;
+  mask: url(/img/icon-settings.png) center / contain no-repeat;
+}
 
 .hint {
   position: fixed;
@@ -112,10 +111,42 @@ html, body {
 }
 .over button:hover { background: rgba(45,90,138,.75); }
 
-/* 設定パネル（音量と素材の出どころ） */
-.panel.set { width: 230px; }
-.panel.set label { grid-template-columns: 56px 1fr 40px; }
-.credits { color: rgba(175,210,245,.7); line-height: 1.6; }
+/* オプション（音量・サイト・素材の出どころ） */
+.cf-modal {
+  position: fixed; inset: 0; z-index: 6;
+  background: rgba(4,10,20,.72);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 28px 14px; overflow-y: auto;
+}
+.cf-modal-box {
+  width: 100%; max-width: 420px;
+  background: rgba(14,26,44,.96); border: 1px solid rgba(130,190,255,.3);
+  border-radius: 12px; padding: 14px 18px 18px;
+  display: grid; gap: 4px;
+  color: rgba(200,230,255,.85); font-size: 12px; letter-spacing: .04em;
+}
+.cf-modal-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 8px;
+}
+.cf-modal-title { font-size: 14px; color: #cfe8ff; letter-spacing: .08em; }
+.cf-modal-close {
+  font: inherit; font-size: 12px; text-decoration: none;
+  color: rgba(210,238,255,.9); background: rgba(28,58,92,.6);
+  border: 1px solid rgba(130,190,255,.45); border-radius: 6px;
+  padding: 5px 13px; cursor: pointer; white-space: nowrap;
+}
+.cf-modal-close:hover { background: rgba(45,90,138,.75); }
+.cf-row {
+  display: grid; grid-template-columns: 56px 1fr 40px; gap: 8px; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid rgba(120,180,255,.14);
+}
+.cf-row input[type=range] { width: 100%; accent-color: #5fc8ff; }
+.cf-row > b { text-align: right; font-variant-numeric: tabular-nums; color: #8fd8ff; }
+.cf-row-wide { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.cf-row-wide b { color: #cfe8ff; font-size: 12.5px; }
+.cf-note { display: block; margin-top: 3px; color: rgba(160,200,240,.6); }
+.credits { margin-top: 10px; color: rgba(175,210,245,.7); line-height: 1.6; }
 .credits .ttl { color: rgba(200,230,255,.85); margin-bottom: 3px; }
 .credits .none { color: rgba(160,195,230,.5); }
 .credits a { color: #8fd8ff; }
