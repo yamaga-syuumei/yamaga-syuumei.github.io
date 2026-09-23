@@ -558,6 +558,19 @@
       c.stroke();
       c.beginPath(); c.moveTo(-r * .5, r * .9); c.lineTo(-r * .5, r * .1);
       c.lineTo(r * .5, r * .1); c.lineTo(r * .5, r * .9); c.stroke();
+    } else if (kind === 'shop') {
+      // 何も繋いでいないお店。日よけと台
+      c.fillStyle = '#c07a3c';
+      poly(c, [[-r, -r * .1], [-r * .8, -r * .8], [r * .8, -r * .8], [r, -r * .1]]);
+      c.fill();
+      c.save(); c.globalAlpha = .35; c.fillStyle = '#fffaf0';
+      c.fillRect(-r * .55, -r * .8, r * .32, r * .74);
+      c.fillRect(r * .2, -r * .8, r * .32, r * .74);
+      c.restore();
+      c.strokeStyle = '#8a5a28'; c.lineWidth = Math.max(1.4, r * .2);
+      line(c, [[-r * .8, r * .25], [r * .8, r * .25]]);
+      line(c, [[-r * .55, r * .25], [-r * .55, r]]);
+      line(c, [[r * .55, r * .25], [r * .55, r]]);
     } else if (kind === 'rubble') {
       c.fillStyle = '#b3a5c4';
       fill(c, [[-r, r * .8], [-r * .7, -r * .3], [0, -r], [r * .75, -r * .2], [r, r * .8]]);

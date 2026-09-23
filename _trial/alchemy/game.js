@@ -49,24 +49,19 @@
     BUILDS[l.key] = { key: l.key, k: l.key, tab: 'logi', name: l.name, kind: l.name,
       sub: l.key === 'split' ? '交互に振り分ける' : '詰まりを吸収', hold: l.hold, cost: l.cost };
   });
-  // 販売所は品目ごと。作れるようになった品目の店が自動で並ぶ。
-  Object.keys(ITEMS).forEach((key) => {
-    BUILDS['shop_' + key] = { key: 'shop_' + key, k: 'shop', tab: 'shop',
-      name: ITEMS[key].name + '屋', kind: 'お店', sub: ITEMS[key].price + 'G', item: key,
-      secs: SHOP.secs, cost: SHOP.baseCost + ITEMS[key].price * SHOP.costPerPrice };
-  });
+  // お店は1種類。流れてきた物をその値段で売る。値段は持っている数で上がる。
+  BUILDS.shop = { key: 'shop', k: 'shop', tab: 'shop', name: 'お店', kind: 'お店',
+    sub: '流れてきた物を売る', secs: SHOP.secs, cost: SHOP.baseCost };
+  const shopCount = () => st.nodes.filter((n) => n.k === 'shop').length;
+  const shopCost = (n) => Math.round(SHOP.baseCost * Math.pow(SHOP.step, Math.max(0, n)));
+  // 買うときも売るときも、その軒数のときの値段で数える
+  const defCost = (def) => (def.k === 'shop' ? shopCost(shopCount()) : def.cost);
+  const sellBack = (n) => Math.round((n.k === 'shop' ? shopCost(shopCount() - 1) : n.def.cost) / 2);
 
   // 設備がどの格で解放されるか。購入パレットの並べ替えに使う。
   const RANK_OF = {};
   D.START_UNLOCK.forEach((k) => { RANK_OF[k] = 0; });
   RESEARCH.forEach((r) => (r.unlock || []).forEach((k) => { RANK_OF[k] = r.tier; }));
-  // お店はその品を作れるようになった格に並ぶ
-  Object.keys(ITEMS).forEach((key) => {
-    const from = SOURCES.filter((x) => x.item === key).map((x) => RANK_OF[x.key])
-      .concat(RECIPES.filter((x) => x.make === key).map((x) => RANK_OF[x.key]))
-      .filter((v) => v !== undefined);
-    if (from.length) RANK_OF['shop_' + key] = Math.min.apply(null, from);
-  });
   const rankOf = (key) => (RANK_OF[key] === undefined ? 0 : RANK_OF[key]);
 
   // その品目を作れるか（＝お店を並べてよいか）
@@ -157,7 +152,7 @@
       ins: [], outs: [], t: 0, craftT: -1, pending: null, hold: [], turn: 0, flow: null, lit: 0 };
     const s = sidesOf(def, n);
     s.in.forEach((side, i) => {
-      const item = def.k === 'fac' ? def.in[i] : def.k === 'shop' ? def.item : null;
+      const item = def.k === 'fac' ? def.in[i] : null;
       n.ins.push(mkPort(n, side, 'in', item));
     });
     s.out.forEach((side) => {
@@ -194,14 +189,14 @@
   // 複製機と倉庫は品目を持たない。繋いだ上流から流れてくる物で決まる。
   function resolve() {
     st.nodes.forEach((n) => {
-      if (n.k !== 'split' && n.k !== 'store') return;
+      if (n.k !== 'split' && n.k !== 'store' && n.k !== 'shop') return;
       n.flow = null;
       n.ins.concat(n.outs).forEach((p) => { p.item = null; });
     });
     for (let pass = 0; pass < st.nodes.length + 2; pass++) {
       let changed = false;
       for (const n of st.nodes) {
-        if (n.k !== 'split' && n.k !== 'store') continue;
+        if (n.k !== 'split' && n.k !== 'store' && n.k !== 'shop') continue;
         const up = n.ins[0].belt ? n.ins[0].belt.from.item : null;
         if (up && n.flow !== up) {
           n.flow = up;
@@ -248,7 +243,7 @@
   // 品目が変わった複製機・倉庫の中身は捨てる。前の品が混ざったままになるため。
   function flushCarriers() {
     st.nodes.forEach((n) => {
-      if (n.k !== 'split' && n.k !== 'store') return;
+      if (n.k !== 'split' && n.k !== 'store' && n.k !== 'shop') return;
       n.hold.length = 0;
       n.ins.concat(n.outs).forEach((p) => { p.buf.length = 0; });
     });
@@ -715,8 +710,9 @@
   function place(x, y) {
     const def = placing.def;
     if (!free(x, y)) { SND.se('deny'); return; }
-    if (st.money < def.cost) { SND.se('deny'); return; }
-    st.money -= def.cost;
+    const c = defCost(def);
+    if (st.money < c) { SND.se('deny'); return; }
+    st.money -= c;
     addNode(mkNode(def, x, y, placing.rot, 0));
     resolve();
     SND.se('place');
@@ -743,7 +739,7 @@
   }
 
   function sellNode(n) {
-    st.money += Math.round(n.def.cost / 2);
+    st.money += sellBack(n);
     dropNode(n);
     SND.se('ui');
     save();
@@ -1042,13 +1038,18 @@
         ctx.restore();
       }
     } else if (def.k === 'shop') {
-      // お店も採取地・錬成陣と同じ目盛りでレベルを出す。
-      // メニューを開かないと分からない、をなくすため。
-      drawItem(ctx, def.item, mx, my - cs * .2, cs * .2);
-      ctx.fillStyle = '#a8621f';
-      ctx.font = '700 ' + Math.round(cs * .19) + 'px sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(priceOf(def.item) + 'G', mx, my + cs * .13);
+      // 扱う品は繋いだ相手で決まる。繋ぐまでは看板だけ。
+      const it = n && n.flow;
+      if (it) {
+        drawItem(ctx, it, mx, my - cs * .2, cs * .2);
+        ctx.fillStyle = '#a8621f';
+        ctx.font = '700 ' + Math.round(cs * .19) + 'px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(priceOf(it).toLocaleString() + 'G', mx, my + cs * .13);
+      } else {
+        drawGlyph(ctx, 'shop', mx, my - cs * .06, cs * .26);
+      }
+      // 採取地・錬成陣と同じ目盛りでレベルを出す
       drawSpeed(ctx, mx, my + cs * .40, cs * .58, cs * .2, lv + 1);
     } else {
       drawGlyph(ctx, def.k, mx, my, cs * .24);
@@ -1178,8 +1179,8 @@
     { key: 'logi', name: '物流' },
   ];
   let tab = 'prod';
-  const GROUPED = { fac: 1, shop: 1 };        // 数が多いタブは格で分ける
-  const groupSel = { fac: 0, shop: 0 };
+  const GROUPED = { fac: 1 };                // 数が多いタブは格で分ける
+  const groupSel = { fac: 0 };
 
   function cardIcon(def) {
     const c = document.createElement('canvas');
@@ -1216,7 +1217,7 @@
   function tabList() {
     const out = [];
     if (tab === 'shop') {
-      Object.keys(ITEMS).forEach((k) => { if (producible(k)) out.push(BUILDS['shop_' + k]); });
+      out.push(BUILDS.shop);
     } else {
       Object.keys(BUILDS).forEach((k) => {
         const b = BUILDS[k];
@@ -1249,7 +1250,7 @@
 
   function refreshPalette() {
     const sig = tab + ':' + groupSel[tab] + '|' + groupsOf(tabList()).join('.')
-      + '|' + paletteList().map((d) => d.key + (st.money >= d.cost ? '1' : '0') + (isNew(d.key) ? 'n' : '')).join(',')
+      + '|' + paletteList().map((d) => d.key + defCost(d) + (st.money >= defCost(d) ? '1' : '0') + (isNew(d.key) ? 'n' : '')).join(',')
       + '|' + TABS.map((t) => (newIn(t.key) ? 1 : 0)).join('')
       + '|' + (placing ? placing.def.key : '');
     if (sig === palSig) return;
@@ -1301,7 +1302,8 @@
       d.className = 'al-card';
       d.appendChild(cardIcon(def));
       const t = document.createElement('span');
-      t.innerHTML = '<b>' + def.name + '</b><i>' + (def.sub || '') + '</i><em>' + def.cost + 'G</em>';
+      t.innerHTML = '<b>' + def.name + '</b><i>' + (def.sub || '') + '</i><em>'
+        + defCost(def).toLocaleString() + 'G</em>';
       d.appendChild(t);
       if (isNew(def.key)) {
         const n = document.createElement('u');
@@ -1309,7 +1311,7 @@
         n.textContent = 'NEW';
         d.appendChild(n);
       }
-      const afford = st.money >= def.cost;
+      const afford = st.money >= defCost(def);
       d.classList.toggle('poor', !afford);
       d.classList.toggle('on', !!placing && placing.def.key === def.key);
       d.onclick = () => {
@@ -1379,8 +1381,9 @@
       const rated = n.k === 'src' || n.k === 'fac' || n.k === 'shop';
       const per = n.k === 'shop' ? sellTicks(n.def, n.lv) / TPS : nodeTicks(n.def, n.lv) / TPS;
       el('mName').textContent = n.def.name;
+      const what = n.k === 'shop' ? (n.flow ? ITEMS[n.flow].name : 'まだ何も来ていない') : '';
       el('mInfo').textContent = rated
-        ? n.def.kind + '　Lv' + (n.lv + 1) + '　' + per.toFixed(1) + '秒に1つ'
+        ? n.def.kind + '　Lv' + (n.lv + 1) + '　' + per.toFixed(1) + '秒に1つ' + (what ? '　' + what : '')
         : n.def.kind + '　' + n.def.sub;
       const maxed = n.lv >= LEVEL.max - 1;
       if (rated) {
@@ -1388,7 +1391,7 @@
           () => { levelUp(n); buildMenu(); }, maxed || st.money < lvCost(n));
       }
       menuItem('回転（ホイールでも回る）', () => { rotate(n); buildMenu(); });
-      menuItem('売却 +' + Math.round(n.def.cost / 2) + 'G', () => { sellNode(n); closeMenu(); });
+      menuItem('売却 +' + sellBack(n).toLocaleString() + 'G', () => { sellNode(n); closeMenu(); });
     } else if (menu.kind === 'belt') {
       el('mName').textContent = '送り道';
       el('mInfo').textContent = menu.belt.cells.length + 'マス';
@@ -1518,7 +1521,7 @@
     st.done[r.key] = lv + 1;
     applyResearch();
     // 増えたカードが埋もれないよう、その格へ寄せておく
-    if (r.unlock) { groupSel.fac = r.tier; groupSel.shop = r.tier; }
+    if (r.unlock) groupSel.fac = r.tier;
     SND.se('research');
     buildResearch();
     buildPalette();
@@ -1641,7 +1644,7 @@
     st.done = raw.done || {}; st.sold = raw.sold || {}; st.log = raw.log || {}; st.seen = raw.seen || {};
     applyResearch();
     raw.nodes.forEach((n) => {
-      const def = BUILDS[n.d];
+      const def = BUILDS[n.d] || (n.d.indexOf('shop_') === 0 ? BUILDS.shop : null);
       if (def) addNode(mkNode(def, n.x, n.y, n.r, n.l));
     });
     const port = (ref) => {
@@ -1663,7 +1666,7 @@
     seeAll();
     // 開始時、敷地には魔鉱石の採取地1と魔鉱石屋1が置いてある。送り道は1本も引いてない。
     addNode(mkNode(BUILDS.src_magicore, 2, Math.floor(st.h / 2), 0, 0));
-    addNode(mkNode(BUILDS.shop_magicore, st.w - 3, Math.floor(st.h / 2), 2, 0));
+    addNode(mkNode(BUILDS.shop, st.w - 3, Math.floor(st.h / 2), 2, 0));
     resolve();
     save();
   }
