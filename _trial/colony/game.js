@@ -521,7 +521,9 @@
     }
     if (!drag) {
       hoverBelt = inBoard(pc.x, pc.y) ? beltAt(pc.x, pc.y) : null;
-      cv.style.cursor = placing ? 'copy' : hoverExpand ? 'pointer' : hoverBelt ? 'pointer' : 'crosshair';
+      const onRock = inBoard(pc.x, pc.y) && at(pc.x, pc.y).rock;
+      cv.style.cursor = placing ? 'copy'
+        : (hoverExpand || onRock || hoverBelt) ? 'pointer' : 'crosshair';
       return;
     }
     if (!inBoard(pc.x, pc.y)) return;
@@ -750,6 +752,7 @@
     for (let y = 0; y < st.h; y++) for (let x = 0; x < st.w; x++) {
       if (at(x, y).rock) drawGlyph(ctx, 'rock', midX(x), midY(y), cs * 0.38);
     }
+    drawRockPrice();
 
     drawExpand();
     st.belts.forEach(drawBelt);
@@ -760,6 +763,28 @@
     if (placing) drawGhost();
     if (moving && moving.moved) drawMoveGhost();
     drawPops();
+  }
+
+  // 岩に乗せたら撤去の値段を出す。盤面の外の ＋ と同じ見せ方に揃える
+  function drawRockPrice() {
+    if (!hoverCell || placing || drag || moving) return;
+    if (!at(hoverCell.x, hoverCell.y).rock) return;
+    const c = rockCost();
+    const can = st.money >= c;
+    const x = midX(hoverCell.x), y = midY(hoverCell.y);
+    const txt = '撤去 ' + c + 'G';
+    ctx.save();
+    ctx.font = '600 ' + Math.round(Math.max(10, cs * 0.24)) + 'px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(txt).width + cs * 0.3;
+    const h = cs * 0.42;
+    roundRect(ctx, x - w / 2, y - cs * 0.62 - h / 2, w, h, 5);
+    ctx.fillStyle = 'rgba(12,17,24,.88)'; ctx.fill();
+    ctx.strokeStyle = can ? 'rgba(84,200,232,.5)' : 'rgba(200,90,90,.5)';
+    ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = can ? '#8fe0f6' : '#e08a8a';
+    ctx.fillText(txt, x, y - cs * 0.62);
+    ctx.restore();
   }
 
   function drawExpand() {
