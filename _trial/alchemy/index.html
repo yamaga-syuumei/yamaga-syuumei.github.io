@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>錬金工場と魔法のお店（試作）</title>
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="style.css?v=7fe770a9">
+<link rel="stylesheet" href="style.css?v=9f7cbcae">
 </head>
 <body>
 
@@ -26,8 +26,7 @@
       <button class="al-btn" id="btnRes">研究</button>
       <button class="al-btn" id="btnLog">便り<i class="al-dot" id="logDot" hidden></i></button>
       <button class="al-btn" id="btnCodex">図鑑</button>
-      <button class="al-btn al-btn-i" id="btnSound" hidden>🔊</button>
-      <button class="al-btn al-btn-q" id="btnReset">最初から</button>
+      <button class="al-btn al-btn-i al-icon-gear" id="btnOpt" title="オプション" aria-label="オプション"></button>
     </div>
   </header>
 
@@ -100,27 +99,48 @@
   </div>
 </div>
 
-<!-- 音 -->
-<div class="al-ov" id="ovSound" hidden>
+<!-- オプション。ほかのブラウザゲームと同じ形（右上は歯車ひとつ） -->
+<div class="al-ov" id="ovOpt" hidden>
   <div class="al-panel">
-    <div class="al-ovhead">音</div>
-    <div class="al-vols">
-      <label class="al-vol"><span>BGM</span>
-        <input type="range" id="vBgm" min="0" max="1" step="0.05"><b id="vBgmV"></b></label>
-      <label class="al-vol"><span>効果音</span>
-        <input type="range" id="vSe" min="0" max="1" step="0.05"><b id="vSeV"></b></label>
+    <div class="al-ovhead">オプション</div>
+    <div class="al-optbody">
+      <div class="al-vols" id="volBox">
+        <label class="al-vol"><span>BGM</span>
+          <input type="range" id="vBgm" min="0" max="1" step="0.05"><b id="vBgmV"></b></label>
+        <label class="al-vol"><span>効果音</span>
+          <input type="range" id="vSe" min="0" max="1" step="0.05"><b id="vSeV"></b></label>
+        <div class="al-optbtns"><button class="al-btn" id="btnMute">ミュート</button></div>
+      </div>
+      <p class="al-optnote" id="noAudio" hidden>この試作にはまだ音が入っていません。</p>
+
+      <div class="al-optrow">
+        <div>
+          <b>最初から</b>
+          <span>敷地・所持金・研究・便りをすべて消して、露店からやり直します。</span>
+        </div>
+        <button class="al-btn" id="btnReset">やり直す</button>
+      </div>
+
+      <div class="al-optrow">
+        <div>
+          <b>ヒノガタリ</b>
+          <span>ほかのブラウザゲームと小説の置き場所です。</span>
+        </div>
+        <a class="al-btn" href="../../" target="_blank" rel="noopener">開発者サイトへ</a>
+      </div>
+
+      <p class="al-credits" id="credits" hidden></p>
     </div>
-    <p class="al-credits" id="credits" hidden></p>
     <div class="al-ovbtns">
-      <button class="al-btn" id="btnMute">ミュート</button>
-      <button class="al-btn al-btn-p" id="btnSoundClose">閉じる</button>
+      <button class="al-btn al-btn-p" id="btnOptClose">閉じる</button>
     </div>
+    <p class="al-ver">錬金工場と魔法のお店 試作</p>
   </div>
 </div>
 
 <script src="data.js?v=fd897838"></script>
 <script src="sound.js?v=d7e7e4b2"></script>
 <script src="art.js?v=a078f606"></script>
-<script src="game.js?v=28f4213f"></script>
+<script src="game.js?v=4d9b7c9c"></script>
 </body>
 </html>

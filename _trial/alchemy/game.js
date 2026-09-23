@@ -1042,11 +1042,14 @@
         ctx.restore();
       }
     } else if (def.k === 'shop') {
-      drawItem(ctx, def.item, mx, my - cs * .1, cs * .22);
+      // お店も採取地・錬成陣と同じ目盛りでレベルを出す。
+      // メニューを開かないと分からない、をなくすため。
+      drawItem(ctx, def.item, mx, my - cs * .2, cs * .2);
       ctx.fillStyle = '#a8621f';
-      ctx.font = '700 ' + Math.round(cs * .2) + 'px sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(priceOf(def.item) + 'G', mx, my + cs * .12);
+      ctx.font = '700 ' + Math.round(cs * .19) + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(priceOf(def.item) + 'G', mx, my + cs * .13);
+      drawSpeed(ctx, mx, my + cs * .40, cs * .58, cs * .2, lv + 1);
     } else {
       drawGlyph(ctx, def.k, mx, my, cs * .24);
       if (def.k === 'store' && n) {
@@ -1702,6 +1705,7 @@
     }, true);
 
     overlay('res', 'btnRes', 'btnResClose', buildResearch);
+    overlay('ovOpt', 'btnOpt', 'btnOptClose', syncSound);
     overlay('log', 'btnLog', 'btnLogClose', buildLog);
     overlay('codex', 'btnCodex', 'btnCodexClose', buildCodex);
     overlay('cert', null, 'btnCertClose');
@@ -1712,6 +1716,7 @@
       if (!confirm('最初からやり直します。よろしいですか？')) return;
       try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
       reset(); layout(); buildPalette(); buildResearch(); buildCodex(); markLog(); closeMenu();
+      el('ovOpt').hidden = true;
     };
 
     setupSound();
@@ -1732,21 +1737,25 @@
     advance: (ms, step) => { const d = step || 100; for (let t = 0; t < ms; t += d) advance(d); },
   };
 
-  // ---------------------------------------------------------------- 音のパネル
+  // ---------------------------------------------------------------- オプション
+  // 右上は歯車ひとつ。音・データ・サイトへの導線をここにまとめる。
+  function syncSound() {
+    const on = SND.ready();
+    el('volBox').hidden = !on;
+    el('noAudio').hidden = on;
+    el('btnOpt').classList.toggle('is-mute', on && SND.muted());
+    if (!on) return;
+    const v = SND.vol();
+    el('vBgm').value = v.bgm; el('vBgmV').textContent = Math.round(v.bgm * 100) + '%';
+    el('vSe').value = v.se; el('vSeV').textContent = Math.round(v.se * 100) + '%';
+    el('btnMute').textContent = SND.muted() ? 'ミュート解除' : 'ミュート';
+  }
+
   function setupSound() {
-    if (!SND.ready()) return;
-    el('btnSound').hidden = false;
-    const sync = () => {
-      const v = SND.vol();
-      el('vBgm').value = v.bgm; el('vBgmV').textContent = Math.round(v.bgm * 100) + '%';
-      el('vSe').value = v.se; el('vSeV').textContent = Math.round(v.se * 100) + '%';
-      el('btnMute').textContent = SND.muted() ? 'ミュート解除' : 'ミュート';
-    };
-    el('btnSound').onclick = () => { SND.unlock(); sync(); el('ovSound').hidden = false; };
-    el('btnSoundClose').onclick = () => { el('ovSound').hidden = true; };
-    el('btnMute').onclick = () => { SND.setMute(!SND.muted()); sync(); };
-    el('vBgm').oninput = (e) => { SND.setVol('bgm', +e.target.value); sync(); };
-    el('vSe').oninput = (e) => { SND.setVol('se', +e.target.value); sync(); };
+    syncSound();
+    el('btnMute').onclick = () => { SND.setMute(!SND.muted()); syncSound(); };
+    el('vBgm').oninput = (e) => { SND.setVol('bgm', +e.target.value); syncSound(); };
+    el('vSe').oninput = (e) => { SND.setVol('se', +e.target.value); syncSound(); };
     const cr = SND.credits();
     if (cr.length) {
       el('credits').hidden = false;
