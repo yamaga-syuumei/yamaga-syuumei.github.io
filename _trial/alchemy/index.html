@@ -24,6 +24,7 @@
 
     <div class="al-btns">
       <button class="al-btn" id="btnRes">研究</button>
+      <button class="al-btn" id="btnLog">便り<i class="al-dot" id="logDot" hidden></i></button>
       <button class="al-btn" id="btnCodex">図鑑</button>
       <button class="al-btn al-btn-i" id="btnSound" hidden>🔊</button>
       <button class="al-btn al-btn-q" id="btnReset">最初から</button>
@@ -58,6 +59,18 @@
     <div class="al-ovbtns"><button class="al-btn al-btn-p" id="btnResClose">閉じる</button></div>
   </div>
 </div>
+
+<!-- 風の便り -->
+<div class="al-ov" id="log" hidden>
+  <div class="al-panel al-panel-w">
+    <div class="al-ovhead">風の便り</div>
+    <div class="al-logbody" id="logBody"></div>
+    <div class="al-ovbtns"><button class="al-btn al-btn-p" id="btnLogClose">閉じる</button></div>
+  </div>
+</div>
+
+<!-- 届いた便りの吹き出し -->
+<div class="al-toasts" id="toasts"></div>
 
 <!-- 図鑑 -->
 <div class="al-ov" id="codex" hidden>

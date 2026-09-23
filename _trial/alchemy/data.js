@@ -264,6 +264,56 @@
         '……店番を代わってくれないか。私はもう疲れた。'] },
   ];
 
+
+  // ---------------------------------------------------------------- 風の便り
+  // 店の品を買った誰かの噂が、風に乗って届く。
+  //  hero  … 高い品が売れるほど先へ進む、ひと続きの物語。need は「その値段以上の品を売る」。
+  //  rumor … その品を初めて売ったときに届く一報。全部の品に付ける必要はない。
+  const LOG = {
+    hero: [
+      { key: 'h_start', need: 0,
+        text: '勇者が旅立った。', note: '城で剣を授かった若者が、今朝ここを通っていった。' },
+      { key: 'h_party', need: 7,
+        text: '仲間が加わった。', note: '酒場で意気投合したらしい。三人になって旅を続けている。' },
+      { key: 'h_ship', need: 12,
+        text: '船を手に入れた。', note: '港で朽ちていた船が、なぜか動いたそうだ。' },
+      { key: 'h_general', need: 25,
+        text: '四天王の一人を倒した。', note: '西の塔から煙が上がった。あれで一人目だ。' },
+      { key: 'h_princess', need: 61,
+        text: 'お姫様を助けた。', note: '王都は三日三晩の祝いだという。' },
+      { key: 'h_airship', need: 98,
+        text: '飛行船を手に入れた。', note: '空を横切る影を見た、という客が今日だけで五人来た。' },
+      { key: 'h_demon', need: 332,
+        text: '魔王を倒した。', note: '……うちの品が、どこまで行ったのか分からなくなってきたな。' },
+    ],
+    rumor: [
+      { item: 'lantern',       text: '暗がりに明かりが灯った。', note: '誰も戻らなかった洞窟の奥から、人が出てきた。' },
+      { item: 'bean',          text: '宿屋が困っている。', note: '旅人が食事をしなくなった。豆ひとつで足りるらしい。' },
+      { item: 'compass',       text: '行方知れずの隊商が見つかった。', note: '砂漠の真ん中で、全員無事だった。' },
+      { item: 'worldseed',     text: '枯れた大地に芽が出た。', note: '世界樹だ、と老人たちが言い張っている。' },
+      { item: 'holysword',     text: '勇者が伝説の剣を抜いた。', note: '台座から抜けたのではない。買ったのだ。' },
+      { item: 'eartharmor',    text: '鎧が一撃を受け止めた。', note: '着ていた男は、傷ひとつ無かったという。' },
+      { item: 'manjimaru',     text: '名も知らぬ剣士が山賊団を斬り伏せた。', note: '一夜で、ひとりで。' },
+      { item: 'fairy',         text: '精霊を解放した。', note: '長く封じられていた道案内の精霊が、空へ還っていった。' },
+      { item: 'homunculus',    text: '人ならぬ者が街を歩いている。', note: '礼儀正しい、と評判は悪くない。' },
+      { item: 'crystal_fire',  text: '火のクリスタルが復活した。', note: '火山のほとりの祭壇に、炎が戻った。' },
+      { item: 'crystal_water', text: '水のクリスタルが復活した。', note: '涸れた泉が、ひと晩で満ちた。' },
+      { item: 'crystal_wind',  text: '風のクリスタルが復活した。', note: '止まっていた風車が、一斉に回り出した。' },
+      { item: 'crystal_earth', text: '土のクリスタルが復活した。', note: '地震が止んだ。もう半年も揺れていない。' },
+      { item: 'crystal_light', text: '光のクリスタルが復活した。', note: '夜が、少しだけ短くなった気がする。' },
+      { item: 'crystal_dark',  text: '闇のクリスタルが復活した。', note: '……これは、戻してよかったのだろうか。' },
+      { item: 'tablet',        text: 'ガラス太郎を名乗る男が現れた。', note: '板を掲げて何か読み上げている。本人は得意げだ。' },
+      { item: 'savecircle',    text: '死んでも戻れる、と言い出す者が増えた。', note: '試した者はまだ帰ってきていない。' },
+      { item: 'paradise',      text: '荒れ地に村ができた。', note: '土がいい、と皆が口を揃える。' },
+      { item: 'elixir',        text: '死んだはずの騎士が歩いている。', note: '本人は何も覚えていないらしい。' },
+      { item: 'philosopher',   text: '錬金術師たちが色めき立っている。', note: 'うちの店の前に列ができた。売り物はもう無い。' },
+      { item: 'guardian',      text: '城門の前に動く石像が立った。', note: '王は満足げだが、門番たちは職を失った。' },
+      { item: 'dragon',        text: '竜の姿をした鎧が戦場をひとりで片付けた。', note: '中に誰が入っているのか、誰も知らない。' },
+      { item: 'egg',           text: '地の底で何かが脈打っている。', note: '卵だ、と言った者がいる。何の卵かは言わなかった。' },
+      { item: 'wing',          text: '冥王が目を覚ました。', note: '……お前、あれを売ったのか。' },
+    ],
+  };
+
   // ---------------------------------------------------------------- 敷地
   const BOARD = {
     w: 9, h: 7, maxW: 22, maxH: 15,
@@ -280,6 +330,6 @@
 
   global.ALCHEMY = {
     ITEMS, SOURCES, RECIPES, LOGI, SHOP, RESEARCH, PILLARS,
-    TIERS, BOARD, LEVEL, START_UNLOCK,
+    TIERS, LOG, BOARD, LEVEL, START_UNLOCK,
   };
 })(window);

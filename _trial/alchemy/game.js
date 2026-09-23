@@ -13,7 +13,7 @@
   'use strict';
 
   const D = window.ALCHEMY;
-  const { ITEMS, RECIPES, SOURCES, LOGI, SHOP, RESEARCH, PILLARS, TIERS, BOARD, LEVEL } = D;
+  const { ITEMS, RECIPES, SOURCES, LOGI, SHOP, RESEARCH, PILLARS, TIERS, LOG, BOARD, LEVEL } = D;
   const { drawItem, drawBridge, drawSpeed, drawGlyph, roundRect } = window.ART;
   const SND = window.ALSND;
 
@@ -96,7 +96,7 @@
     return {
       w: BOARD.w, h: BOARD.h, cell: [], nodes: [], belts: [],
       money: BOARD.startMoney, total: 0, tier: 0, landBuys: 0, bridges: 0,
-      unlock: {}, done: {}, sold: {},
+      unlock: {}, done: {}, sold: {}, log: {}, logNew: 0,
       bonus: { belt: 0, sellRate: 0, price: 0, land: 0, rock: 0 },
       beltPhase: 0, acc: 0, flowT: 0, boom: false,
     };
@@ -314,6 +314,7 @@
         n.lit = 1;
         pops.push({ x: n.x, y: n.y, g, t: 0 });
         SND.se('sell', { rate: 1 + Math.min(1, g / 60) * 0.6 });
+        logSell(item, g);
         checkTier();
       }
     }
@@ -325,6 +326,92 @@
       st.boom = true;
       SND.bgm('boom');
     }
+  }
+
+  // ---------------------------------------------------------------- 風の便り
+  // 品物が売れるたびに引く。勇者の歩みは高い品が売れるほど1つずつ進み、
+  // 噂はその品を初めて売ったときに1度だけ届く。
+  function logSell(item, g) {
+    const got = [];
+    const next = LOG.hero.find((h) => !st.log[h.key]);
+    if (next && g >= next.need) got.push(next);
+    LOG.rumor.forEach((r) => {
+      if (r.item === item && !st.log[r.item]) got.push(r);
+    });
+    got.forEach((e) => {
+      st.log[e.key || e.item] = 1;
+      st.logNew++;
+      toast(e);
+    });
+    if (got.length) { markLog(); save(); }
+  }
+
+  function markLog() { el('logDot').hidden = !st.logNew; }
+
+  function toast(e) {
+    const box = el('toasts');
+    const d = document.createElement('div');
+    d.className = 'al-toast';
+    const u = document.createElement('u'); u.textContent = '風の便り';
+    const b = document.createElement('b'); b.textContent = e.text;
+    const i = document.createElement('i'); i.textContent = e.note;
+    d.appendChild(u); d.appendChild(b); d.appendChild(i);
+    box.appendChild(d);
+    while (box.children.length > 3) box.removeChild(box.firstChild);
+    setTimeout(() => {
+      d.classList.add('out');
+      setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, 600);
+    }, 7000);
+  }
+
+  function logRow(box, num, e, open, hint) {
+    const d = document.createElement('div');
+    d.className = 'al-logrow' + (open ? '' : ' locked');
+    const n = document.createElement('div');
+    n.className = 'al-lognum';
+    n.textContent = open ? num : '?';
+    d.appendChild(n);
+    const t = document.createElement('span');
+    const b = document.createElement('b');
+    b.textContent = open ? e.text : '？？？';
+    const i = document.createElement('i');
+    i.textContent = open ? e.note : hint;
+    t.appendChild(b); t.appendChild(i);
+    d.appendChild(t);
+    box.appendChild(d);
+  }
+
+  function buildLog() {
+    st.logNew = 0;
+    markLog();
+    const box = el('logBody');
+    box.innerHTML = '';
+
+    const hero = document.createElement('div');
+    hero.className = 'al-logsec';
+    const h1 = document.createElement('h4');
+    const hOpen = LOG.hero.filter((e) => st.log[e.key]).length;
+    h1.innerHTML = '<span>勇者の歩み</span><span>' + hOpen + ' / ' + LOG.hero.length + '</span>';
+    hero.appendChild(h1);
+    LOG.hero.forEach((e, i) => {
+      logRow(hero, i + 1, e, !!st.log[e.key], e.need + 'G 以上の品を売ると届く');
+    });
+    box.appendChild(hero);
+
+    const sec = document.createElement('div');
+    sec.className = 'al-logsec';
+    const h2 = document.createElement('h4');
+    const open = LOG.rumor.filter((e) => st.log[e.item]);
+    h2.innerHTML = '<span>街のうわさ</span><span>' + open.length + ' / ' + LOG.rumor.length + '</span>';
+    sec.appendChild(h2);
+    if (!open.length) {
+      const p = document.createElement('p');
+      p.className = 'al-empty';
+      p.textContent = 'めぼしい品が売れると届く';
+      sec.appendChild(p);
+    }
+    open.forEach((e, i) => logRow(sec, i + 1, e, true));
+    box.appendChild(sec);
   }
 
   // ---------------------------------------------------------------- 店の格
@@ -712,7 +799,8 @@
   }
 
   // 研究・図鑑・音のパネルを開いている間は盤面を止める
-  const paused = () => !el('res').hidden || !el('codex').hidden || !el('ovSound').hidden || !el('cert').hidden;
+  const paused = () => !el('res').hidden || !el('codex').hidden || !el('log').hidden
+    || !el('ovSound').hidden || !el('cert').hidden;
 
   function advance(dt) {
     if (paused()) { st.acc = 0; SND.amb('belt', 0); draw(); updateHud(); return; }
@@ -1405,7 +1493,7 @@
       });
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         w: st.w, h: st.h, money: st.money, total: st.total, tier: st.tier,
-        landBuys: st.landBuys, bridges: st.bridges, done: st.done, sold: st.sold,
+        landBuys: st.landBuys, bridges: st.bridges, done: st.done, sold: st.sold, log: st.log,
         rocks: st.cell.map((c, i) => (c.rock ? i : -1)).filter((i) => i >= 0),
         nodes: st.nodes.map((n) => ({ d: n.def.key, x: n.x, y: n.y, r: n.rot, l: n.lv })),
         belts: st.belts.map((b) => ({ f: pi.get(b.from), t: pi.get(b.to), c: b.cells.map((c) => [c.x, c.y]) })),
@@ -1423,7 +1511,7 @@
     (raw.rocks || []).forEach((i) => { if (st.cell[i]) st.cell[i].rock = true; });
     st.money = raw.money; st.total = raw.total; st.tier = raw.tier || 0;
     st.landBuys = raw.landBuys || 0; st.bridges = raw.bridges || 0;
-    st.done = raw.done || {}; st.sold = raw.sold || {};
+    st.done = raw.done || {}; st.sold = raw.sold || {}; st.log = raw.log || {};
     applyResearch();
     raw.nodes.forEach((n) => {
       const def = BUILDS[n.d];
@@ -1465,6 +1553,7 @@
     buildPalette();
     buildResearch();
     buildCodex();
+    markLog();
 
     cv.addEventListener('pointerdown', onDown);
     cv.addEventListener('pointermove', onMove);
@@ -1488,6 +1577,7 @@
     }, true);
 
     overlay('res', 'btnRes', 'btnResClose', buildResearch);
+    overlay('log', 'btnLog', 'btnLogClose', buildLog);
     overlay('codex', 'btnCodex', 'btnCodexClose', buildCodex);
     overlay('cert', null, 'btnCertClose');
     el('btnNewsClose').onclick = () => { SND.se('ui'); el('news').hidden = true; };
@@ -1496,7 +1586,7 @@
     el('btnReset').onclick = () => {
       if (!confirm('最初からやり直します。よろしいですか？')) return;
       try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
-      reset(); layout(); buildPalette(); buildResearch(); buildCodex(); closeMenu();
+      reset(); layout(); buildPalette(); buildResearch(); buildCodex(); markLog(); closeMenu();
     };
 
     setupSound();

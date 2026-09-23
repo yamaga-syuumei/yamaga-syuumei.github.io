@@ -162,6 +162,44 @@ canvas{touch-action:none; display:block}
 .al-credits{margin:12px 0 0; font-size:11px; color:var(--dim)}
 .al-credits a{color:var(--magic)}
 
+/* ---------------------------------------------------------------- 風の便り */
+.al-dot{
+  display:inline-block; width:6px; height:6px; border-radius:50%;
+  background:#e0962c; margin-left:5px; vertical-align:middle;
+}
+.al-logsec{margin-bottom:16px}
+.al-logsec h4{margin:0 0 8px; font-size:12px; color:var(--dim); font-weight:600;
+  border-bottom:1px solid var(--line); padding-bottom:4px;
+  display:flex; justify-content:space-between}
+.al-logrow{display:flex; gap:10px; align-items:flex-start; padding:6px 2px}
+.al-logrow span{display:flex; flex-direction:column; line-height:1.5; min-width:0}
+.al-logrow b{font-size:13px; font-weight:600}
+.al-logrow i{font-style:normal; font-size:11.5px; color:var(--dim)}
+.al-logrow.locked b{color:var(--dim); font-weight:500}
+.al-lognum{
+  flex:0 0 auto; width:22px; height:22px; border-radius:50%; margin-top:1px;
+  background:#f1e8fb; color:var(--magic); font-size:11px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+}
+.al-logrow.locked .al-lognum{background:#ece6dd; color:var(--dim)}
+
+.al-toasts{
+  position:fixed; right:14px; bottom:104px; z-index:36;
+  display:flex; flex-direction:column; gap:8px; align-items:flex-end;
+  pointer-events:none;
+}
+.al-toast{
+  width:min(310px,calc(100vw - 28px));
+  background:var(--panel); border:1px solid var(--magic-lt); border-radius:12px;
+  padding:10px 13px; box-shadow:0 10px 26px rgba(70,50,110,.22);
+  animation:blow .5s cubic-bezier(.2,.9,.3,1);
+}
+.al-toast.out{opacity:0; transform:translateX(30%); transition:.5s ease}
+.al-toast u{display:block; text-decoration:none; font-size:10px; color:var(--magic); margin-bottom:3px}
+.al-toast b{display:block; font-size:12.5px; line-height:1.5}
+.al-toast i{display:block; font-style:normal; font-size:11px; color:var(--dim); line-height:1.5}
+@keyframes blow{from{transform:translateX(40%);opacity:0}to{transform:none;opacity:1}}
+
 /* ---------------------------------------------------------------- 通信 */
 /* 盤面は止めない。動いているのを眺める快感を切らないため */
 .al-news{
