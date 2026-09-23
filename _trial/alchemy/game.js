@@ -798,12 +798,9 @@
     advance(dt);
   }
 
-  // 研究・図鑑・音のパネルを開いている間は盤面を止める
-  const paused = () => !el('res').hidden || !el('codex').hidden || !el('log').hidden
-    || !el('ovSound').hidden || !el('cert').hidden;
-
+  // パネルを開いていても敷地は動かし続ける。
+  // 手を止めている間も工房が回っているのがこのゲームの手触りなので、止めない。
   function advance(dt) {
-    if (paused()) { st.acc = 0; SND.amb('belt', 0); draw(); updateHud(); return; }
     st.acc += dt;
     while (st.acc >= DT) { st.acc -= DT; tick(); }
 
@@ -1125,7 +1122,8 @@
     if (st.money !== lastMoney) {
       lastMoney = st.money;
       el('money').textContent = st.money.toLocaleString();
-      buildMenu();          // 買えるようになった項目を押せるようにする
+      buildMenu();                               // 買えるようになった項目を押せるようにする
+      syncResearch();                            // 研究も開いたまま買えるようになる
     }
     updateHint();
     el('total').textContent = st.total.toLocaleString();
@@ -1359,10 +1357,21 @@
 
   function hideTip() { el('tip').hidden = true; }
 
+  // 開いたまま金が貯まるので、作り直さずに押せる・押せないだけ塗り替える。
+  // 作り直すと、カーソルを乗せている説明が毎秒消えてしまう。
+  let resEls = [];
+  function syncResearch() {
+    resEls.forEach(({ r, b }) => {
+      const off = st.done[r.key] || r.tier > st.tier || st.money < r.cost;
+      b.classList.toggle('off', !!off);
+    });
+  }
+
   function buildResearch() {
     const box = el('resBody');
     const keep = box.parentElement ? box.parentElement.scrollTop : 0;
     box.innerHTML = '';
+    resEls = [];
     PILLARS.forEach((p) => {
       const col = document.createElement('div');
       col.className = 'al-col';
@@ -1379,6 +1388,7 @@
         b.onclick = () => buyResearch(r);
         b.onmouseenter = () => showTip(b, resLines(r));
         b.onmouseleave = hideTip;
+        resEls.push({ r, b });
         col.appendChild(b);
       });
       box.appendChild(col);
