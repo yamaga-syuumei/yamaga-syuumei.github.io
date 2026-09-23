@@ -139,12 +139,10 @@ canvas#cv{
 }
 .of-tagline{margin:0 0 22px;font-size:13px;color:var(--dim);letter-spacing:.08em}
 .of-titlenote{margin:14px 0 0;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
-.of-home{display:inline-block;margin:18px 0 0;font-size:12px;font-weight:700;color:var(--dim);text-decoration:none}
-.of-home:hover{color:#fff}
-/* 音のボタンは右上に重ねる。バーが折り返しても位置が動かない */
+/* オプションは右上に重ねる。バーが折り返しても位置が動かない */
 #btnSound{position:absolute;top:8px;right:14px}
 
-/* タイトル中はバーを消す。ただし音の設定だけは残す。
+/* タイトル中はバーを消す。ただしオプションだけは残す。
    タイトルでもBGMが鳴っているので、ここで絞れないと逃げ場がない。
    タイトルの覆いは盤面いっぱいに敷いてあるので、その上まで持ち上げる。 */
 body.title .of-bar{background:transparent;border-bottom-color:transparent}
@@ -181,8 +179,24 @@ body.title #btnSound{visibility:visible;z-index:11}
 .of-score .kept i{font-style:normal;font-size:11px;margin-left:6px;color:var(--gold);opacity:.75}
 .of-ov-btns{display:flex;gap:10px;justify-content:center}
 
-/* ---- 音 ---- */
-.of-btn-i{padding:6px 9px;line-height:1}
+/* ---- オプション ---- */
+.of-btn-i{padding:6px 9px;line-height:1;display:flex;align-items:center;justify-content:center}
+.of-icon-gear::before{
+  content:"";width:18px;height:18px;background:currentColor;
+  -webkit-mask:url(/img/icon-settings.png) center / contain no-repeat;
+  mask:url(/img/icon-settings.png) center / contain no-repeat;
+}
+/* 消音中は歯車を沈ませ、開かなくても分かるようにする */
+.of-icon-gear.is-mute{color:var(--dim);opacity:.6}
+.of-link{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  text-align:left;padding:12px 0;margin-bottom:14px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+}
+.of-link b{display:block;font-size:13px}
+.of-link span{display:block;margin-top:3px;font-size:11.5px;color:var(--dim)}
+.of-link a.of-btn{text-decoration:none}
+.of-ver{margin:14px 0 0;font-size:11px;color:#5c6b7d;text-align:right}
 #ovSound .of-panel{min-width:min(380px,90vw)}
 .of-vols{display:flex;flex-direction:column;gap:12px;margin:2px 0 16px}
 .of-vol{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--dim)}

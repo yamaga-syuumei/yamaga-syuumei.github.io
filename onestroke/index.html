@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=d5b0cf81">
+<link rel="stylesheet" href="style.css?v=77181d99">
 </head>
 <body>
 
@@ -36,7 +36,7 @@
     </div>
     </div>
     <button class="of-btn" id="btnReset">やり直す</button>
-    <button class="of-btn of-btn-i" id="btnSound" hidden>🔊</button>
+    <button class="of-btn of-btn-i of-icon-gear" id="btnSound" title="オプション" aria-label="オプション"></button>
   </header>
 
   <div class="of-board">
@@ -55,7 +55,6 @@
         <button class="of-btn" id="btnTitleStages">ステージ選択</button>
       </div>
       <p class="of-titlenote" id="titleNote"></p>
-      <a class="of-home" href="../">← ヒノガタリ</a>
     </div>
   </div>
 
@@ -85,21 +84,29 @@
     </div>
   </div>
 
-  <!-- 音 -->
+  <!-- オプション。開いている間は盤面を止める -->
   <div class="of-ov" id="ovSound" hidden>
     <div class="of-panel">
-      <div class="of-ov-head">音</div>
-      <div class="of-vols">
+      <div class="of-ov-head">オプション</div>
+      <div class="of-vols" id="volBox">
         <label class="of-vol"><span>BGM</span>
           <input type="range" id="vBgm" min="0" max="1" step="0.05"><b id="vBgmV"></b></label>
         <label class="of-vol"><span>効果音</span>
           <input type="range" id="vSe" min="0" max="1" step="0.05"><b id="vSeV"></b></label>
+      </div>
+      <div class="of-link">
+        <div>
+          <b>ヒノガタリ</b>
+          <span>ほかのブラウザゲームと小説の置き場所です。</span>
+        </div>
+        <a class="of-btn" href="../">トップへ</a>
       </div>
       <p class="of-credits" id="credits" hidden></p>
       <div class="of-ov-btns">
         <button class="of-btn" id="btnMute">ミュート</button>
         <button class="of-btn of-btn-p" id="btnSoundClose">閉じる</button>
       </div>
+      <p class="of-ver">ワンストローク・ファクトリー ベータ 1.0</p>
     </div>
   </div>
 
@@ -108,7 +115,7 @@
 <script src="sound.js?v=0e187514"></script>
 <script src="stages.js?v=f1ed2d19"></script>
 <script src="art.js?v=ef527e34"></script>
-<script src="game.js?v=eb55381c"></script>
+<script src="game.js?v=81a919bc"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
