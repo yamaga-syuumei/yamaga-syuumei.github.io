@@ -82,8 +82,10 @@ button{font:inherit; color:inherit; cursor:pointer}
 }
 
 /* ---------------------------------------------------------------- 盤面 */
-.al-board{flex:1; min-height:0; display:flex; align-items:center; justify-content:center}
-canvas{touch-action:none; display:block}
+/* 盤面が窓より大きくなったら、切り落とさずに寄せられるようにする。
+   align-items:center だと溢れた側に届かなくなるので、余白は margin:auto で作る。 */
+.al-board{flex:1; min-height:0; display:flex; overflow:auto}
+canvas{touch-action:none; display:block; margin:auto}
 .al-hint{margin:0; text-align:center; font-size:11px; color:var(--dim)}
 
 /* ---------------------------------------------------------------- 購入パレット */
