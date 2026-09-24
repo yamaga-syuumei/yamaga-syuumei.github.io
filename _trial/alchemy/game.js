@@ -1787,6 +1787,7 @@
     overlay('log', 'btnLog', 'btnLogClose', buildLog);
     overlay('codex', 'btnCodex', 'btnCodexClose', buildCodex);
     overlay('cert', null, 'btnCertClose');
+    el('btnCertClose').addEventListener('click', () => SND.bgm(st.boom ? 'boom' : 'play'));
     el('btnNewsClose').onclick = () => { SND.se('ui'); el('news').hidden = true; };
     el('btnNewsEnd').onclick = () => { el('news').hidden = true; showCert(); };
 
