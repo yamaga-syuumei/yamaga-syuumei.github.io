@@ -22,6 +22,7 @@
   const PAD = 26;                       // 盤面の外。拡張ボタンを描く帯
   const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];   // E S W N
   const SAVE_KEY = 'alchemy.save1';
+  const SAVE_VER = 1;
 
   // 明るい盤面の上に置くので、面は淡く・縁だけ濃くする
   const SKIN = {
@@ -1658,33 +1659,43 @@
     saveT = setTimeout(writeSave, 400);
   }
 
+  function snapshot() {
+    const pi = new Map();
+    st.nodes.forEach((n, i) => {
+      n.ins.forEach((p, j) => pi.set(p, [i, 'i', j]));
+      n.outs.forEach((p, j) => pi.set(p, [i, 'o', j]));
+    });
+    return {
+      v: SAVE_VER,
+      w: st.w, h: st.h, money: st.money, total: st.total, tier: st.tier,
+      landBuys: st.landBuys, rockBuys: st.rockBuys, bridges: st.bridges,
+      done: st.done, sold: st.sold, log: st.log, seen: st.seen, tut: st.tut,
+      rocks: st.cell.map((c, i) => (c.rock ? i : -1)).filter((i) => i >= 0),
+      nodes: st.nodes.map((n) => ({ d: n.def.key, x: n.x, y: n.y, r: n.rot, l: n.lv })),
+      belts: st.belts.map((b) => ({ f: pi.get(b.from), t: pi.get(b.to), c: b.cells.map((c) => [c.x, c.y]) })),
+    };
+  }
+
   function writeSave() {
     try {
-      const pi = new Map();
-      st.nodes.forEach((n, i) => {
-        n.ins.forEach((p, j) => pi.set(p, [i, 'i', j]));
-        n.outs.forEach((p, j) => pi.set(p, [i, 'o', j]));
-      });
-      localStorage.setItem(SAVE_KEY, JSON.stringify({
-        w: st.w, h: st.h, money: st.money, total: st.total, tier: st.tier,
-        landBuys: st.landBuys, bridges: st.bridges, done: st.done, sold: st.sold, log: st.log, seen: st.seen, tut: st.tut,
-        rocks: st.cell.map((c, i) => (c.rock ? i : -1)).filter((i) => i >= 0),
-        nodes: st.nodes.map((n) => ({ d: n.def.key, x: n.x, y: n.y, r: n.rot, l: n.lv })),
-        belts: st.belts.map((b) => ({ f: pi.get(b.from), t: pi.get(b.to), c: b.cells.map((c) => [c.x, c.y]) })),
-      }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot()));
     } catch (e) { /* file:// で弾かれても遊べる */ }
   }
 
   function load() {
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return false; }
+    return restore(raw);
+  }
+
+  function restore(raw) {
     if (!raw || !raw.nodes) return false;
     st = blank();
     st.w = raw.w; st.h = raw.h;
     st.cell = makeCells(st.w, st.h);
     (raw.rocks || []).forEach((i) => { if (st.cell[i]) st.cell[i].rock = true; });
     st.money = raw.money; st.total = raw.total; st.tier = raw.tier || 0;
-    st.landBuys = raw.landBuys || 0; st.bridges = raw.bridges || 0;
+    st.landBuys = raw.landBuys || 0; st.rockBuys = raw.rockBuys || 0; st.bridges = raw.bridges || 0;
     st.done = raw.done || {}; st.sold = raw.sold || {}; st.log = raw.log || {}; st.seen = raw.seen || {};
     st.tut = raw.tut === undefined ? -1 : raw.tut;
     applyResearch();
@@ -1762,6 +1773,14 @@
     el('btnNewsClose').onclick = () => { SND.se('ui'); el('news').hidden = true; };
     el('btnNewsEnd').onclick = () => { el('news').hidden = true; showCert(); };
 
+    el('btnExport').onclick = () => { SND.se('ui'); exportSave(); };
+    el('btnImport').onclick = () => { SND.se('ui'); el('fileSave').click(); };
+    el('fileSave').onchange = (e) => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (f) importSave(f);
+    };
+
     el('btnReset').onclick = () => {
       if (!confirm('最初からやり直します。よろしいですか？')) return;
       try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
@@ -1799,6 +1818,51 @@
     el('vBgm').value = v.bgm; el('vBgmV').textContent = Math.round(v.bgm * 100) + '%';
     el('vSe').value = v.se; el('vSeV').textContent = Math.round(v.se * 100) + '%';
     el('btnMute').textContent = SND.muted() ? 'ミュート解除' : 'ミュート';
+  }
+
+  // ---------------------------------------------------------------- 控え
+  // 数日かけて遊ぶので、localStorage 1枚に預けたままにしない。
+  // ブラウザのデータを消すと盤面ごと消えるため、ファイルに出せるようにしておく。
+  let noteT = 0;
+  function note(text) {
+    const e = el('saveNote');
+    e.textContent = text;
+    e.hidden = false;
+    clearTimeout(noteT);
+    noteT = setTimeout(() => { e.hidden = true; }, 6000);
+  }
+
+  function exportSave() {
+    writeSave();
+    const d = new Date();
+    const stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+      + '-' + String(d.getDate()).padStart(2, '0');
+    const name = '錬金工場_' + TIERS[st.tier].name + '_' + stamp + '.txt';
+    const blob = new Blob([JSON.stringify(snapshot())], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    note('控えを書き出しました。' + name);
+  }
+
+  function importSave(file) {
+    const fr = new FileReader();
+    fr.onload = () => {
+      let raw = null;
+      try { raw = JSON.parse(fr.result); } catch (e) { raw = null; }
+      if (!raw || !raw.nodes) { alert('この控えは読めませんでした。'); return; }
+      const name = (TIERS[raw.tier || 0] || TIERS[0]).name;
+      if (!confirm('「' + name + '／累計 ' + Math.round(raw.total || 0).toLocaleString()
+        + 'G」を読み込みます。\n\nいま遊んでいる盤面は消えます。よろしいですか？')) return;
+      if (!restore(raw)) { alert('この控えは読めませんでした。'); return; }
+      writeSave();
+      layout(); buildPalette(); buildResearch(); buildCodex(); markLog(); closeMenu();
+      SND.se('levelup');
+      note('控えを読み込みました。' + name);
+    };
+    fr.readAsText(file);
   }
 
   function setupSound() {

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>錬金工場と魔法のお店（試作）</title>
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="style.css?v=b1d8f16f">
+<link rel="stylesheet" href="style.css?v=74178753">
 </head>
 <body>
 
@@ -188,6 +188,19 @@
 
       <div class="al-optrow">
         <div>
+          <b>控え</b>
+          <span>盤面をファイルに書き出して取っておけます。ブラウザのデータを消しても、読み込めば戻せます。</span>
+        </div>
+        <div class="al-optbtns">
+          <button class="al-btn" id="btnExport">書き出す</button>
+          <button class="al-btn" id="btnImport">読み込む</button>
+          <input type="file" id="fileSave" accept=".txt,.json,text/plain,application/json" hidden>
+        </div>
+      </div>
+      <p class="al-optnote" id="saveNote" hidden></p>
+
+      <div class="al-optrow">
+        <div>
           <b>最初から</b>
           <span>敷地・所持金・研究・便りをすべて消して、露店からやり直します。</span>
         </div>
@@ -214,6 +227,6 @@
 <script src="data.js?v=6fe1d195"></script>
 <script src="sound.js?v=db1f12be"></script>
 <script src="art.js?v=562c1506"></script>
-<script src="game.js?v=7d838662"></script>
+<script src="game.js?v=cf91998b"></script>
 </body>
 </html>
