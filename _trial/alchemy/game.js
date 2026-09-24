@@ -1156,6 +1156,7 @@
       el('money').textContent = st.money.toLocaleString();
       syncMenu();                                // 買えるようになった項目を押せるようにする
       syncResearch();                            // 研究も開いたまま買えるようになる
+      syncPalette();                             // 購入パレットの札も色だけ変える
     }
     updateHint();
     el('total').textContent = st.total.toLocaleString();
@@ -1291,15 +1292,21 @@
   }
 
   let palSig = '';
+  let cardEls = [];
 
+  // 札の並びが変わったときだけ作り直す。所持金で変わるのは色だけなので、
+  // 作り直すと押している最中に札が差し替わってクリックが成立しなくなる。
   function refreshPalette() {
     const sig = tab + ':' + groupSel[tab] + '|' + groupsOf(tabList()).join('.')
-      + '|' + paletteList().map((d) => d.key + defCost(d) + (st.money >= defCost(d) ? '1' : '0') + (isNew(d.key) ? 'n' : '')).join(',')
+      + '|' + paletteList().map((d) => d.key + defCost(d) + (isNew(d.key) ? 'n' : '')).join(',')
       + '|' + TABS.map((t) => (newIn(t.key) ? 1 : 0)).join('')
       + '|' + (placing ? placing.def.key : '');
-    if (sig === palSig) return;
-    palSig = sig;
-    buildPalette();
+    if (sig !== palSig) { palSig = sig; buildPalette(); }
+    syncPalette();
+  }
+
+  function syncPalette() {
+    cardEls.forEach(({ def, d }) => d.classList.toggle('poor', st.money < defCost(def)));
   }
 
   function buildPalette() {
@@ -1333,6 +1340,7 @@
 
     const box = el('cards');
     box.innerHTML = '';
+    cardEls = [];
     const list = paletteList();
     if (!list.length) {
       const p = document.createElement('p');
@@ -1355,9 +1363,9 @@
         n.textContent = 'NEW';
         d.appendChild(n);
       }
-      const afford = st.money >= defCost(def);
-      d.classList.toggle('poor', !afford);
+      d.classList.toggle('poor', st.money < defCost(def));
       d.classList.toggle('on', !!placing && placing.def.key === def.key);
+      cardEls.push({ def, d });
       d.onclick = () => {
         SND.unlock(); SND.se('ui');
         st.seen[def.key] = 1;
