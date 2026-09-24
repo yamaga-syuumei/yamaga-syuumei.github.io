@@ -360,6 +360,7 @@
       st.logNew++;
       toast(e);
     });
+    if (got.length) SND.se('news');
     if (got.length) { markLog(); save(); }
   }
 
@@ -585,7 +586,7 @@
     }
 
     const node = at(pc.x, pc.y).node;
-    if (node) { moving = { node, moved: false, px: e.clientX, py: e.clientY }; return; }
+    if (node) { moving = { node, moved: false, px: e.clientX, py: e.clientY }; SND.se('pickup'); return; }
 
     if (at(pc.x, pc.y).rock) { openMenu('rock', { x: pc.x, y: pc.y }, e.clientX, e.clientY); return; }
     const hit = beltAt(pc.x, pc.y);
@@ -1624,6 +1625,7 @@
 
   // ---------------------------------------------------------------- 世界一の看板
   function showCert() {
+    SND.bgm('end');
     const top = Object.keys(st.sold).sort((a, b) => st.sold[b] - st.sold[a])[0];
     el('certBody').innerHTML =
       '<dl>'
