@@ -99,7 +99,10 @@
   const sellTicks = (b, lv) => Math.max(2, Math.round(b.secs * TPS * Math.pow(LEVEL.speedMul, lv) / (1 + st.bonus.sellRate)));
   const nodeTicks = (b, lv) => Math.max(2, Math.round(b.secs * TPS * Math.pow(LEVEL.speedMul, lv)));
   const cellsPerSec = () => 6 + st.bonus.belt * 2;
-  const landCost = () => Math.round(BOARD.landBase * Math.pow(BOARD.landStep, st.landBuys) * (1 - st.bonus.land));
+  const landCost = () => Math.round(BOARD.landBase
+    * Math.pow(BOARD.landStep, Math.min(st.landBuys, BOARD.landSoft))
+    * Math.pow(BOARD.landStep2, Math.max(0, st.landBuys - BOARD.landSoft))
+    * (1 - st.bonus.land));
   const rockCost = () => Math.round(BOARD.rockCost
     * Math.pow(BOARD.rockStep, st.rockBuys || 0) * (1 - st.bonus.rock));
   const lvCost = (n) => Math.round(n.def.cost * Math.pow(LEVEL.costMul, n.lv));
