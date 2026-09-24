@@ -1171,12 +1171,12 @@
       done: () => st.belts.length > 0 },
     { text: '品がお店に届くと売れる。少し待ってみる',
       done: () => st.total > 0 },
-    { text: '右上の「研究」を開いて、いちばん上の「魔石の錬成」を買う',
+    { text: '右上の「研究」を開いて、いちばん上の「野と海と山」を買う',
       done: () => Object.keys(st.done).length > 0 },
     { text: '下の「錬成」から錬成陣を置いて、採取地 → 錬成陣 → お店 とつなぐ',
       done: () => st.nodes.some((n) => n.k === 'fac' && n.outs[0].belt && n.ins.every((p) => p.belt)) },
-    { text: 'ここまでがこのゲームの全部。あとは深く錬成するほど高く売れる',
-      done: () => st.total > 200 },
+    { text: 'ここまでがこのゲームの全部。1回錬成するごとに値が10倍になる',
+      done: () => st.total > 2000 },
   ];
 
   function tutStep() {
