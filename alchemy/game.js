@@ -62,7 +62,7 @@
   const defCost = (def) => (def.k === 'shop' ? shopCost(shopCount()) : def.cost);
   const sellBack = (n) => Math.round((n.k === 'shop' ? shopCost(shopCount() - 1) : n.def.cost) / 2);
 
-  // 設備がどの格で解放されるか。購入パレットの並べ替えに使う。
+  // 設備がどのランクで解放されるか。購入パレットの並べ替えに使う。
   const RANK_OF = {};
   D.START_UNLOCK.forEach((k) => { RANK_OF[k] = 0; });
   RESEARCH.forEach((r) => (r.unlock || []).forEach((k) => { RANK_OF[k] = r.tier; }));
@@ -457,7 +457,7 @@
     box.appendChild(sec);
   }
 
-  // ---------------------------------------------------------------- 店の格
+  // ---------------------------------------------------------------- 錬金術師のランク
   function checkTier() {
     const next = TIERS[st.tier + 1];
     if (!next || st.total < next.need) return;
@@ -469,7 +469,7 @@
     save();
   }
 
-  // 次の格までどのくらい来たか（0〜1）
+  // 次のランクまでどのくらい来たか（0〜1）
   function rankProgress() {
     const cur = TIERS[st.tier], next = TIERS[st.tier + 1];
     if (!next) return 1;
@@ -1254,7 +1254,7 @@
     { key: 'logi', name: '物流' },
   ];
   let tab = 'prod';
-  const GROUPED = { fac: 1 };                // 数が多いタブは格で分ける
+  const GROUPED = { fac: 1 };                // 数が多いタブはランクで分ける
   const groupSel = { fac: 0 };
 
   function cardIcon(def) {
@@ -1280,7 +1280,7 @@
     });
   }
 
-  // そのタブがNEWを抱えているか（格の札にも点を出す）
+  // そのタブがNEWを抱えているか（ランクの札にも点を出す）
   function newIn(tabKey, rank) {
     const keep = tab; tab = tabKey;
     const hit = tabList().some((b) => isNew(b.key) && (rank === undefined || rankOf(b.key) === rank));
@@ -1288,7 +1288,7 @@
     return hit;
   }
 
-  // そのタブに出せるもの全部（格で絞る前）
+  // そのタブに出せるもの全部（ランクで絞る前）
   function tabList() {
     const out = [];
     {
@@ -1304,7 +1304,7 @@
     return out;
   }
 
-  // 出せるものがある格だけ。無い格の札は出さない（進むほど札が増える）
+  // 出せるものがあるランクだけ。無いランクの札は出さない（進むほど札が増える）
   function groupsOf(list) {
     const seen = {};
     list.forEach((b) => { seen[rankOf(b.key)] = 1; });
@@ -1403,7 +1403,7 @@
       b.onclick = () => { SND.unlock(); SND.se('ui'); tab = t.key; refreshPalette(); };
       bar.appendChild(b);
     });
-    // 錬成とお店は数が多いので、解放された格で分ける。札は同じ行に続けて出す
+    // 錬成とお店は数が多いので、解放されたランクで分ける。札は同じ行に続けて出す
     if (GROUPED[tab]) {
       const gs = groupsOf(tabList());
       if (gs.length > 1) {
@@ -1413,7 +1413,7 @@
         gs.forEach((i) => {
           const b = document.createElement('button');
           b.className = 'al-grp' + (groupSel[tab] === i ? ' on' : '');
-          b.textContent = TIERS[i].name;
+          b.textContent = TIERS[i].short;
           if (newIn(tab, i)) b.appendChild(dot());
           b.onclick = () => { SND.unlock(); SND.se('ui'); groupSel[tab] = i; refreshPalette(); };
           bar.appendChild(b);
@@ -1650,7 +1650,7 @@
         b.className = 'al-res' + (done ? ' done' : locked ? ' locked' : '') + (off ? ' off' : '');
         const lv = resLv(r), max = resMax(r);
         const right = done ? (r.stat ? '最大' : '解放済み')
-          : locked ? TIERS[r.tier].name + 'から'
+          : locked ? TIERS[r.tier].short + 'から'
             : resCost(r).toLocaleString() + 'G';
         b.innerHTML = '<b>' + r.name + '</b>'
           + (max > 1 ? '<em>Lv' + lv + '/' + max + '</em>' : '')
@@ -1674,7 +1674,7 @@
     st.money -= c;
     st.done[r.key] = lv + 1;
     applyResearch();
-    // 増えたカードが埋もれないよう、その格へ寄せておく
+    // 増えたカードが埋もれないよう、そのランクへ寄せておく
     if (r.unlock) groupSel.fac = r.tier;
     SND.se('research');
     buildResearch();
@@ -1686,16 +1686,24 @@
 
   // ---------------------------------------------------------------- 図鑑
   // 深くなると「これ何に使うのか」が分からなくなる。作り方と使い道を出す。
+  // 区切りは錬成の深さではなくランク。研究の並びと同じ順で読めるようにする。
+  function itemRank(item) {
+    let best = Infinity;
+    SOURCES.forEach((s) => { if (s.item === item) best = Math.min(best, rankOf(s.key)); });
+    RECIPES.forEach((r) => { if (r.make === item) best = Math.min(best, rankOf(r.key)); });
+    return best;
+  }
+
   function buildCodex() {
     const box = el('codexBody');
     box.innerHTML = '';
-    for (let t = 0; t <= 3; t++) {
-      const known = Object.keys(ITEMS).filter((k) => ITEMS[k].tier === t && producible(k));
+    for (let t = 0; t < TIERS.length; t++) {
+      const known = Object.keys(ITEMS).filter((k) => itemRank(k) === t && producible(k));
       if (!known.length) continue;
       const sec = document.createElement('div');
       sec.className = 'al-cosec';
       const h = document.createElement('h4');
-      h.textContent = t === 0 ? '原料' : t + '段';
+      h.textContent = TIERS[t].name;
       sec.appendChild(h);
       known.forEach((k) => {
         const row = document.createElement('div');
@@ -1737,7 +1745,7 @@
     n.classList.remove('in');
     void n.offsetWidth;
     n.classList.add('in');
-    if (!TIERS[st.tier + 1]) el('newsEnd').hidden = false;
+    if (!TIERS[st.tier + 1]) el('btnNewsEnd').hidden = false;
   }
 
   // ---------------------------------------------------------------- 世界一の看板
@@ -1746,7 +1754,7 @@
     const top = Object.keys(st.sold).sort((a, b) => st.sold[b] - st.sold[a])[0];
     el('certBody').innerHTML =
       '<dl>'
-      + '<dt>店の格</dt><dd>世界一の魔法のお店</dd>'
+      + '<dt>ランク</dt><dd>' + TIERS[TIERS.length - 1].name + '</dd>'
       + '<dt>総売上</dt><dd>' + st.total.toLocaleString() + ' G</dd>'
       + '<dt>看板商品</dt><dd>' + (top ? ITEMS[top].name : '—') + '</dd>'
       + '<dt>設備</dt><dd>' + st.nodes.length + ' 基</dd>'
@@ -1806,8 +1814,12 @@
     st.w = raw.w; st.h = raw.h;
     st.cell = makeCells(st.w, st.h);
     (raw.rocks || []).forEach((i) => { if (st.cell[i]) st.cell[i].rock = true; });
-    st.money = raw.money; st.total = raw.total; st.tier = raw.tier || 0;
+    st.money = raw.money; st.total = raw.total;
     st.landBuys = raw.landBuys || 0; st.rockBuys = raw.rockBuys || 0; st.bridges = raw.bridges || 0;
+    // ランクは保存された番号ではなく累計売上から数え直す。
+    // ランクの表が増えても、古い保存が別のランクに着地しない。
+    st.tier = 0;
+    while (TIERS[st.tier + 1] && st.total >= TIERS[st.tier + 1].need) st.tier++;
     st.done = raw.done || {}; st.sold = raw.sold || {}; st.log = raw.log || {}; st.seen = raw.seen || {};
     st.tut = raw.tut === undefined ? -1 : raw.tut;
     applyResearch();
