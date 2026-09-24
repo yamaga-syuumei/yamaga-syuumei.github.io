@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>錬金工場と魔法のお店（試作）</title>
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="style.css?v=9f7cbcae">
+<link rel="stylesheet" href="style.css?v=b1d8f16f">
 </head>
 <body>
 
@@ -26,6 +26,7 @@
       <button class="al-btn" id="btnRes">研究</button>
       <button class="al-btn" id="btnLog">便り<i class="al-dot" id="logDot" hidden></i></button>
       <button class="al-btn" id="btnCodex">図鑑</button>
+      <button class="al-btn al-btn-i al-icon-help" id="btnHelp" title="遊び方" aria-label="遊び方"></button>
       <button class="al-btn al-btn-i al-icon-gear" id="btnOpt" title="オプション" aria-label="オプション"></button>
     </div>
   </header>
@@ -99,6 +100,78 @@
   </div>
 </div>
 
+<!-- 遊び方 -->
+<div class="al-ov" id="help" hidden>
+  <div class="al-panel al-panel-w">
+    <div class="al-ovhead">遊び方</div>
+    <div class="al-helpbody">
+
+      <section>
+        <h4>やること</h4>
+        <p><b>採った物を錬成して、お店で売る。</b>売上で敷地と設備を買い足し、
+          店の格を上げて世界一の魔法のお店にします。</p>
+      </section>
+
+      <section>
+        <h4>送り道</h4>
+        <ul>
+          <li>設備の<b>口から口へドラッグ</b>すると送り道が引けます。引いた瞬間から物が流れます。</li>
+          <li><b>送り道は交差できません。</b>1マスに1本だけ。ここがこのゲームの一番の悩みどころです。</li>
+          <li>受け取り手が詰まると手前に物が溜まります。<b>どこが遅いか目で分かります。</b></li>
+          <li>引くのも撤去も無料です。行き詰まったら引き直してください。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>設備</h4>
+        <ul>
+          <li><b>採取地</b>…原料を一定間隔で出します。入口はありません。</li>
+          <li><b>錬成陣</b>…入口の材料が<b>全部そろうと</b>動きます。入口は2〜3。</li>
+          <li><b>お店</b>…流れてきた物を売ります。品目は決まっていないので、
+            <b>送り道を引き直すだけで売り物を替えられます。</b></li>
+          <li><b>分配陣</b>…1つ受け取って、繋いだ出口へ交互に振り分けます。物は増えません。</li>
+          <li><b>保管庫</b>…速度の差を吸収します。</li>
+          <li><b>渡し橋</b>…研究で解放すると、送り道をまっすぐ1回だけ交差させられます。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>操作</h4>
+        <ul>
+          <li><b>左ドラッグ</b>…口からなら送り道、設備の上からなら設備を動かす</li>
+          <li><b>左クリック</b>…送り道を消す</li>
+          <li><b>右クリック</b>…メニュー（レベルアップ・回転・売却・撤去）／設置中は取り消し</li>
+          <li><b>ホイール</b>…設備を回す／下のパレットの上では横に送る</li>
+          <li><b>敷地の外の ＋</b>…土地を買う。瓦礫はカーソルを乗せると撤去の値段が出ます</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>儲け方</h4>
+        <ul>
+          <li><b>錬成するほど高く売れます。</b>1段深く錬成するごとに、同じ原料から得られる金がおよそ1.9倍。</li>
+          <li>採った物をそのまま売るのは序盤のつなぎです。<b>手を加えてから売ってください。</b></li>
+          <li>お店は捌ける速度に上限があります。詰まるならレベルを上げるか、2軒目を建てます。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>進み方</h4>
+        <ul>
+          <li>累計売上で<b>店の格</b>が上がります。格が上がると先の研究が買えるようになります。</li>
+          <li><b>研究</b>…錬成＝新しいレシピと採取地、物流＝送り道とお店、敷地＝土地。</li>
+          <li><b>風の便り</b>…売った品によって、勇者の物語と街のうわさが届きます。</li>
+        </ul>
+      </section>
+
+    </div>
+    <div class="al-ovbtns">
+      <button class="al-btn" id="btnTut">はじめのてびきを出す</button>
+      <button class="al-btn al-btn-p" id="btnHelpClose">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <!-- オプション。ほかのブラウザゲームと同じ形（右上は歯車ひとつ） -->
 <div class="al-ov" id="ovOpt" hidden>
   <div class="al-panel">
@@ -141,6 +214,6 @@
 <script src="data.js?v=7cd25856"></script>
 <script src="sound.js?v=d7e7e4b2"></script>
 <script src="art.js?v=562c1506"></script>
-<script src="game.js?v=84798761"></script>
+<script src="game.js?v=090140cb"></script>
 </body>
 </html>

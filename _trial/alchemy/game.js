@@ -105,7 +105,7 @@
     return {
       w: BOARD.w, h: BOARD.h, cell: [], nodes: [], belts: [],
       money: BOARD.startMoney, total: 0, tier: 0, landBuys: 0, bridges: 0,
-      unlock: {}, done: {}, sold: {}, log: {}, logNew: 0, seen: {},
+      unlock: {}, done: {}, sold: {}, log: {}, logNew: 0, seen: {}, tut: 0,
       bonus: { belt: 0, sellRate: 0, price: 0, land: 0, rock: 0 },
       beltPhase: 0, acc: 0, flowT: 0, boom: false,
     };
@@ -1161,15 +1161,55 @@
       : 'この星のどこでも名が通る';
   }
 
-  const HINT = '出口から入口へドラッグして送り道を引く　／　右クリックでメニュー　／　ホイールで回転　／　敷地の外の ＋ で土地を買う';
+  const HINT = '出口から入口へドラッグして送り道を引く　／　右クリックでメニュー　／　ホイールで回転　／　敷地の外の ＋ で土地を買う　／　右上の ? で遊び方';
+
+  // はじめのてびき。案内の行をそのまま使うので、出ても高さは変わらない。
+  // 読ませるのではなく、やることを1つずつ出して、やったら次へ進む。
+  const TUT = [
+    { text: '採取地の右の口から、お店の左の口までドラッグして送り道を引く',
+      done: () => st.belts.length > 0 },
+    { text: '品がお店に届くと売れる。少し待ってみる',
+      done: () => st.total > 0 },
+    { text: '右上の「研究」を開いて、いちばん上の「魔石の錬成」を買う',
+      done: () => Object.keys(st.done).length > 0 },
+    { text: '下の「錬成」から錬成陣を置いて、採取地 → 錬成陣 → お店 とつなぐ',
+      done: () => st.nodes.some((n) => n.k === 'fac' && n.outs[0].belt && n.ins.every((p) => p.belt)) },
+    { text: 'ここまでがこのゲームの全部。あとは深く錬成するほど高く売れる',
+      done: () => st.total > 200 },
+  ];
+
+  function tutStep() {
+    if (st.tut < 0 || st.tut >= TUT.length) return null;
+    while (st.tut < TUT.length && TUT[st.tut].done()) { st.tut++; save(); }
+    return st.tut < TUT.length ? TUT[st.tut] : null;
+  }
 
   function updateHint() {
     const h = el('hint');
+    const step = placing ? null : tutStep();
     const txt = placing
       ? '設置中：' + placing.def.name + '　左クリックで置く　／　右クリックで取り消し　／　ホイールで回転'
-      : HINT;
-    if (h.textContent !== txt) h.textContent = txt;
+      : step ? step.text : HINT;
+    if (h.dataset.txt !== txt) {
+      h.dataset.txt = txt;
+      h.innerHTML = '';
+      if (step) {
+        const n = document.createElement('span');
+        n.className = 'al-step';
+        n.textContent = (st.tut + 1) + ' / ' + TUT.length;
+        h.appendChild(n);
+      }
+      h.appendChild(document.createTextNode(txt));
+      if (step) {
+        const b = document.createElement('button');
+        b.className = 'al-skip';
+        b.textContent = 'とじる';
+        b.onclick = () => { st.tut = -1; save(); updateHint(); };
+        h.appendChild(b);
+      }
+    }
     h.classList.toggle('on', !!placing);
+    h.classList.toggle('tut', !!step);
   }
 
   // ---------------------------------------------------------------- 購入パレット
@@ -1621,7 +1661,7 @@
       });
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         w: st.w, h: st.h, money: st.money, total: st.total, tier: st.tier,
-        landBuys: st.landBuys, bridges: st.bridges, done: st.done, sold: st.sold, log: st.log, seen: st.seen,
+        landBuys: st.landBuys, bridges: st.bridges, done: st.done, sold: st.sold, log: st.log, seen: st.seen, tut: st.tut,
         rocks: st.cell.map((c, i) => (c.rock ? i : -1)).filter((i) => i >= 0),
         nodes: st.nodes.map((n) => ({ d: n.def.key, x: n.x, y: n.y, r: n.rot, l: n.lv })),
         belts: st.belts.map((b) => ({ f: pi.get(b.from), t: pi.get(b.to), c: b.cells.map((c) => [c.x, c.y]) })),
@@ -1640,6 +1680,7 @@
     st.money = raw.money; st.total = raw.total; st.tier = raw.tier || 0;
     st.landBuys = raw.landBuys || 0; st.bridges = raw.bridges || 0;
     st.done = raw.done || {}; st.sold = raw.sold || {}; st.log = raw.log || {}; st.seen = raw.seen || {};
+    st.tut = raw.tut === undefined ? -1 : raw.tut;
     applyResearch();
     raw.nodes.forEach((n) => {
       const def = BUILDS[n.d] || (n.d.indexOf('shop_') === 0 ? BUILDS.shop : null);
@@ -1706,7 +1747,9 @@
     }, true);
 
     overlay('res', 'btnRes', 'btnResClose', buildResearch);
+    overlay('help', 'btnHelp', 'btnHelpClose');
     overlay('ovOpt', 'btnOpt', 'btnOptClose', syncSound);
+    el('btnTut').onclick = () => { st.tut = 0; save(); updateHint(); el('help').hidden = true; };
     overlay('log', 'btnLog', 'btnLogClose', buildLog);
     overlay('codex', 'btnCodex', 'btnCodexClose', buildCodex);
     overlay('cert', null, 'btnCertClose');

@@ -56,6 +56,30 @@ button{font:inherit; color:inherit; cursor:pointer}
   mask:url(/img/icon-settings.png) center / contain no-repeat;
 }
 .al-icon-gear.is-mute{color:var(--dim); opacity:.6}
+.al-icon-help::before{
+  content:""; width:17px; height:17px; background:currentColor;
+  -webkit-mask:url(/img/icon-help.png) center / contain no-repeat;
+  mask:url(/img/icon-help.png) center / contain no-repeat;
+}
+
+/* 遊び方 */
+.al-helpbody section{margin-bottom:14px}
+.al-helpbody h4{margin:0 0 6px; font-size:12px; color:var(--dim); font-weight:600;
+  border-bottom:1px solid var(--line); padding-bottom:4px}
+.al-helpbody p{margin:0; font-size:12.5px; line-height:1.7}
+.al-helpbody ul{margin:0; padding-left:1.2em}
+.al-helpbody li{font-size:12.5px; line-height:1.7; margin-bottom:2px}
+
+/* はじめのてびき。案内の行をそのまま使うので高さは変わらない */
+.al-hint.tut{color:var(--magic); font-weight:600}
+.al-hint .al-step{
+  display:inline-block; background:var(--magic); color:#fff; border-radius:9px;
+  padding:0 7px; margin-right:6px; font-size:10px; font-weight:700; vertical-align:1px;
+}
+.al-hint .al-skip{
+  background:none; border:0; color:var(--dim); font-size:10.5px;
+  margin-left:8px; text-decoration:underline; padding:0;
+}
 
 /* ---------------------------------------------------------------- 盤面 */
 .al-board{flex:1; min-height:0; display:flex; align-items:center; justify-content:center}
@@ -150,6 +174,7 @@ canvas{touch-action:none; display:block}
 .al-panel-w{width:min(940px,100%)}
 .al-ovhead{flex:0 0 auto; font-size:16px; font-weight:600; margin-bottom:12px}
 .al-ovbtns{flex:0 0 auto; display:flex; gap:8px; justify-content:flex-end; margin-top:14px}
+.al-panel > .al-helpbody,
 .al-panel > .al-cols,
 .al-panel > .al-codex,
 .al-panel > .al-logbody,
