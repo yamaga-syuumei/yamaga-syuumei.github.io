@@ -1314,7 +1314,60 @@
     cardEls.forEach(({ def, d }) => d.classList.toggle('poor', st.money < defCost(def)));
   }
 
+  // 札の説明。とくに錬成陣は「何を入れると何ができるか」が1行では足りない。
+  // 言い方は図鑑と揃える。作り方・使い道は解放済みのものだけ数える。
+  function madeBy(item) {
+    const src = SOURCES.filter((s) => s.item === item && st.unlock[s.key]).map(() => '採取地');
+    const from = RECIPES.filter((r) => r.make === item && st.unlock[r.key])
+      .map((r) => r.in.map((i) => ITEMS[i].name).join('＋'));
+    return src.concat(from).join(' ／ ');
+  }
+
+  function usedFor(item) {
+    return RECIPES.filter((r) => r.in.indexOf(item) >= 0 && st.unlock[r.key])
+      .map((r) => ITEMS[r.make].name).join('・');
+  }
+
+  function defLines(def) {
+    const out = [];
+    const rate = (secs) => secs.toFixed(1) + '秒に1つ';
+    if (def.k === 'fac') {
+      out.push(['入れる：' + def.in.map((i) => ITEMS[i].name).join(' ＋ '), '']);
+      out.push(['できる：' + ITEMS[def.make].name + '　' + priceOf(def.make).toLocaleString() + 'G', '']);
+      out.push([rate(def.secs) + '　入口 ' + def.in.length + '／出口 1', 'dim']);
+      const seen = {};
+      def.in.forEach((i) => {
+        if (seen[i]) return;
+        seen[i] = 1;
+        out.push([ITEMS[i].name + 'の作り方: ' + (madeBy(i) || 'まだ研究していない'), 'dim']);
+      });
+      out.push([ITEMS[def.make].name + 'の使い道: ' + (usedFor(def.make) || 'まだ無い（売る）'), 'dim']);
+    } else if (def.k === 'src') {
+      out.push(['掘り出す：' + ITEMS[def.item].name + '　' + priceOf(def.item).toLocaleString() + 'G', '']);
+      out.push([rate(def.secs) + '　出口 1', 'dim']);
+      out.push([ITEMS[def.item].name + 'の使い道: ' + (usedFor(def.item) || 'まだ無い（売る）'), 'dim']);
+    } else if (def.k === 'shop') {
+      out.push(['流れてきた物を、その品の値段で売る', '']);
+      out.push([rate(def.secs) + '　入口 1', 'dim']);
+      out.push(['軒数が増えるほど次の1軒は高くなる', 'dim']);
+    } else if (def.k === 'split') {
+      out.push(['来た物を2つの出口へ交互に振り分ける', '']);
+      out.push(['入口 1／出口 2', 'dim']);
+    } else if (def.k === 'store') {
+      out.push(['中に' + def.hold + '個まで溜めておける', '']);
+      out.push(['作る速さと売る速さの差を吸収する', 'dim']);
+      out.push(['入口 1／出口 1', 'dim']);
+    } else if (def.bridge) {
+      out.push(['送り道をまっすぐ1回だけ交差させられる', '']);
+      out.push(['いま ' + st.bridges + '本ぶん', 'dim']);
+    }
+    const c = defCost(def);
+    if (st.money < c) out.push(['あと ' + (c - st.money).toLocaleString() + 'G 足りない', 'dim']);
+    return out;
+  }
+
   function buildPalette() {
+    hideTip();
     const bar = el('tabs');
     bar.innerHTML = '';
     TABS.forEach((t) => {
@@ -1371,6 +1424,8 @@
       d.classList.toggle('poor', st.money < defCost(def));
       d.classList.toggle('on', !!placing && placing.def.key === def.key);
       cardEls.push({ def, d });
+      d.onmouseenter = () => showTip(d, defLines(def));
+      d.onmouseleave = hideTip;
       d.onclick = () => {
         SND.unlock(); SND.se('ui');
         st.seen[def.key] = 1;
