@@ -85,7 +85,8 @@ button{font:inherit; color:inherit; cursor:pointer}
 /* 盤面が窓より大きくなったら、切り落とさずに寄せられるようにする。
    align-items:center だと溢れた側に届かなくなるので、余白は margin:auto で作る。 */
 .al-board{flex:1; min-height:0; display:flex; overflow:auto}
-canvas{touch-action:none; display:block; margin:auto}
+canvas{touch-action:none; display:block}
+#cv{margin:auto}          /* 余白は盤面だけ。図鑑やカードの小さな絵まで中央に寄ってしまう */
 .al-hint{margin:0; text-align:center; font-size:11px; color:var(--dim)}
 
 /* ---------------------------------------------------------------- 購入パレット */
@@ -236,6 +237,8 @@ canvas{touch-action:none; display:block; margin:auto}
 .al-corow b{font-size:12.5px; display:inline}
 .al-corow em{font-style:normal; font-size:10.5px; color:var(--gold)}
 .al-corow i{font-style:normal; font-size:10.5px; color:var(--dim)}
+/* 一言。作り方や使い道より先に目に入るように、本文の色で少し大きく出す */
+.al-corow q{quotes:none; font-size:11.5px; color:var(--ink); margin:1px 0 3px}
 
 .al-cert dl{display:grid; grid-template-columns:auto 1fr; gap:7px 14px; margin:0}
 .al-cert dt{font-size:11px; color:var(--dim)}

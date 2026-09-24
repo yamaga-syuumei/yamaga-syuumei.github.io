@@ -13,7 +13,7 @@
   'use strict';
 
   const D = window.ALCHEMY;
-  const { ITEMS, RECIPES, SOURCES, LOGI, SHOP, RESEARCH, PILLARS, TIERS, LOG, BOARD, LEVEL } = D;
+  const { ITEMS, RECIPES, SOURCES, FLAVOR, LOGI, SHOP, RESEARCH, PILLARS, TIERS, LOG, BOARD, LEVEL } = D;
   const { drawItem, drawBridge, drawSpeed, drawGlyph, roundRect } = window.ART;
   const SND = window.ALSND;
 
@@ -1600,7 +1600,8 @@
         const use = RECIPES.filter((r) => r.in.indexOf(k) >= 0 && st.unlock[r.key])
           .map((r) => ITEMS[r.make].name);
         const txt = document.createElement('span');
-        txt.innerHTML = '<b>' + ITEMS[k].name + '</b><em>' + priceOf(k) + 'G</em>'
+        txt.innerHTML = '<b>' + ITEMS[k].name + '</b><em>' + priceOf(k).toLocaleString() + 'G</em>'
+          + (FLAVOR[k] ? '<q>' + FLAVOR[k] + '</q>' : '')
           + '<i>作り方: ' + (src.concat(from).join(' ／ ') || '—') + '</i>'
           + '<i>使い道: ' + (use.join('・') || 'まだ無い（売る）') + '</i>';
         row.appendChild(txt);
