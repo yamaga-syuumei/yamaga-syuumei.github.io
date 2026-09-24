@@ -1338,47 +1338,49 @@
   }
 
   // 札の説明。とくに錬成陣は「何を入れると何ができるか」が1行では足りない。
-  // 言い方は図鑑と揃える。作り方・使い道は解放済みのものだけ数える。
+  // 言い回しは錬金術のものに寄せる（素材・錬成・出どころ）。
+  // 出どころと使い道は、解放済みの採取地と錬成陣だけを数える。
   function madeBy(item) {
-    const src = SOURCES.filter((s) => s.item === item && st.unlock[s.key]).map(() => '採取地');
+    const src = SOURCES.filter((s) => s.item === item && st.unlock[s.key]).map(() => '採取地で採れる');
     const from = RECIPES.filter((r) => r.make === item && st.unlock[r.key])
-      .map((r) => r.in.map((i) => ITEMS[i].name).join('＋'));
+      .map((r) => r.in.map((i) => ITEMS[i].name).join('＋') + 'から錬成');
     return src.concat(from).join(' ／ ');
   }
 
   function usedFor(item) {
-    return RECIPES.filter((r) => r.in.indexOf(item) >= 0 && st.unlock[r.key])
-      .map((r) => ITEMS[r.make].name).join('・');
+    const to = RECIPES.filter((r) => r.in.indexOf(item) >= 0 && st.unlock[r.key])
+      .map((r) => ITEMS[r.make].name);
+    return to.length ? to.join('・') + 'の素材になる' : '';
   }
 
   function defLines(def) {
     const out = [];
-    const rate = (secs) => secs.toFixed(1) + '秒に1つ';
+    const rate = (secs, verb) => secs.toFixed(1) + '秒にひとつ' + verb;
     if (def.k === 'fac') {
-      out.push(['入れる：' + def.in.map((i) => ITEMS[i].name).join(' ＋ '), '']);
-      out.push(['できる：' + ITEMS[def.make].name + '　' + priceOf(def.make).toLocaleString() + 'G', '']);
-      out.push([rate(def.secs) + '　入口 ' + def.in.length + '／出口 1', 'dim']);
+      out.push(['素材：' + def.in.map((i) => ITEMS[i].name).join(' ＋ '), '']);
+      out.push(['錬成：' + ITEMS[def.make].name + '　' + priceOf(def.make).toLocaleString() + 'G', '']);
+      out.push([rate(def.secs, '錬成') + '　入口 ' + def.in.length + '／出口 1', 'dim']);
       const seen = {};
       def.in.forEach((i) => {
         if (seen[i]) return;
         seen[i] = 1;
-        out.push([ITEMS[i].name + 'の作り方: ' + (madeBy(i) || 'まだ研究していない'), 'dim']);
+        out.push([ITEMS[i].name + 'の出どころ: ' + (madeBy(i) || 'まだ研究していない'), 'dim']);
       });
-      out.push([ITEMS[def.make].name + 'の使い道: ' + (usedFor(def.make) || 'まだ無い（売る）'), 'dim']);
+      out.push([ITEMS[def.make].name + 'の使い道: ' + (usedFor(def.make) || 'まだ無い（売るだけ）'), 'dim']);
     } else if (def.k === 'src') {
-      out.push(['掘り出す：' + ITEMS[def.item].name + '　' + priceOf(def.item).toLocaleString() + 'G', '']);
-      out.push([rate(def.secs) + '　出口 1', 'dim']);
-      out.push([ITEMS[def.item].name + 'の使い道: ' + (usedFor(def.item) || 'まだ無い（売る）'), 'dim']);
+      out.push(['採取：' + ITEMS[def.item].name + '　' + priceOf(def.item).toLocaleString() + 'G', '']);
+      out.push([rate(def.secs, '採れる') + '　出口 1', 'dim']);
+      out.push([ITEMS[def.item].name + 'の使い道: ' + (usedFor(def.item) || 'まだ無い（売るだけ）'), 'dim']);
     } else if (def.k === 'shop') {
-      out.push(['流れてきた物を、その品の値段で売る', '']);
-      out.push([rate(def.secs) + '　入口 1', 'dim']);
+      out.push(['店売り：流れてきた品を、その品の値で売る', '']);
+      out.push([rate(def.secs, '捌く') + '　入口 1', 'dim']);
       out.push(['軒数が増えるほど次の1軒は高くなる', 'dim']);
     } else if (def.k === 'split') {
-      out.push(['来た物を2つの出口へ交互に振り分ける', '']);
+      out.push(['流れてきた品を2つの出口へ交互に分ける', '']);
       out.push(['入口 1／出口 2', 'dim']);
     } else if (def.k === 'store') {
-      out.push(['中に' + def.hold + '個まで溜めておける', '']);
-      out.push(['作る速さと売る速さの差を吸収する', 'dim']);
+      out.push(['品を' + def.hold + '個まで寝かせておける', '']);
+      out.push(['錬成と店売りの速さの差を吸収する', 'dim']);
       out.push(['入口 1／出口 1', 'dim']);
     } else if (def.bridge) {
       out.push(['送り道をまっすぐ1回だけ交差させられる', '']);
