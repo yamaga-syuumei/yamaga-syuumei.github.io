@@ -1154,7 +1154,7 @@
     if (st.money !== lastMoney) {
       lastMoney = st.money;
       el('money').textContent = st.money.toLocaleString();
-      buildMenu();                               // 買えるようになった項目を押せるようにする
+      syncMenu();                                // 買えるようになった項目を押せるようにする
       syncResearch();                            // 研究も開いたまま買えるようになる
     }
     updateHint();
@@ -1408,13 +1408,27 @@
     SND.se('ui');
   }
 
-  function menuItem(label, on, dis) {
+  function menuItem(label, on, dis, live) {
     const b = document.createElement('button');
     b.className = 'al-btn';
     b.textContent = label;
     b.disabled = !!dis;
     b.onclick = on;
+    b.live = live || null;      // 所持金で変わるものだけ持つ
     el('mItems').appendChild(b);
+  }
+
+  // 所持金は売れるたびに動く。そのたびにメニューを作り直すと、
+  // 押している最中にボタンが別物に差し替わって、クリックが成立しない。
+  // 中身だけ書き換える。
+  function syncMenu() {
+    if (!menu) return;
+    Array.prototype.forEach.call(el('mItems').children, (b) => {
+      if (!b.live) return;
+      const v = b.live();
+      if (v.label !== undefined && b.textContent !== v.label) b.textContent = v.label;
+      b.disabled = !!v.dis;
+    });
   }
 
   function buildMenu() {
@@ -1431,8 +1445,10 @@
         : n.def.kind + '　' + n.def.sub;
       const maxed = n.lv >= LEVEL.max - 1;
       if (rated) {
-        menuItem(maxed ? 'レベル最大' : 'レベルアップ ' + lvCost(n).toLocaleString() + 'G',
-          () => { levelUp(n); buildMenu(); }, maxed || st.money < lvCost(n));
+        const lvLabel = () => (n.lv >= LEVEL.max - 1
+          ? 'レベル最大' : 'レベルアップ ' + lvCost(n).toLocaleString() + 'G');
+        menuItem(lvLabel(), () => { levelUp(n); buildMenu(); }, maxed || st.money < lvCost(n),
+          () => ({ label: lvLabel(), dis: n.lv >= LEVEL.max - 1 || st.money < lvCost(n) }));
       }
       menuItem('回転（ホイールでも回る）', () => { rotate(n); buildMenu(); });
       menuItem('売却 +' + sellBack(n).toLocaleString() + 'G', () => { sellNode(n); closeMenu(); });
@@ -1444,7 +1460,8 @@
       el('mName').textContent = '瓦礫';
       el('mInfo').textContent = '送り道も設備も置けない';
       menuItem('撤去 ' + rockCost().toLocaleString() + 'G',
-        () => { breakRock(menu.x, menu.y); closeMenu(); }, st.money < rockCost());
+        () => { breakRock(menu.x, menu.y); closeMenu(); }, st.money < rockCost(),
+        () => ({ label: '撤去 ' + rockCost().toLocaleString() + 'G', dis: st.money < rockCost() }));
     }
     menuItem('閉じる', closeMenu);
   }
