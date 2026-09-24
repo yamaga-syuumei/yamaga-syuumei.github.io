@@ -531,9 +531,11 @@
     return !a.item || !b.item || a.item === b.item;
   }
 
+  // 口をつかめるのは設備の外側の1マスだけ。設備の上から引くと移動と取り違える
   function portAtPointer(pc) {
     let best = null, bestD = cs * 0.42;
     for (const p of allPorts()) {
+      if (portAX(p) !== pc.x || portAY(p) !== pc.y) continue;
       const j = jointOf(p);
       const d = Math.hypot(j.x - pc.px, j.y - pc.py);
       if (d < bestD) { bestD = d; best = p; }
@@ -593,9 +595,9 @@
     }
 
     const node = at(pc.x, pc.y).node;
-    if (node) { moving = { node, moved: false, px: e.clientX, py: e.clientY }; SND.se('pickup'); return; }
+    if (node) { moving = { node, moved: false }; SND.se('pickup'); return; }
 
-    if (at(pc.x, pc.y).rock) { openMenu('rock', { x: pc.x, y: pc.y }, e.clientX, e.clientY); return; }
+    if (at(pc.x, pc.y).rock) return;
     const hit = beltAt(pc.x, pc.y);
     if (hit) removeBelt(hit);
   }
@@ -635,9 +637,10 @@
     }
     if (!drag) {
       hoverBelt = inBoard(pc.x, pc.y) ? beltAt(pc.x, pc.y) : null;
-      const onRock = inBoard(pc.x, pc.y) && at(pc.x, pc.y).rock;
+      const onNode = inBoard(pc.x, pc.y) && at(pc.x, pc.y).node;
       cv.style.cursor = placing ? 'copy'
-        : (hoverExpand || onRock || hoverBelt) ? 'pointer' : 'crosshair';
+        : onNode ? 'move'
+        : (hoverExpand || hoverBelt) ? 'pointer' : 'crosshair';
       return;
     }
     if (!inBoard(pc.x, pc.y)) return;
@@ -703,8 +706,7 @@
   function onUp() {
     if (moving) {
       const m = moving; moving = null;
-      if (!m.moved) { openMenu('node', { node: m.node }, m.px, m.py); return; }
-      if (m.to && free(m.to.x, m.to.y)) moveNode(m.node, m.to.x, m.to.y);
+      if (m.moved && m.to && free(m.to.x, m.to.y)) moveNode(m.node, m.to.x, m.to.y);
       return;
     }
     if (!drag) return;
