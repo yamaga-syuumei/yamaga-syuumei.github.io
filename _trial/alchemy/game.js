@@ -416,7 +416,7 @@
     h1.innerHTML = '<span>勇者の歩み</span><span>' + hOpen + ' / ' + LOG.hero.length + '</span>';
     hero.appendChild(h1);
     LOG.hero.forEach((e, i) => {
-      logRow(hero, i + 1, e, !!st.log[e.key], e.need + 'G 以上の品を売ると届く');
+      logRow(hero, i + 1, e, !!st.log[e.key], e.need.toLocaleString() + 'G 以上の品を売ると届く');
     });
     box.appendChild(hero);
 
