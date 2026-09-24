@@ -256,7 +256,7 @@
   const SHOP = { baseCost: 60, easy: 5, stepEasy: 1.5, stepHard: 1.55, secs: 1.2 };
 
   // ---------------------------------------------------------------- 研究
-  // tier は店の格。その格に届くまで、見えてはいるが買えない。
+  // tier は錬金術師のランク。そのランクに届くまで、見えてはいるが買えない。
   //  unlock を持つもの … 一度きり。設備やレシピが並ぶようになる。
   //  stat を持つもの   … 何度でも上げられる。1レベルにつき per だけ効き、max まで。
   //                      値段は costMul でレベルごとに上がる。
@@ -276,24 +276,24 @@
       unlock: ['f_ring', 'f_shield', 'f_cloak', 'f_firesword'] },
     { key: 'r_life',    p: 'prod', tier: 2, cost: 30000, name: '暮らしの錬成',
       unlock: ['f_potion', 'f_lifecrystal', 'f_seed', 'f_bean'] },
-    { key: 'r_mystic',  p: 'prod', tier: 2, cost: 80000, name: '神秘の錬成',
+    { key: 'r_mystic',  p: 'prod', tier: 3, cost: 80000, name: '神秘の錬成',
       unlock: ['f_lantern', 'f_darkorb', 'f_compass', 'f_phantomglass', 'f_tent'] },
-    { key: 'r_elem3',   p: 'prod', tier: 2, cost: 90000, name: '天界と魔界',
+    { key: 'r_elem3',   p: 'prod', tier: 3, cost: 90000, name: '天界と魔界',
       unlock: ['f_heavensoil', 'f_hellwind'] },
-    { key: 'r_crystal', p: 'prod', tier: 3, cost: 100000, name: 'クリスタル',
+    { key: 'r_crystal', p: 'prod', tier: 4, cost: 100000, name: 'クリスタル',
       unlock: ['f_crystal', 'f_crystal_light', 'f_crystal_water', 'f_crystal_fire',
         'f_crystal_wind', 'f_crystal_earth', 'f_crystal_dark'] },
-    { key: 'r_armory',  p: 'prod', tier: 3, cost: 200000, name: '武具の錬成',
+    { key: 'r_armory',  p: 'prod', tier: 5, cost: 200000, name: '武具の錬成',
       unlock: ['f_eartharmor', 'f_holysword', 'f_machine', 'f_gallian'] },
-    { key: 'r_garden',  p: 'prod', tier: 3, cost: 200000, name: '世界樹',
+    { key: 'r_garden',  p: 'prod', tier: 5, cost: 200000, name: '世界樹',
       unlock: ['f_worldseed', 'f_hollow', 'f_beanstalk', 'f_paradise'] },
-    { key: 'r_relic',   p: 'prod', tier: 4, cost: 400000, name: '秘宝の錬成',
+    { key: 'r_relic',   p: 'prod', tier: 6, cost: 400000, name: '秘宝の錬成',
       unlock: ['f_necklace', 'f_eye', 'f_tablet', 'f_savecircle', 'f_magicarmor'] },
-    { key: 'r_life3',   p: 'prod', tier: 4, cost: 500000, name: '人造の生命',
+    { key: 'r_life3',   p: 'prod', tier: 7, cost: 500000, name: '人造の生命',
       unlock: ['f_homunculus', 'f_fairy', 'f_warrior', 'f_guardian'] },
-    { key: 'r_blade',   p: 'prod', tier: 4, cost: 700000, name: '伝説の刃',
+    { key: 'r_blade',   p: 'prod', tier: 7, cost: 700000, name: '伝説の刃',
       unlock: ['f_manjimaru', 'f_emblem', 'f_flamesword', 'f_dragon'] },
-    { key: 'r_forbidden', p: 'prod', tier: 4, cost: 1500000, name: '禁断の錬成',
+    { key: 'r_forbidden', p: 'prod', tier: 6, cost: 1500000, name: '禁断の錬成',
       unlock: ['f_philosopher', 'f_elixir', 'f_egg', 'f_wing'] },
 
     // 物流（お店まわりもここ）
@@ -321,25 +321,35 @@
     { key: 'land', name: '敷地' },
   ];
 
-  // ---------------------------------------------------------------- 店の格
-  // 累計売上で上がる。上がると師匠から手紙が届き、次の格の研究が買えるようになる。
+  // ---------------------------------------------------------------- 錬金術師のランク
+  // 累計売上で上がる。上がると師匠から手紙が届き、次のランクの研究が買えるようになる。
+  // name は帯と手紙と図鑑の見出し。short は札の上の小さな丸札に使う。
   const TIERS = [
-    { need: 0,       name: '露店',
+    { need: 0,       name: '露店の錬金術師', short: '露店',
       msg: ['よく来た。ここがお前の店だ。', '……小さいだろう。私も最初はここからだった。',
         '掘って、錬成して、売れ。それだけだ。'] },
-    { need: 500,           name: '小さなお店',
+    { need: 500,           name: '小さな店の錬金術師', short: '小さな店',
       msg: ['看板を出せるようになったな。', '素材を掘って売るだけでは、いつまでも露店のままだ。',
         '錬成しろ。手を加えた分だけ値が付く。'] },
-    { need: 15000,         name: '街の工房',
-      msg: ['街の連中がお前の名を口にし始めた。', '工房を名乗っていい。',
+    { need: 15000,         name: '街の錬金術師', short: '街',
+      msg: ['街の連中がお前の名を口にし始めた。', '錬金術師を名乗っていい。',
         '棚に並ぶ品が増えるほど、客は遠くから来る。'] },
-    { need: 300000,        name: '王都の名店',
+    { need: 60000,         name: '名の知れた錬金術師', short: '名の知れた',
+      msg: ['街の外から、わざわざお前を訪ねて来る客がいるそうだな。', '名が通るということは、見られているということだ。',
+        '棚に何を並べるか、そろそろ選べ。'] },
+    { need: 300000,        name: '王都の錬金術師', short: '王都',
       msg: ['王都から使いが来た。出店の許しが下りたぞ。', 'ここから先は、素材の数ではなく深さで決まる。',
         'クリスタルを扱える者は、この大陸に数えるほどしかいない。'] },
-    { need: 1500000,       name: '大陸一の商会',
+    { need: 700000,        name: '王国一の錬金術師', short: '王国一',
+      msg: ['王国一だ。王宮の棚にもお前の品が並んでいる。', '数を捌くだけでは、もうこれ以上は伸びん。',
+        '深く錬成しろ。深さがそのまま値になる。'] },
+    { need: 1500000,       name: '大陸一の錬金術師', short: '大陸一',
       msg: ['大陸一だ。もう私が教えることはない。', '……ひとつだけ言っておく。',
         '禁断とされる錬成がある。やるかどうかはお前が決めろ。'] },
-    { need: 15000000,      name: '世界一の魔法のお店',
+    { need: 5000000,       name: '七つの海の錬金術師', short: '七つの海',
+      msg: ['海の向こうにもお前の名が渡った。', '船が着くたび、注文が積み上がっていくそうだな。',
+        '……あと一歩だ。ここまで来た者を、私は他に知らん。'] },
+    { need: 15000000,      name: '世界一の錬金術師', short: '世界一',
       msg: ['世界一だ。', 'お前の店の名は、この星のどこでも通じる。',
         '……店番を代わってくれないか。私はもう疲れた。'] },
   ];
