@@ -54,7 +54,9 @@
       sub: l.key === 'split' ? '交互に振り分ける' : '詰まりを吸収', hold: l.hold, cost: l.cost };
   });
   const shopCount = () => st.nodes.filter((n) => n.k === 'shop').length;
-  const shopCost = (n) => Math.round(SHOP.baseCost * Math.pow(SHOP.step, Math.max(0, n)));
+  const shopCost = (n) => Math.round(SHOP.baseCost
+    * Math.pow(SHOP.stepEasy, Math.min(Math.max(0, n), SHOP.easy))
+    * Math.pow(SHOP.stepHard, Math.max(0, n - SHOP.easy)));
   // 買うときも売るときも、その軒数のときの値段で数える
   const defCost = (def) => (def.k === 'shop' ? shopCost(shopCount()) : def.cost);
   const sellBack = (n) => Math.round((n.k === 'shop' ? shopCost(shopCount() - 1) : n.def.cost) / 2);
@@ -97,14 +99,15 @@
   const nodeTicks = (b, lv) => Math.max(2, Math.round(b.secs * TPS * Math.pow(LEVEL.speedMul, lv)));
   const cellsPerSec = () => 6 + st.bonus.belt * 2;
   const landCost = () => Math.round(BOARD.landBase * Math.pow(BOARD.landStep, st.landBuys) * (1 - st.bonus.land));
-  const rockCost = () => Math.round(BOARD.rockCost * (1 - st.bonus.rock));
+  const rockCost = () => Math.round(BOARD.rockCost
+    * Math.pow(BOARD.rockStep, st.rockBuys || 0) * (1 - st.bonus.rock));
   const lvCost = (n) => Math.round(n.def.cost * Math.pow(LEVEL.costMul, n.lv));
 
   // ---------------------------------------------------------------- 組み立て
   function blank() {
     return {
       w: BOARD.w, h: BOARD.h, cell: [], nodes: [], belts: [],
-      money: BOARD.startMoney, total: 0, tier: 0, landBuys: 0, bridges: 0,
+      money: BOARD.startMoney, total: 0, tier: 0, landBuys: 0, rockBuys: 0, bridges: 0,
       unlock: {}, done: {}, sold: {}, log: {}, logNew: 0, seen: {}, tut: 0,
       bonus: { belt: 0, sellRate: 0, price: 0, land: 0, rock: 0 },
       beltPhase: 0, acc: 0, flowT: 0, boom: false,
@@ -800,6 +803,7 @@
     const c = rockCost();
     if (st.money < c) { SND.se('deny'); return; }
     st.money -= c;
+    st.rockBuys = (st.rockBuys || 0) + 1;
     at(x, y).rock = false;
     SND.se('expand');
     save();
@@ -878,7 +882,7 @@
     const c = rockCost();
     const can = st.money >= c;
     const x = midX(hoverCell.x), y = midY(hoverCell.y);
-    const txt = '撤去 ' + c + 'G';
+    const txt = '撤去 ' + c.toLocaleString() + 'G';
     ctx.save();
     ctx.font = '600 ' + Math.round(Math.max(10, cs * 0.24)) + 'px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -911,7 +915,7 @@
       ctx.fillStyle = hot ? (can ? '#6a4f8a' : '#b44a4a') : 'rgba(110,92,140,.6)';
       ctx.font = '600 ' + Math.round(Math.min(13, PAD * 0.52)) + 'px sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(hot ? c + 'G' : '＋', x + w / 2, y + h / 2);
+      ctx.fillText(hot ? c.toLocaleString() + 'G' : '＋', x + w / 2, y + h / 2);
       ctx.restore();
     });
   }
@@ -1426,7 +1430,7 @@
         : n.def.kind + '　' + n.def.sub;
       const maxed = n.lv >= LEVEL.max - 1;
       if (rated) {
-        menuItem(maxed ? 'レベル最大' : 'レベルアップ ' + lvCost(n) + 'G',
+        menuItem(maxed ? 'レベル最大' : 'レベルアップ ' + lvCost(n).toLocaleString() + 'G',
           () => { levelUp(n); buildMenu(); }, maxed || st.money < lvCost(n));
       }
       menuItem('回転（ホイールでも回る）', () => { rotate(n); buildMenu(); });
@@ -1438,7 +1442,7 @@
     } else {
       el('mName').textContent = '瓦礫';
       el('mInfo').textContent = '送り道も設備も置けない';
-      menuItem('撤去 ' + rockCost() + 'G',
+      menuItem('撤去 ' + rockCost().toLocaleString() + 'G',
         () => { breakRock(menu.x, menu.y); closeMenu(); }, st.money < rockCost());
     }
     menuItem('閉じる', closeMenu);
