@@ -1734,8 +1734,25 @@
     if (closeBtn) el(closeBtn).onclick = () => { SND.se('ui'); o.hidden = true; hideTip(); };
   }
 
+  // 続きがあるときは、その盤面を裏に出したまま「つづきから」を見せる。
+  // 数日またいで開くゲームなので、黙って復元されると続きなのか分からない。
+  function showTitle(resume) {
+    el('btnStart').textContent = resume ? 'つづきから' : 'はじめる';
+    el('btnTitleNew').hidden = !resume;
+    el('titleNote').textContent = resume
+      ? TIERS[st.tier].name + '　累計売上 ' + Math.round(st.total).toLocaleString() + 'G'
+      : '';
+    el('ovTitle').hidden = false;
+  }
+
+  function startFresh() {
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    reset(); layout(); buildPalette(); buildResearch(); buildCodex(); markLog(); closeMenu();
+  }
+
   function init() {
-    if (!load()) reset();
+    const resumed = load();
+    if (!resumed) reset();
     layout();
     buildPalette();
     buildResearch();
@@ -1783,14 +1800,26 @@
 
     el('btnReset').onclick = () => {
       if (!confirm('最初からやり直します。よろしいですか？')) return;
-      try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
-      reset(); layout(); buildPalette(); buildResearch(); buildCodex(); markLog(); closeMenu();
+      startFresh();
       el('ovOpt').hidden = true;
     };
 
+    el('btnStart').onclick = () => {
+      SND.unlock(); SND.se('ui');
+      el('ovTitle').hidden = true;
+      SND.bgm('play');
+    };
+    el('btnTitleNew').onclick = () => {
+      SND.unlock(); SND.se('ui');
+      if (!confirm('最初からやり直します。いまの盤面は消えます。よろしいですか？')) return;
+      startFresh();
+      el('ovTitle').hidden = true;
+      SND.bgm('play');
+    };
+    showTitle(resumed);
+
     setupSound();
     setInterval(refreshPalette, 600);   // 買えるようになったカードを光らせる
-    SND.bgm('play');
     requestAnimationFrame(frame);
   }
 

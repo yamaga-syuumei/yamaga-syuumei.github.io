@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>錬金工場と魔法のお店（試作）</title>
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="style.css?v=74178753">
+<link rel="stylesheet" href="style.css?v=b579e212">
 </head>
 <body>
 
@@ -40,6 +40,19 @@
     <div class="al-cards" id="cards"></div>
   </div>
 
+</div>
+
+<!-- タイトル。裏では盤面がそのまま動いている -->
+<div class="al-ov al-ov-title" id="ovTitle" hidden>
+  <div class="al-titlecard">
+    <h1>錬金工場と魔法のお店</h1>
+    <p class="al-tagline">掘って、錬成して、売る。世界一の魔法のお店にする。</p>
+    <div class="al-ov-btns">
+      <button class="al-btn al-btn-p" id="btnStart">はじめる</button>
+      <button class="al-btn" id="btnTitleNew" hidden>最初から</button>
+    </div>
+    <p class="al-titlenote" id="titleNote"></p>
+  </div>
 </div>
 
 <!-- 右クリックのメニュー。設備・送り道・瓦礫で中身が変わる -->
@@ -227,6 +240,6 @@
 <script src="data.js?v=6fe1d195"></script>
 <script src="sound.js?v=db1f12be"></script>
 <script src="art.js?v=562c1506"></script>
-<script src="game.js?v=cf91998b"></script>
+<script src="game.js?v=6114e408"></script>
 </body>
 </html>

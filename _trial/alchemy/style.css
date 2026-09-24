@@ -163,6 +163,21 @@ canvas{touch-action:none; display:block}
   position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
   background:rgba(60,44,90,.34); padding:18px;
 }
+/* タイトル。板を置かず、明かりが差したように見せて、裏の盤面を透かす。 */
+.al-ov-title{background:rgba(243,236,223,.45); backdrop-filter:blur(1.5px)}
+.al-titlecard{
+  text-align:center; padding:38px 26px;
+  background:radial-gradient(ellipse at center,
+    rgba(255,250,240,.96) 0%, rgba(255,250,240,.86) 48%, rgba(255,250,240,0) 100%);
+}
+.al-titlecard h1{
+  margin:0 0 8px; font-size:clamp(21px,5.4vw,38px); font-weight:700;
+  letter-spacing:.05em; color:var(--ink); text-shadow:0 2px 16px rgba(255,255,255,.9);
+}
+.al-tagline{margin:0 0 22px; font-size:12.5px; color:var(--dim); letter-spacing:.06em}
+.al-ov-btns{display:flex; gap:10px; justify-content:center}
+.al-titlenote{margin:16px 0 0; font-size:11.5px; color:var(--dim); font-variant-numeric:tabular-nums}
+
 /* 見出しと閉じるは動かさず、中身だけスクロールさせる。
    長い一覧で、閉じるまでスクロールしないと届かないのを止めるため。 */
 .al-panel{
