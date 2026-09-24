@@ -368,10 +368,28 @@
       toast(e);
     });
     if (got.length) SND.se('news');
-    if (got.length) { markLog(); save(); }
+    if (got.length) { markDots(); save(); }
   }
 
-  function markLog() { el('logDot').hidden = !st.logNew; }
+  // 便り・研究・図鑑の点。「まだ見ていないものがある」印。
+  // 研究は買えるようになったもの、図鑑は作れるようになった品を数える。
+  const resKeys = () => RESEARCH.filter((r) => r.tier <= st.tier && resLv(r) < resMax(r))
+    .map((r) => 'res:' + r.key);
+  const codexKeys = () => Object.keys(ITEMS).filter((k) => producible(k)).map((k) => 'cdx:' + k);
+  const anyNew = (keys) => keys.some((k) => !st.seen[k]);
+
+  function markDots() {
+    el('logDot').hidden = !st.logNew;
+    el('resDot').hidden = !anyNew(resKeys());
+    el('codexDot').hidden = !anyNew(codexKeys());
+  }
+
+  // 開いた時点で買える・見られるものを見たことにする。あとで増えたらまた点が出る
+  function seeThese(keys) {
+    keys.forEach((k) => { st.seen[k] = 1; });
+    markDots();
+    save();
+  }
 
   function toast(e) {
     const box = el('toasts');
@@ -408,7 +426,7 @@
 
   function buildLog() {
     st.logNew = 0;
-    markLog();
+    markDots();
     const box = el('logBody');
     box.innerHTML = '';
 
@@ -447,6 +465,7 @@
     SND.se('news');
     showNews(TIERS[st.tier]);
     buildResearch();
+    markDots();
     save();
   }
 
@@ -531,11 +550,15 @@
     return !a.item || !b.item || a.item === b.item;
   }
 
-  // 口をつかめるのは設備の外側の1マスだけ。設備の上から引くと移動と取り違える
+  // 口をつかめるのは設備の外側の1マスだけ。設備の上から引くと移動と取り違える。
+  // そのマスが空いているか、その口から出ている送り道（引き直し）のときだけ。
+  // 同じマスを2つの口が向いていることがあるので、近い方を選ぶ。
   function portAtPointer(pc) {
-    let best = null, bestD = cs * 0.42;
+    let best = null, bestD = Infinity;
+    const open = canDraw(pc.x, pc.y);
     for (const p of allPorts()) {
       if (portAX(p) !== pc.x || portAY(p) !== pc.y) continue;
+      if (!open && !(p.belt && at(pc.x, pc.y).belts.indexOf(p.belt) >= 0)) continue;
       const j = jointOf(p);
       const d = Math.hypot(j.x - pc.px, j.y - pc.py);
       if (d < bestD) { bestD = d; best = p; }
@@ -1655,6 +1678,7 @@
     buildResearch();
     buildPalette();
     buildCodex();
+    markDots();
     save();
   }
 
@@ -1833,7 +1857,7 @@
 
   function startFresh() {
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
-    reset(); layout(); buildPalette(); buildResearch(); buildCodex(); markLog(); closeMenu();
+    reset(); layout(); buildPalette(); buildResearch(); buildCodex(); markDots(); closeMenu();
   }
 
   function init() {
@@ -1843,7 +1867,7 @@
     buildPalette();
     buildResearch();
     buildCodex();
-    markLog();
+    markDots();
 
     cv.addEventListener('pointerdown', onDown);
     cv.addEventListener('pointermove', onMove);
@@ -1866,12 +1890,12 @@
       if (menu && !el('menu').contains(e.target) && e.target !== cv) closeMenu();
     }, true);
 
-    overlay('res', 'btnRes', 'btnResClose', buildResearch);
+    overlay('res', 'btnRes', 'btnResClose', () => { seeThese(resKeys()); buildResearch(); });
     overlay('help', 'btnHelp', 'btnHelpClose');
     overlay('ovOpt', 'btnOpt', 'btnOptClose', syncSound);
     el('btnTut').onclick = () => { st.tut = 0; save(); updateHint(); el('help').hidden = true; };
     overlay('log', 'btnLog', 'btnLogClose', buildLog);
-    overlay('codex', 'btnCodex', 'btnCodexClose', buildCodex);
+    overlay('codex', 'btnCodex', 'btnCodexClose', () => { seeThese(codexKeys()); buildCodex(); });
     overlay('cert', null, 'btnCertClose');
     el('btnCertClose').addEventListener('click', () => SND.bgm(st.boom ? 'boom' : 'play'));
     el('btnNewsClose').onclick = () => { SND.se('ui'); el('news').hidden = true; };
@@ -1974,7 +1998,7 @@
         + 'G」を読み込みます。\n\nいま遊んでいる盤面は消えます。よろしいですか？')) return;
       if (!restore(raw)) { alert('この控えは読めませんでした。'); return; }
       writeSave();
-      layout(); buildPalette(); buildResearch(); buildCodex(); markLog(); closeMenu();
+      layout(); buildPalette(); buildResearch(); buildCodex(); markDots(); closeMenu();
       SND.se('levelup');
       note('控えを読み込みました。' + name);
     };
