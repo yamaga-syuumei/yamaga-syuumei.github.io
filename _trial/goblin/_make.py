@@ -1,4 +1,4 @@
-import os, struct, zlib
+import math, os, struct, zlib
 
 FW, FH = 28, 24
 SCALE = 4
@@ -232,6 +232,151 @@ ZOMBIE['frames'] = [
 ]
 
 
+def outline_soft(grid, soft):
+    out = [row[:] for row in grid]
+    for y in range(FH):
+        for x in range(FW):
+            if grid[y][x] != '.':
+                continue
+            hard = found = False
+            for ox, oy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = x + ox, y + oy
+                if 0 <= nx < FW and 0 <= ny < FH and grid[ny][nx] not in '.K':
+                    found = True
+                    if grid[ny][nx] not in soft:
+                        hard = True
+            if found:
+                out[y][x] = 'K' if hard else 'q'
+    return out
+
+
+def wing(grid, rx0, ry0, ang, length, width):
+    ca, sa = math.cos(ang), math.sin(ang)
+    cx, cy = rx0 + ca * length / 2, ry0 + sa * length / 2
+    a = length / 2
+    for y in range(int(cy - a - 2), int(cy + a + 3)):
+        for x in range(int(cx - a - 2), int(cx + a + 3)):
+            dx, dy = x - cx, y - cy
+            u, v = dx * ca + dy * sa, -dx * sa + dy * ca
+            e = (u / a) ** 2 + (v / width) ** 2
+            if e < 1:
+                put(grid, x, y, 'A' if e > 0.5 else 'a')
+
+
+WING_POSES = {
+    'up':   ((-0.45, -1.0), (-1.0, 0.15)),
+    'mid':  ((-1.0, -0.45), (-1.0, 0.5)),
+    'down': ((-1.0, 0.2), (-0.6, 0.9)),
+}
+
+
+def fairy_head(grid, dx, dy, face):
+    for y in range(2, 14):
+        for x in range(6, 22):
+            ex, ey = (x - 14.5) / 5.0, (y - 7.5) / 4.6
+            bx, by = (x - 9) / 1.9, (y - 5) / 1.9
+            in_head = ex * ex + ey * ey < 1
+            if not in_head and bx * bx + by * by >= 1:
+                continue
+            hair = (not in_head or y <= 5 or (y == 6 and x not in (15, 18, 19)) or (y == 7 and x <= 12)
+                    or x <= 11)
+            if hair:
+                c = 'Y' if (y <= 4 and 12 <= x <= 16) else ('o' if x <= 10 or y >= 10 else 'y')
+            else:
+                c = 'z' if x <= 12 or y >= 12 else 's'
+            put(grid, x + dx, y + dy, c)
+    for x, y, c in ((12, 2, 'F'), (11, 3, 'F'), (13, 3, 'F'), (12, 3, 'Y'), (12, 4, 'F')):
+        put(grid, x + dx, y + dy, c)
+    if face == 'flinch':
+        feats = [(14, 9, 'E'), (15, 9, 'E'), (17, 9, 'E'), (18, 9, 'E'), (13, 10, 'p'), (18, 10, 'p'),
+                 (16, 11, 'E'), (16, 12, 'r')]
+    else:
+        feats = [(14, 8, 'W'), (15, 8, 'E'), (14, 9, 'E'), (15, 9, 'E'), (17, 8, 'W'), (18, 8, 'E'),
+                 (17, 9, 'E'), (18, 9, 'E'), (13, 10, 'p'), (18, 10, 'p'), (16, 11, 'r')]
+    for x, y, c in feats:
+        put(grid, x + dx, y + dy, c)
+
+
+FAIRY_DRESS = [
+    (12, {14: 'zs'}),
+    (13, {13: 'dddd'}),
+    (14, {13: 'dDdd'}),
+    (15, {12: 'ddDdd'}),
+    (16, {11: 'dddDddd'}),
+    (17, {10: 'dDddDddd'}),
+    (18, {10: 'D.dD.dD'}),
+]
+FAIRY_ARMS = {
+    'down': [(17, 14, 's'), (17, 15, 's'), (18, 16, 's')],
+    'up': [(17, 13, 's'), (18, 12, 's'), (19, 11, 's'), (20, 10, 's')],
+    'toss': [(17, 14, 's'), (18, 14, 's'), (19, 14, 's'), (20, 13, 's')],
+    'low': [(17, 14, 's'), (18, 15, 's'), (19, 16, 's')],
+}
+FAIRY_LEGS = {
+    'hang': [(13, 19, 'z'), (13, 20, 'z'), (13, 21, 'D'), (15, 19, 's'), (16, 20, 's'), (16, 21, 'D'), (17, 21, 'D')],
+    'trail': [(12, 19, 'z'), (11, 20, 'z'), (10, 20, 'D'), (14, 19, 's'), (13, 20, 's'), (12, 21, 'D'), (13, 21, 'D')],
+}
+STAR_BIG = [(0, 0, 'X'), (1, 0, 'x'), (-1, 0, 'x'), (0, 1, 'x'), (0, -1, 'x')]
+
+
+def fairy_frame(wings='mid', dy=0, head_dx=0, body_dx=0, arm='down', legs='hang', face=None,
+                big=(), small=(), sweat=False, flash=False):
+    grid = [['.'] * FW for _ in range(FH)]
+    up, low = WING_POSES[wings]
+    rx0, ry0 = 12 + body_dx, 14 + dy
+    wing(grid, rx0, ry0 - 1, math.atan2(up[1], up[0]), 11, 2.8)
+    wing(grid, rx0, ry0 + 1, math.atan2(low[1], low[0]), 7, 1.8)
+    draw_pts(grid, FAIRY_LEGS[legs], body_dx, dy)
+    draw_rows(grid, FAIRY_DRESS, body_dx, dy)
+    fairy_head(grid, body_dx + head_dx, dy, face)
+    draw_pts(grid, FAIRY_ARMS[arm], body_dx, dy)
+    g = outline_soft(grid, 'aA')
+    if flash:
+        g = [['w' if c not in '.Kq' else c for c in row] for row in g]
+
+    def spark(x, y, c):
+        if 0 <= x < FW and 0 <= y < FH and g[y][x] in '.q':
+            g[y][x] = c
+    for bx, by in big:
+        for ox, oy, c in STAR_BIG:
+            spark(bx + ox, by + oy, c)
+    for sx, sy, c in small:
+        spark(sx, sy, c)
+    if sweat:
+        for x, y in ((21, 5), (21, 6), (20, 6)):
+            spark(x, y, 'b')
+    return g
+
+
+FAIRY = {
+    'pal': {
+        'K': (70, 44, 80), 'q': (120, 170, 220, 200), 'a': (196, 236, 255, 140), 'A': (236, 250, 255, 220),
+        'y': (250, 210, 104), 'Y': (255, 242, 176), 'o': (214, 146, 70),
+        's': (255, 222, 192), 'z': (238, 178, 158), 'p': (255, 148, 160), 'r': (196, 76, 96),
+        'E': (72, 50, 96), 'W': (255, 255, 255), 'F': (255, 120, 170),
+        'd': (255, 180, 214), 'D': (232, 118, 170), 'w': (255, 255, 255),
+        'x': (255, 236, 130), 'X': (255, 255, 255), 'c': (255, 150, 200), 'b': (170, 230, 255),
+    },
+}
+FAIRY['frames'] = [
+    ('idle_0', fairy_frame('up', dy=0)),
+    ('idle_1', fairy_frame('down', dy=1)),
+    ('walk_0', fairy_frame('up', dy=-1, head_dx=1, legs='trail')),
+    ('walk_1', fairy_frame('mid', dy=0, head_dx=1, legs='trail')),
+    ('walk_2', fairy_frame('down', dy=1, head_dx=1, legs='trail')),
+    ('walk_3', fairy_frame('mid', dy=0, head_dx=1, legs='trail')),
+    ('attack_0', fairy_frame('up', dy=-1, arm='up', small=[(21, 9, 'X'), (22, 11, 'x'), (20, 7, 'c')])),
+    ('attack_1', fairy_frame('mid', dy=0, body_dx=1, arm='toss', big=[(23, 12), (26, 9)],
+                             small=[(22, 15, 'x'), (25, 16, 'c'), (27, 13, 'X'), (24, 7, 'x'), (27, 11, 'c')])),
+    ('attack_2', fairy_frame('down', dy=1, body_dx=1, arm='low', big=[(24, 16)],
+                             small=[(21, 18, 'c'), (26, 18, 'x'), (23, 12, 'X'), (27, 15, 'c'), (26, 20, 'X'),
+                                    (22, 21, 'x')])),
+    ('attack_3', fairy_frame('mid', dy=0, arm='down', small=[(25, 21, 'x'), (22, 22, 'c'), (27, 19, 'X')])),
+    ('hurt_0', fairy_frame('mid', dy=-1, body_dx=-1, arm='up', face='flinch', flash=True)),
+    ('hurt_1', fairy_frame('up', dy=-1, body_dx=-2, arm='up', face='flinch', sweat=True)),
+]
+
+
 def write_png(path, w, h, rgba_rows):
     raw = b''.join(b'\x00' + bytes(row) for row in rgba_rows)
     def chunk(t, d):
@@ -247,7 +392,10 @@ def render(ch, grids, scale):
     def rgba(c):
         if c == '.':
             return (0, 0, 0, 0)
-        return SMEAR_COL if c == '*' else pal[c] + (255,)
+        if c == '*':
+            return SMEAR_COL
+        v = pal[c]
+        return v if len(v) == 4 else v + (255,)
     w, h = FW * len(grids) * scale, FH * scale
     rows = []
     for y in range(h):
@@ -260,7 +408,7 @@ def render(ch, grids, scale):
 
 
 if __name__ == '__main__':
-    for name, ch in (('goblin', GOBLIN), ('zombie', ZOMBIE)):
+    for name, ch in (('goblin', GOBLIN), ('zombie', ZOMBIE), ('fairy', FAIRY)):
         d = os.path.join(OUT, 'frames' if name == 'goblin' else 'frames_' + name)
         os.makedirs(d, exist_ok=True)
         for fname, g in ch['frames']:

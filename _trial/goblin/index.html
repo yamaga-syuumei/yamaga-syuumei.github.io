@@ -16,11 +16,11 @@ canvas{image-rendering:pixelated;background:#556070;display:block}
 const FW = 112, FH = 96;
 const anims = [
   { name: '待機', seq: [[0, 500], [1, 500]], zslow: 1.4 },
-  { name: '歩き', seq: [[2, 150], [3, 150], [4, 150], [5, 150]], zslow: 1.6 },
+  { name: '移動', seq: [[2, 150], [3, 150], [4, 150], [5, 150]], zslow: 1.6 },
   { name: '攻撃', seq: [[6, 300], [7, 90], [8, 140], [9, 220], [0, 700]] },
   { name: '被弾', seq: [[10, 80], [11, 350], [0, 900]] },
 ];
-for (const sheet of ['goblin_sheet.png', 'zombie_sheet.png']) {
+for (const sheet of ['goblin_sheet.png', 'zombie_sheet.png', 'fairy_sheet.png']) {
   const row = document.createElement('div');
   row.className = 'row';
   document.body.append(row);
