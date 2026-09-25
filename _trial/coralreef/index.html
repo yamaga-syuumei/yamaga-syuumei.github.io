@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>サンゴ礁の一日</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none}
+body{display:flex;align-items:center;justify-content:center}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#dbg{position:fixed;left:8px;top:8px;font:12px/1.5 monospace;color:#8f8;background:rgba(0,0,0,.65);padding:6px 9px;white-space:pre;display:none;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c" width="320" height="180"></canvas>
+<div id="dbg"></div>
+<script>
+'use strict';
+(() => {
+const W = 320, H = 180, CYCLE = 90, START = 0.1, SURF = 12;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d', { alpha: false });
+ctx.imageSmoothingEnabled = false;
+const img = ctx.createImageData(W, H);
+const buf = new Uint32Array(img.data.buffer);
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const s = Math.min(innerWidth * dpr / W, innerHeight * dpr / H);
+  const k = s >= 1 ? Math.floor(s) : s;
+  cv.style.width = (W * k / dpr) + 'px';
+  cv.style.height = (H * k / dpr) + 'px';
+}
+addEventListener('resize', resize);
+resize();
+
+// ---------- utilities ----------
+const R = Math.round, PI = Math.PI;
+const rnd = (a, b) => b === undefined ? Math.random() * a : a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
+const bay = (x, y) => BAY[((y & 3) << 2) | (x & 3)];
+const pack = (r, g, b) => 0xff000000 | (clamp(b | 0, 0, 255) << 16) | (clamp(g | 0, 0, 255) << 8) | clamp(r | 0, 0, 255);
+
+function P(x, y, c) { if (x < 0 || y < 0 || x >= W || y >= H) return; buf[y * W + x] = c; }
+function PA(x, y, c, a) { if (a >= 1 || a > bay(x, y)) P(x, y, c); }
+function ADD(x, y, r, g, b) {
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  const i = y * W + x, c = buf[i];
+  const rr = Math.min(255, (c & 255) + r), gg = Math.min(255, ((c >> 8) & 255) + g), bb = Math.min(255, ((c >> 16) & 255) + b);
+  buf[i] = 0xff000000 | (bb << 16) | (gg << 8) | rr;
+}
+
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const srnd = mulberry(20260925);
+function hash(x, y) { let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  return lerp(lerp(hash(xi, yi), hash(xi + 1, yi), u), lerp(hash(xi, yi + 1), hash(xi + 1, yi + 1), u), v);
+}
+
+// ---------- palette (32) ----------
+const PAL = [
+  [176,228,240],[96,176,224],[72,176,200],[36,120,172],[22,72,130],[12,36,80],
+  [240,220,160],[206,172,112],[150,112,76],
+  [132,128,140],[90,86,104],[52,48,66],
+  [248,120,152],[192,48,88],[248,152,64],[150,80,190],
+  [100,200,90],[40,120,72],
+  [252,220,60],[240,100,30],[248,248,240],[16,20,36],[40,110,230],[180,196,210],
+  [140,156,172],[84,98,120],[110,150,80],[130,90,50],[220,160,230],[120,255,230],[220,60,50],[80,230,220]
+];
+const SKY0=0,SKY1=1,SAND0=6,SAND1=7,SAND2=8,ROCK0=9,ROCK1=10,ROCK2=11,PINK=12,CRIM=13,ORNG=14,PURP=15,GRN0=16,GRN1=17,
+  YEL=18,CLWN=19,WHT=20,INK=21,BLUE=22,SILV=23,SHK0=24,SHK1=25,TSKN=26,TSHL=27,JELY=28,GLOW=29,RED=30,AQUA=31;
+const LIGHT = [...Array(32).keys()];
+LIGHT[SAND2]=SAND1; LIGHT[SAND1]=SAND0; LIGHT[SAND0]=WHT; LIGHT[ROCK2]=ROCK1; LIGHT[ROCK1]=ROCK0; LIGHT[ROCK0]=SILV;
+LIGHT[GRN1]=GRN0; LIGHT[CRIM]=PINK; LIGHT[PINK]=JELY; LIGHT[ORNG]=YEL; LIGHT[PURP]=JELY; LIGHT[AQUA]=SKY0; LIGHT[TSHL]=TSKN;
+
+// ---------- time of day ----------
+const KEYS = [
+  [0.00,[0.82,0.64,0.72]],[0.07,[1.0,0.93,0.9]],[0.14,[1.06,1.06,1.06]],[0.40,[1.06,1.04,1.0]],
+  [0.49,[1.18,0.74,0.46]],[0.555,[0.62,0.40,0.48]],[0.62,[0.22,0.28,0.48]],[0.90,[0.22,0.28,0.48]],
+  [0.96,[0.48,0.42,0.6]],[1.00,[0.82,0.64,0.72]]
+];
+// layers: 0 far ridge, 1 far, 2 mid, 3 near(foreground), 4 unfogged
+const FOG = [0.8, 0.5, 0.07, 0, 0], DARK = [1, 1, 1, 0.66, 1];
+const LUT = [0, 1, 2, 3, 4].map(() => new Uint32Array(32));
+const EM = new Uint32Array(32);
+for (let i = 0; i < 32; i++) EM[i] = pack(PAL[i][0], PAL[i][1], PAL[i][2]);
+let T = 0, phase = START, D = 1, N = 0, WARM = 0, AMB = [1, 1, 1], SKYT = 0, SKYB = 0, SURFC = 0, cur = 0;
+
+function computeLight() {
+  phase = (T / CYCLE + START) % 1;
+  let a = KEYS[0], b = KEYS[1];
+  for (let i = 0; i < KEYS.length - 1; i++) if (phase >= KEYS[i][0] && phase <= KEYS[i + 1][0]) { a = KEYS[i]; b = KEYS[i + 1]; break; }
+  let t = (phase - a[0]) / (b[0] - a[0]); t = t * t * (3 - 2 * t);
+  AMB = [0, 1, 2].map(k => lerp(a[1][k], b[1][k], t));
+  const lum = (AMB[0] + AMB[1] + AMB[2]) / 3;
+  D = clamp((lum - 0.3) / 0.65, 0, 1); N = 1 - D;
+  const dusk = Math.max(0, 1 - Math.abs(phase - 0.5) / 0.08);
+  const dawn = Math.max(0, 1 - Math.min(phase, 1 - phase) / 0.07);
+  WARM = Math.max(dusk, dawn * 0.7);
+  const fog = [0, 1, 2].map(k => lerp(PAL[3][k], PAL[4][k], 0.4) * AMB[k]);
+  for (let l = 0; l < 5; l++) {
+    const f = FOG[l], d = DARK[l], L = LUT[l];
+    for (let i = 0; i < 32; i++) {
+      const p = PAL[i];
+      L[i] = pack(lerp(p[0] * AMB[0] * d, fog[0], f), lerp(p[1] * AMB[1] * d, fog[1], f), lerp(p[2] * AMB[2] * d, fog[2], f));
+    }
+  }
+  const top = [lerp(96, 120, WARM), lerp(176, 80, WARM), lerp(224, 150, WARM)];
+  const bot = [lerp(176, 255, WARM), lerp(228, 150, WARM), lerp(240, 90, WARM)];
+  SKYT = pack(top[0] * AMB[0], top[1] * AMB[1], top[2] * AMB[2]);
+  SKYB = pack(bot[0] * AMB[0], bot[1] * AMB[1], bot[2] * AMB[2]);
+  SURFC = pack(lerp(200, 255, WARM) * AMB[0] + 20 * N, lerp(240, 190, WARM) * AMB[1] + 30 * N, lerp(250, 150, WARM) * AMB[2] + 50 * N);
+}
+
+// ---------- terrain ----------
+const midMap = new Uint8Array(W * H).fill(255), kind = new Uint8Array(W * H);
+const far1 = new Uint8Array(W * H).fill(255), far2 = new Uint8Array(W * H).fill(255), nearMap = new Uint8Array(W * H).fill(255);
+const sandTop = new Int16Array(W), groundTop = new Int16Array(W), solidTop = new Int16Array(W);
+function plot(map, x, y, c, k) {
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  map[y * W + x] = c;
+  if (map === midMap) kind[y * W + x] = k || 3;
+}
+function branch(map, x, y, ang, len, d, c, tip) {
+  for (let s = 0; s < len; s++) {
+    x += Math.cos(ang); y += Math.sin(ang);
+    ang = clamp(ang + (srnd() - 0.5) * 0.35, -PI + 0.35, -0.35);
+    plot(map, R(x), R(y), c);
+    if (d === 0) plot(map, R(x) + 1, R(y), c);
+  }
+  plot(map, R(x), R(y), tip);
+  if (d < 3) {
+    const nb = srnd() < 0.7 ? 2 : 1;
+    for (let k = 0; k < nb; k++) branch(map, x, y, ang + (k ? 0.55 : -0.55) + (srnd() - 0.5) * 0.4, len * (0.6 + srnd() * 0.2), d + 1, c, tip);
+  }
+}
+function brain(map, cx, by, rx, ry, c1, c2) {
+  for (let y = by - ry; y <= by; y++) for (let x = cx - rx; x <= cx + rx; x++) {
+    const dx = (x - cx) / rx, dy = (y - by) / ry;
+    if (dx * dx + dy * dy < 1) plot(map, x, y, Math.sin(x * 1.1 + Math.sin(y * 0.9) * 2.2) > 0.2 ? c1 : c2);
+  }
+}
+function fan(map, cx, by, h, c, c2) {
+  for (let a = -1.1; a <= 1.1; a += 0.16) {
+    const len = h * (0.8 + 0.2 * Math.cos(a));
+    for (let s = 1; s < len; s++) plot(map, R(cx + Math.sin(a) * s * 0.9), R(by - Math.cos(a) * s), s > len - 2 ? c2 : c);
+  }
+  for (let r = 4; r < h; r += 3) for (let a = -1; a <= 1; a += 0.08) plot(map, R(cx + Math.sin(a) * r * 0.9), R(by - Math.cos(a) * r), c);
+}
+function tubes(map, cx, by, c, c2) {
+  [[-3, 7], [0, 11], [3, 6], [5, 9]].forEach(([dx, h]) => {
+    for (let y = by - h; y <= by; y++) for (let x = cx + dx; x < cx + dx + 2; x++) plot(map, x, y, y === by - h ? INK : (y === by - h + 1 ? c2 : c));
+  });
+}
+function table(map, cx, by) {
+  for (let y = by - 5; y <= by; y++) { plot(map, cx, y, GRN1); plot(map, cx + 1, y, GRN1); }
+  for (let x = cx - 9; x <= cx + 10; x++) { plot(map, x, by - 6, AQUA); plot(map, x, by - 5, GRN1); }
+  plot(map, cx - 10, by - 7, AQUA); plot(map, cx + 11, by - 7, AQUA);
+}
+
+(function genTerrain() {
+  for (let x = 0; x < W; x++) {
+    const t2 = R(104 - 12 * vnoise(x * 0.022, 3.3) - 5 * vnoise(x * 0.09, 7.1));
+    for (let y = t2; y < H; y++) far2[y * W + x] = y === t2 ? ROCK0 : ROCK1;
+    const t1 = R(126 - 11 * vnoise(x * 0.03, 11.7) - 4 * vnoise(x * 0.13, 2.2));
+    for (let y = t1; y < H; y++) far1[y * W + x] = y - t1 < 2 ? ROCK0 : (vnoise(x * 0.2, y * 0.2) < 0.3 ? ROCK2 : ROCK1);
+  }
+  const firstY = (map, x) => { for (let y = 0; y < H; y++) if (map[y * W + x] !== 255) return y; return H; };
+  for (let i = 0; i < 10; i++) { const x = R(srnd() * W); branch(far2, x, firstY(far2, x), -PI / 2, 4 + srnd() * 4, 1, ROCK0, ROCK0); }
+  const fc = [PINK, PURP, ORNG, ROCK0, YEL];
+  for (let i = 0; i < 16; i++) {
+    const x = R(srnd() * W), c = fc[i % fc.length];
+    if (i % 3 === 2) fan(far1, x, firstY(far1, x), 6 + srnd() * 4, c, c);
+    else branch(far1, x, firstY(far1, x), -PI / 2, 3 + srnd() * 3, 1, c, c);
+  }
+
+  for (let x = 0; x < W; x++) {
+    sandTop[x] = R(151 + 2.5 * Math.sin(x * 0.031 + 1) + 1.5 * Math.sin(x * 0.083 + 0.4));
+    for (let y = sandTop[x]; y < H; y++) {
+      const d = y - sandTop[x];
+      const s = d / 16 + (vnoise(x * 0.15, y * 0.4) - 0.5) * 0.6;
+      let c = s < 0.15 ? SAND0 : s < 0.62 ? SAND1 : SAND2;
+      if (d > 1 && ((x + y * 3 + R(Math.sin(y * 0.7) * 2)) % 9 === 0)) c = c === SAND0 ? SAND1 : SAND2;
+      const h = hash(x, y);
+      if (h < 0.01) c = WHT; else if (h < 0.02) c = ROCK0;
+      plot(midMap, x, y, c, 1);
+    }
+  }
+
+  const solid = new Uint8Array(W * H);
+  const blob = (cx, cy, rx, ry) => {
+    for (let y = Math.max(0, cy - ry - 4); y < Math.min(H, cy + ry + 4); y++)
+      for (let x = Math.max(0, cx - rx - 4); x < Math.min(W, cx + rx + 4); x++) {
+        const dx = (x - cx) / rx, dy = (y - cy) / ry;
+        if (dx * dx + dy * dy < 1 + (vnoise(x * 0.18, y * 0.18) - 0.5) * 0.5) solid[y * W + x] = 1;
+      }
+  };
+  blob(18, 146, 30, 36); blob(46, 150, 24, 18); blob(6, 118, 14, 24); blob(32, 124, 14, 12);
+  blob(140, 155, 13, 7); blob(176, 157, 7, 4);
+  blob(266, 146, 32, 20); blob(294, 136, 22, 24); blob(244, 154, 16, 8);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    if (!solid[i]) continue;
+    const top = y === 0 || !solid[i - W], top2 = y < 2 || !solid[i - 2 * W];
+    const n = vnoise(x * 0.3, y * 0.3);
+    let c = top ? ROCK0 : top2 ? (n > 0.4 ? ROCK0 : ROCK1) : (n < 0.3 ? ROCK2 : ROCK1);
+    if (!top && hash(x, y) < 0.05) c = ROCK2;
+    if (top && vnoise(x * 0.2, y * 0.2) > 0.55) c = GRN1;
+    if (x > 0 && !solid[i - 1] && !top) c = ROCK1;
+    if (x < W - 1 && !solid[i + 1] && !top) c = ROCK2;
+    plot(midMap, x, y, c, 2);
+  }
+  const hole = (cx, cy, rx, ry) => {
+    for (let y = cy - ry; y <= cy + ry; y++) for (let x = cx - rx; x <= cx + rx; x++) {
+      const dx = (x - cx) / rx, dy = (y - cy) / ry;
+      if (dx * dx + dy * dy <= 1.05) plot(midMap, x, y, INK, 2);
+    }
+  };
+  hole(58, 140, 2, 2); hole(298, 126, 3, 2);
+
+  for (let x = 0; x < W; x++) { groundTop[x] = H - 1; for (let y = 0; y < H; y++) if (kind[y * W + x]) { groundTop[x] = y; break; } }
+  staghornAt(14, PINK, WHT); tubes(midMap, 26, groundTop[27], PURP, JELY); brain(midMap, 44, groundTop[44], 6, 5, YEL, ORNG);
+  fan(midMap, 4, groundTop[4], 12, PURP, JELY);
+  brain(midMap, 100, groundTop[100], 7, 5, ORNG, CRIM); staghornAt(126, ORNG, YEL); fan(midMap, 150, groundTop[150], 10, CRIM, PINK);
+  staghornAt(180, PINK, WHT); tubes(midMap, 238, groundTop[238], CRIM, PINK);
+  table(midMap, 283, groundTop[283]); fan(midMap, 309, groundTop[309], 13, PURP, JELY); brain(midMap, 247, groundTop[247], 4, 3, AQUA, GRN1);
+  staghornAt(276, YEL, WHT);
+  function staghornAt(x, c, tip) { const y = groundTop[x]; for (let k = 0; k < 3; k++) branch(midMap, x + (k - 1) * 2, y, -PI / 2 + (k - 1) * 0.4, 5 + srnd() * 3, 0, c, tip); }
+
+  for (let x = 0; x < W; x++) { solidTop[x] = H - 1; for (let y = 0; y < H; y++) if (midMap[y * W + x] !== 255) { solidTop[x] = y; break; } }
+
+  const nb = (cx, cy, rx, ry) => {
+    for (let y = Math.max(0, cy - ry - 3); y < H; y++) for (let x = Math.max(0, cx - rx - 3); x < Math.min(W, cx + rx + 3); x++) {
+      const dx = (x - cx) / rx, dy = (y - cy) / ry;
+      if (dx * dx + dy * dy < 1 + (vnoise(x * 0.25, y * 0.25) - 0.5) * 0.4) {
+        const above = y > 0 && nearMap[(y - 1) * W + x] !== 255;
+        nearMap[y * W + x] = above ? (vnoise(x * 0.4, y * 0.4) < 0.35 ? ROCK2 : ROCK1) : ROCK0;
+      }
+    }
+  };
+  nb(-2, 186, 22, 14); nb(326, 188, 26, 16);
+})();
+
+const midI = [], midC = [], midX = [], midY = [], midW = [];
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const i = y * W + x, c = midMap[i];
+  if (c === 255) continue;
+  const k = kind[i];
+  let w = 0.8;
+  if (k === 1) { const d = y - sandTop[x]; w = d < 6 ? 1 : d < 14 ? 0.5 : 0.2; }
+  else if (k === 2) w = (y > 0 && midMap[i - W] === 255) || (y > 1 && midMap[i - 2 * W] === 255) ? 1 : 0.45;
+  if (c === INK) w = 0;
+  midI.push(i); midC.push(c); midX.push(x); midY.push(y); midW.push(w);
+}
+const nearI = [];
+for (let i = 0; i < W * H; i++) if (nearMap[i] !== 255) nearI.push(i);
+const gT = x => groundTop[clamp(R(x), 0, W - 1)];
+
+// ---------- sprites ----------
+function spr(rows, keys) {
+  const h = rows.length, w = Math.max(...rows.map(r => r.length)), d = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const k = keys.indexOf(rows[y][x] || '.'); d[y * w + x] = k < 0 ? 0 : k + 1; }
+  return { w, h, d };
+}
+function blit(s, cx, cy, flip, cols, tilt, wave, wph) {
+  const w = s.w, h = s.h, x0 = cx - (w >> 1), y0 = cy - (h >> 1);
+  for (let c = 0; c < w; c++) {
+    const tail = 1 - c / (w - 1);
+    const dy = R((c - w / 2) * (tilt || 0) + (wave ? Math.sin(wph - c * 0.35) * wave * tail * tail : 0));
+    const sx = flip ? x0 + (w - 1 - c) : x0 + c;
+    for (let r = 0; r < h; r++) { const k = s.d[r * w + c]; if (k) P(sx, y0 + r + dy, cols[k - 1]); }
+  }
+}
+const FR = [0, 1, 2, 1];
+const FISH = [spr(['b..bb.', '.bbbeb', '..sss.'], 'bse'), spr(['...bb.', 'bbbbeb', '..sss.'], 'bse'), spr(['...bb.', '.bbbeb', 'b.sss.'], 'bse')];
+const TANG = [
+  spr(['...bb..', 'b.bbbb.', '.bbbbeb', '..bsbb.', '...ss..'], 'bse'),
+  spr(['...bb..', 'b.bbbb.', '.bbbbeb', 'b.bsbb.', '...ss..'], 'bse'),
+  spr(['...bb..', '..bbbb.', '.bbbbeb', 'b.bsbb.', '...ss..'], 'bse')];
+const SARD = [spr(['b.bbe', '.sss.'], 'bse'), spr(['.bbbe', 'bsss.'], 'bse'), spr(['..bbe', 'bsss.'], 'bse')];
+const CLOWN = [spr(['o.owo.', '.oowoe', '..owo.'], 'owe'), spr(['..owo.', 'ooowoe', '..owo.'], 'owe'), spr(['..owo.', '.oowoe', 'o.owo.'], 'owe')];
+const CRAB = [spr(['R.e.e.R', 'RrrrrrR', '.rrrrr.', 'r.r.r.r'], 'rRe'), spr(['R.e.e.R', 'RrrrrrR', '.rrrrr.', '.r.r.r.'], 'rRe')];
+const CRAB_PECK = spr(['..e.e..', '.rrrrr.', 'RrrrrrR', 'r.r.r.r'], 'rRe');
+const CRAB_UP = spr(['R.....R', 'R.e.e.R', '.rrrrr.', 'r.r.r.r'], 'rRe');
+const SHR = [spr(['...www..', 'tpppppe.', '..l.l...'], 'wptle'), spr(['...www..', 'tpppppe.', '...l.l..'], 'wptle')];
+const SHR_CURL = spr(['..www.', '.ppppe', 'tpp...'], 'wptle');
+const SHARK = spr([
+  '................d.............',
+  '...............dd.............',
+  '..............ddd.............',
+  'd............dddd.............',
+  'dd.......dddddddddddddd.......',
+  '.dd...dddddddddddddddddddd....',
+  '..dddddddlllllllllllllllleddd.',
+  '..dd..wwwwwwwwwwwwwwwwwwwwwld.',
+  '.dd........wll.....wwwwwww....',
+  'dd.........ll.................'], 'dlwe');
+
+// ---------- world state ----------
+const surf = new Int16Array(W).fill(SURF);
+const ripples = [];
+const threats = [];
+const GX = 32, GY = 18, grid = new Float32Array(GX * GY);
+function stir(x, y, a) { const gx = x / 10 | 0, gy = y / 10 | 0; if (gx >= 0 && gy >= 0 && gx < GX && gy < GY) grid[gy * GX + gx] += a; }
+function gridAt(x, y) { const gx = x / 10 | 0, gy = y / 10 | 0; return (gx >= 0 && gy >= 0 && gx < GX && gy < GY) ? grid[gy * GX + gx] : 0; }
+
+const parts = [];
+function part(o) { if (parts.length < 600) parts.push(o); }
+function puff(x, y, n, sp) {
+  for (let i = 0; i < n; i++) part({ x: x + rnd(-2, 2), y, vx: rnd(-sp, sp) * 0.6, vy: -rnd(2, sp), g: 7, dr: 2.2, l: rnd(0.8, 2), m: 2, c: Math.random() < 0.5 ? SAND0 : SAND1, L: 2, sz: 1 });
+}
+const bubbles = [];
+function bub(x, y, r, near) { if (bubbles.length < 200) bubbles.push({ x, y, r, ph: rnd(6), vy: rnd(11, 18) + r * 4, near: !!near }); }
+
+// ---------- fish schools ----------
+class School {
+  constructor(o) {
+    Object.assign(this, o);
+    this.fish = []; this.panic = 0; this.gt = 0; this.cx = o.x; this.cy = o.y; this.avx = 0; this.vis = 0;
+    this.goal = { x: o.x, y: o.y };
+    for (let i = 0; i < o.n; i++) {
+      const a = rnd(6.28);
+      const f = { x: o.x + rnd(-18, 18), y: o.y + rnd(-8, 8), vx: Math.cos(a) * o.spd * 0.6, vy: Math.sin(a) * o.spd * 0.2, ph: rnd(4), dir: 1, hid: false, th: rnd(0.3, 0.62) };
+      if (o.noct) { f.hid = true; f.x = o.home.x; f.y = o.home.y; }
+      this.fish.push(f);
+    }
+  }
+  update(dt) {
+    const act = this.noct ? N : D;
+    if (this.panic > 0) this.panic -= dt;
+    const pan = this.panic > 0;
+    let cx = 0, cy = 0, avx = 0, n = 0;
+    for (const f of this.fish) if (!f.hid) { cx += f.x; cy += f.y; avx += f.vx; n++; }
+    this.vis = n;
+    if (n) { cx /= n; cy /= n; avx /= n; this.cx = cx; this.cy = cy; this.avx = avx; }
+    this.gt -= dt;
+    const rg = this.region;
+    if (this.gt <= 0 || (Math.abs(this.goal.x - cx) < 12 && Math.abs(this.goal.y - cy) < 8)) {
+      this.goal = { x: rnd(rg[0], rg[2]), y: rnd(rg[1], rg[3]) };
+      this.gt = rnd(5, 11);
+    }
+    const R2 = this.nr * this.nr, S2 = this.sepR * this.sepR, fs = this.fish;
+    const home = this.noct ? this.home : this.rest;
+    for (let i = 0; i < fs.length; i++) {
+      const f = fs[i];
+      const awake = act > f.th;
+      if (f.hid) {
+        if (awake) { f.hid = false; f.vx = rnd(-1, 1) * this.spd * 0.6; f.vy = rnd(-4, 1); } else continue;
+      }
+      if (!awake && this.noct && Math.abs(f.x - home.x) < 5 && Math.abs(f.y - home.y) < 4) { f.hid = true; f.x = home.x; f.y = home.y; continue; }
+      let ax = rnd(-3, 3), ay = rnd(-2, 2), nn = 0, sx = 0, sy = 0, svx = 0, svy = 0, px = 0, py = 0;
+      for (let j = 0; j < fs.length; j++) {
+        if (j === i) continue;
+        const o = fs[j];
+        if (o.hid) continue;
+        const dx = o.x - f.x, dy = o.y - f.y, d2 = dx * dx + dy * dy;
+        if (d2 < R2) {
+          nn++; sx += o.x; sy += o.y; svx += o.vx; svy += o.vy;
+          if (d2 < S2) { const k = 1 / (d2 + 0.3); px -= dx * k; py -= dy * k; }
+        }
+      }
+      const coh = pan ? 0.05 : 1;
+      if (nn) {
+        ax += (sx / nn - f.x) * 0.6 * coh; ay += (sy / nn - f.y) * 0.6 * coh;
+        ax += (svx / nn - f.vx) * 1.4; ay += (svy / nn - f.vy) * 1.4;
+      }
+      const sk = this.sep * (pan ? 3 : 1);
+      ax += px * sk; ay += py * sk;
+      if (n && awake) { ax += (cx - f.x) * 0.15 * coh; ay += (cy - f.y) * 0.15 * coh; }
+      const g = awake ? this.goal : home;
+      const gx = g.x - f.x, gy = g.y - f.y, gd = Math.sqrt(gx * gx + gy * gy) + 0.01;
+      const maxs = (awake ? this.spd : (gd > 20 ? this.spd * 0.6 : this.restSpd)) * (pan ? 2.3 : 1);
+      const want = maxs * Math.min(1, gd / 25), gk = awake ? 0.35 : 0.9;
+      ax += (gx / gd * want - f.vx) * gk; ay += (gy / gd * want * 0.7 - f.vy) * gk;
+      for (const t of threats) {
+        const dx = f.x - t.x, dy = f.y - t.y, d2 = dx * dx + dy * dy;
+        if (d2 > t.r * t.r) continue;
+        const d = Math.sqrt(d2) + 0.01, w = 1 - d / t.r;
+        if (t.lv >= 0.6) {
+          ax += dx / d * w * 420; ay += dy / d * w * 300;
+          if (t.k === 'shark' && (t.hunt || d < 22)) this.panic = Math.max(this.panic, rnd(2, 3.2));
+        } else if (d < t.r * 0.6) { ax += dx / d * w * 120; ay += dy / d * w * 120; }
+      }
+      const top = surf[clamp(f.x | 0, 0, W - 1)] + 6;
+      if (f.y < top) ay += (top - f.y) * 20;
+      if (awake || !this.noct) {
+        const gnd = solidTop[clamp(R(f.x + f.vx * 0.3), 0, W - 1)] - 4;
+        if (f.y > gnd) ay -= (f.y - gnd) * 25 + 10;
+        if (f.x < 8) ax += (8 - f.x) * 12;
+        if (f.x > W - 8) ax -= (f.x - W + 8) * 12;
+      }
+      f.vx += ax * dt; f.vy += ay * dt; f.vy *= 1 - dt * 0.8;
+      let sp = Math.hypot(f.vx, f.vy);
+      const mx = maxs * 1.25, mn = awake ? maxs * 0.35 : 0;
+      if (sp > mx) { f.vx *= mx / sp; f.vy *= mx / sp; sp = mx; }
+      else if (sp < mn && sp > 0.001) { f.vx *= mn / sp; f.vy *= mn / sp; sp = mn; }
+      f.x += f.vx * dt; f.y += f.vy * dt;
+      f.ph += dt * (2 + sp * 0.35);
+      if (f.vx > 0.6) f.dir = 1; else if (f.vx < -0.6) f.dir = -1;
+      stir(f.x, f.y, sp * 0.004);
+    }
+  }
+  draw() {
+    const L = LUT[2], cols = [L[this.keys[0]], L[this.keys[1]], L[this.keys[2]]];
+    for (const f of this.fish) {
+      if (f.hid) continue;
+      const tilt = clamp(f.vy / (Math.abs(f.vx) + 3), -0.5, 0.5);
+      blit(this.spr[FR[(f.ph | 0) & 3]], R(f.x), R(f.y), f.dir < 0, cols, tilt);
+    }
+    if (this.glow && N > 0.05) {
+      for (const f of this.fish) {
+        if (f.hid) continue;
+        const on = Math.sin(T * 2.3 + f.th * 40) > -0.2 ? 1 : 0.15;
+        const b = N * on, ex = f.dir > 0 ? R(f.x) + 1 : R(f.x) - 2, ey = R(f.y) + 1;
+        ADD(ex, ey, 120 * b, 255 * b, 230 * b);
+        ADD(ex - 1, ey, 30 * b, 70 * b, 60 * b); ADD(ex + 1, ey, 30 * b, 70 * b, 60 * b); ADD(ex, ey + 1, 30 * b, 70 * b, 60 * b);
+      }
+    }
+  }
+}
+const schools = [
+  new School({ spr: SARD, keys: [SHK0, SILV, INK], n: 44, x: 160, y: 42, spd: 24, restSpd: 7, rest: { x: 170, y: 56 }, region: [20, 24, 300, 70], nr: 12, sepR: 5, sep: 40 }),
+  new School({ spr: FISH, keys: [BLUE, AQUA, INK], n: 20, x: 230, y: 80, spd: 18, restSpd: 3, rest: { x: 236, y: 128 }, region: [110, 55, 300, 110], nr: 14, sepR: 6.5, sep: 45 }),
+  new School({ spr: TANG, keys: [YEL, ORNG, INK], n: 13, x: 90, y: 95, spd: 14, restSpd: 3, rest: { x: 82, y: 130 }, region: [30, 70, 210, 125], nr: 16, sepR: 9, sep: 50 }),
+  new School({ spr: FISH, keys: [PINK, ORNG, INK], n: 16, x: 45, y: 92, spd: 12, restSpd: 3, rest: { x: 30, y: 100 }, region: [8, 78, 110, 112], nr: 12, sepR: 6.5, sep: 45 }),
+  new School({ spr: FISH, keys: [RED, CRIM, WHT], n: 14, noct: true, home: { x: 298, y: 126 }, x: 298, y: 126, spd: 10, restSpd: 10, region: [190, 85, 310, 136], nr: 12, sepR: 6, sep: 40 }),
+  new School({ spr: FISH, keys: [INK, SHK1, SHK1], n: 10, noct: true, glow: true, home: { x: -20, y: 124 }, x: -20, y: 124, spd: 12, restSpd: 12, region: [10, 95, 160, 140], nr: 14, sepR: 7, sep: 45 }),
+];
+
+// ---------- sharks ----------
+class Shark {
+  constructor(x, y, dir, keys) {
+    this.x = x; this.y = y; this.vx = dir * 12; this.vy = 0; this.dir = dir; this.keys = keys;
+    this.st = 'cruise'; this.t = rnd(8, 16); this.ph = rnd(6); this.wait = 0; this.tgt = null; this.stay = rnd(18, 35); this.leaving = false;
+    this.pickWP(false);
+  }
+  pickWP(exit) {
+    this.wp = exit ? { x: this.x < W / 2 ? W + 70 : -70, y: rnd(40, 120) } : { x: rnd(30, W - 30), y: rnd(35, 120) };
+  }
+  update(dt) {
+    if (this.wait > 0) {
+      this.wait -= dt;
+      if (this.wait <= 0) { this.pickWP(false); this.y = rnd(40, 115); this.leaving = false; this.stay = rnd(18, 35); }
+      return;
+    }
+    this.t -= dt; this.stay -= dt;
+    const onS = this.x > 0 && this.x < W;
+    let spd = 13, turn = 0.6;
+    if (this.st === 'cruise') {
+      if (!this.leaving && this.stay <= 0) { this.leaving = true; this.pickWP(true); }
+      if (this.leaving && (this.x < -40 || this.x > W + 40)) { this.wait = rnd(8, 20); return; }
+      if (Math.hypot(this.wp.x - this.x, this.wp.y - this.y) < 14) {
+        if (this.x < -40 || this.x > W + 40) { this.wait = rnd(8, 20); return; }
+        if (!this.leaving) this.pickWP(false);
+      }
+      if (this.t <= 0 && !this.leaving) {
+        const c = schools.filter(s => s.vis > 4 && s.cx > 20 && s.cx < W - 20);
+        if (c.length && onS) { this.tgt = c[(Math.random() * c.length) | 0]; this.st = 'hunt'; this.t = rnd(4, 7); }
+        else this.t = rnd(4, 8);
+      }
+    } else {
+      const s = this.tgt;
+      this.wp = { x: s.cx + s.avx * 0.8, y: s.cy };
+      spd = 32; turn = 1.4;
+      if (this.t <= 0 || s.vis < 3) { this.st = 'cruise'; this.t = rnd(12, 24); this.pickWP(false); }
+    }
+    const dx = this.wp.x - this.x, dy = this.wp.y - this.y, d = Math.hypot(dx, dy) + 0.01;
+    let dvx = dx / d * spd, dvy = dy / d * spd * 0.6;
+    if (this.y > solidTop[clamp(R(this.x + this.dir * 12), 0, W - 1)] - 12) dvy -= 18;
+    if (this.y < SURF + 22) dvy += 10;
+    const k = Math.min(1, turn * dt);
+    this.vx += (dvx - this.vx) * k; this.vy += (dvy - this.vy) * k;
+    this.x += this.vx * dt; this.y += this.vy * dt;
+    const v = Math.hypot(this.vx, this.vy);
+    this.ph += dt * (2.5 + v * 0.12);
+    if (this.vx > 2) this.dir = 1; else if (this.vx < -2) this.dir = -1;
+    if (onS) { threats.push({ x: this.x, y: this.y, r: this.st === 'hunt' ? 46 : 36, lv: 1, k: 'shark', hunt: this.st === 'hunt' }); stir(this.x, this.y, v * 0.05); }
+  }
+  draw() {
+    if (this.wait > 0) return;
+    const L = LUT[2], cols = this.keys.map(k => L[k]);
+    blit(SHARK, R(this.x), R(this.y), this.dir < 0, cols, clamp(this.vy / (Math.abs(this.vx) + 4), -0.35, 0.35), 1.3, this.ph);
+  }
+}
+const sharks = [new Shark(70, 70, 1, [SHK1, SHK0, SILV, INK]), new Shark(W + 60, 100, -1, [ROCK2, SHK1, SHK0, INK])];
+sharks[1].wait = rnd(12, 22);
+
+// ---------- moray eel ----------
+const moray = { hx: 58, hy: 140, ext: 1, lunge: 0, cool: 3, ph: 0, peek: 0 };
+function updMoray(dt) {
+  const m = moray;
+  m.ph += dt * 2.4; m.cool -= dt; m.lunge -= dt; m.peek -= dt;
+  if (m.peek <= 0) m.peek = rnd(3, 8);
+  let base = N > 0.5 ? 10 + Math.sin(T * 0.6) * 3 : (m.peek < 2.5 ? 5 : 1.5);
+  const hx = m.hx + m.ext, hy = m.hy;
+  if (N > 0.5 && m.cool <= 0 && m.lunge <= 0) {
+    for (const s of schools) for (const f of s.fish) {
+      if (!f.hid && Math.abs(f.x - hx - 5) < 9 && Math.abs(f.y - hy) < 7) { m.lunge = 0.35; m.cool = rnd(3, 6); break; }
+    }
+  }
+  const tgt = m.lunge > 0 ? base + 9 : base;
+  m.ext += (tgt - m.ext) * Math.min(1, dt * (m.lunge > 0 ? 12 : 1.6));
+  if (m.ext > 4) threats.push({ x: hx, y: hy, r: 16, lv: 0.7, k: 'moray' });
+}
+function drawMoray() {
+  const m = moray, L = LUT[2], n = Math.max(1, R(m.ext));
+  const open = Math.sin(m.ph) > 0.4 || m.lunge > 0;
+  for (let s = 0; s <= n; s++) {
+    const x = m.hx + s, y = m.hy + R(Math.sin(T * 1.8 - s * 0.45) * 1.2 * (s / (n + 1)));
+    const head = s >= n - 3;
+    P(x, y - 1, L[GRN0]); P(x, y, L[GRN1]); P(x, y + 1, L[head ? GRN1 : TSKN]);
+    if (head) P(x, y - 2 + (s === n ? 1 : 0), L[GRN0]);
+    if (s === n - 1) P(x, y - 1, L[INK]);
+    if (s === n && open) { P(x, y, L[INK]); P(x + 1, y + 1, L[GRN1]); }
+    else if (s === n) P(x + 1, y, L[GRN1]);
+  }
+}
+
+// ---------- octopus ----------
+const octo = { x: 34, y: 0, st: 'rest', t: 3, vx: 0, vy: 0, camo: 0, tx: 34, dir: 1, ink: 0 };
+octo.y = gT(octo.x);
+function updOcto(dt) {
+  const o = octo;
+  let sd = 1e9, sn = null;
+  for (const s of sharks) { if (s.wait > 0) continue; const d = Math.hypot(s.x - o.x, s.y - o.y); if (d < sd) { sd = d; sn = s; } }
+  if (o.st !== 'jet' && sd < 26 && o.camo < 0.7) {
+    o.st = 'jet'; o.vx = (Math.sign(o.x - sn.x) || 1) * 55; o.vy = -30; o.t = 0.9;
+    for (let i = 0; i < 26; i++) part({ x: o.x + rnd(-2, 2), y: o.y - 4 + rnd(-2, 2), vx: rnd(-10, 10), vy: rnd(-8, 6), g: 0, dr: 1.6, l: rnd(1.5, 3), m: 3, c: INK, L: 2, sz: 2 });
+    for (let i = 0; i < 4; i++) bub(o.x + rnd(-3, 3), o.y - 6, 1);
+  }
+  const ct = sd < 55 ? 1 : 0;
+  o.camo += (ct - o.camo) * Math.min(1, dt * (ct > o.camo ? 1.6 : 0.45));
+  if (o.st === 'rest') {
+    o.y += (gT(o.x) - o.y) * Math.min(1, dt * 6);
+    o.t -= dt;
+    if (o.t <= 0) {
+      if (N > 0.5) {
+        let best = null, bd = 60;
+        for (const c of crabs) { const d = Math.abs(c.x - o.x); if (d < bd) { bd = d; best = c; } }
+        o.tx = best && Math.random() < 0.5 ? best.x : rnd(10, 240);
+      } else o.tx = Math.random() < 0.5 ? rnd(6, 60) : rnd(240, 316);
+      o.st = 'crawl';
+    }
+  } else if (o.st === 'crawl') {
+    const d = o.tx - o.x; o.dir = Math.sign(d) || 1;
+    o.x += o.dir * (N > 0.5 ? 11 : 7) * dt;
+    o.y += (gT(o.x) - o.y) * Math.min(1, dt * 8);
+    if (Math.abs(d) < 2) { o.st = 'rest'; o.t = rnd(3, 8); }
+  } else {
+    o.t -= dt;
+    o.vx *= 1 - dt * 1.5; o.vy += (o.t > 0 ? -8 : 28) * dt;
+    o.x += o.vx * dt; o.y += o.vy * dt;
+    if (o.t > 0.3 && Math.random() < 0.5) part({ x: o.x - Math.sign(o.vx) * 3, y: o.y - 3, vx: rnd(-3, 3), vy: rnd(-3, 3), g: 0, dr: 1, l: rnd(1, 2), m: 2, c: INK, L: 2, sz: 2 });
+    if (o.t <= 0 && o.y >= gT(o.x)) { o.y = gT(o.x); o.st = 'rest'; o.t = rnd(4, 8); }
+  }
+  o.x = clamp(o.x, 4, W - 4);
+  if (N > 0.5) threats.push({ x: o.x, y: o.y - 3, r: 18, lv: 0.6, k: 'octo' });
+}
+function octoPix(x, y, c) {
+  if (octo.camo > bay(x, y)) {
+    const m = (x >= 0 && x < W && y >= 0 && y < H) ? midMap[y * W + x] : 255;
+    P(x, y, LUT[2][m !== 255 ? m : ROCK1]);
+  } else P(x, y, LUT[2][c]);
+}
+function drawOcto() {
+  const o = octo, x = R(o.x), y = R(o.y), jet = o.st === 'jet';
+  const crawl = o.st === 'crawl';
+  for (let k = 0; k < 6; k++) {
+    let ang = jet ? (o.vx > 0 ? PI : 0) + (k - 2.5) * 0.12 : PI / 2 + (k - 2.5) * 0.5;
+    ang += Math.sin(T * (crawl ? 6 : 1.5) + k * 1.3) * (crawl ? 0.4 : 0.18);
+    let px = x + (k - 2.5) * 1.1, py = y - 2;
+    const curl = (k < 3 ? -1 : 1) * 0.1;
+    for (let s = 0; s < 7; s++) {
+      ang += curl; px += Math.cos(ang); py += Math.sin(ang);
+      if (!jet) py = Math.min(py, gT(px) - 1);
+      octoPix(R(px), R(py), (s & 1) ? PINK : CRIM);
+    }
+  }
+  const my = y - 5, rx = jet ? 2.4 : 3.2, ry = jet ? 4.2 : 3.4;
+  const mx = jet ? x - Math.sign(o.vx) * 2 : x;
+  for (let dy = -5; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+    const ex = dx / rx, ey = dy / ry;
+    if (ex * ex + ey * ey < 1) octoPix(mx + dx, my + dy, (dx < 0 && dy < -1) ? PINK : (hash(dx + 9, dy + 9) < 0.2 ? ORNG : CRIM));
+  }
+  const ex = mx + (o.dir > 0 ? 1 : -2);
+  octoPix(ex, my + 2, WHT); octoPix(ex + 1, my + 2, WHT);
+  octoPix(ex + (o.dir > 0 ? 1 : 0), my + 2, INK);
+}
+
+// ---------- anemone & clownfish ----------
+const anem = { x: 262, y: gT(262), open: 1 };
+const clowns = [0, 1, 2].map(() => ({ x: anem.x + rnd(-6, 6), y: anem.y - rnd(5, 12), vx: 0, vy: 0, tx: anem.x, ty: anem.y - 8, t: 0, ph: rnd(6), dir: 1 }));
+function updClowns(dt) {
+  let scared = N > 0.62;
+  for (const t of threats) {
+    const d = Math.hypot(t.x - anem.x, t.y - anem.y);
+    if ((t.k === 'shark' && d < 48) || (t.k !== 'shark' && t.lv >= 0.35 && d < 22)) scared = true;
+  }
+  anem.open += ((scared ? 0.3 : 1) - anem.open) * Math.min(1, dt * (scared ? 4 : 0.8));
+  clowns.forEach((c, i) => {
+    c.t -= dt;
+    if (scared) { c.tx = anem.x + (i - 1) * 3; c.ty = anem.y - 2; }
+    else if (c.t <= 0) { c.tx = anem.x + rnd(-11, 11); c.ty = anem.y - rnd(5, 15); c.t = rnd(0.5, 1.8); }
+    const k = scared ? 14 : 6, dmp = scared ? 5 : 3;
+    c.vx += ((c.tx - c.x) * k - c.vx * dmp) * dt; c.vy += ((c.ty - c.y) * k - c.vy * dmp) * dt;
+    c.x += c.vx * dt; c.y += c.vy * dt;
+    c.ph += dt * (6 + Math.hypot(c.vx, c.vy) * 0.5);
+    if (c.vx > 0.8) c.dir = 1; else if (c.vx < -0.8) c.dir = -1;
+  });
+}
+function drawClowns() {
+  const L = LUT[2], cols = [L[CLWN], L[WHT], L[INK]];
+  for (const c of clowns) blit(CLOWN[FR[(c.ph | 0) & 3]], R(c.x), R(c.y), c.dir < 0, cols, 0);
+}
+function drawAnemone() {
+  const L = LUT[2], op = anem.open;
+  for (let x = -6; x <= 6; x++) { P(anem.x + x, anem.y, L[CRIM]); if (Math.abs(x) < 6) P(anem.x + x, anem.y - 1, L[CRIM]); }
+  for (let k = 0; k < 18; k++) {
+    const bx = anem.x - 7 + k * 14 / 17, len = (5 + (k % 3) + 2) * (0.45 + 0.55 * op);
+    const base = -PI / 2 + (k - 8.5) * 0.09 * (op * 1.4 - 0.4);
+    let px = bx, py = anem.y - 1;
+    for (let s = 0; s < len; s++) {
+      const a = base + Math.sin(T * 1.6 + k * 0.7 - s * 0.3) * 0.28 * op + cur * 0.15;
+      px += Math.cos(a); py += Math.sin(a);
+      P(R(px), R(py), L[s >= len - 1 ? WHT : (s < 1 ? CRIM : PINK)]);
+    }
+  }
+}
+
+// ---------- crabs & shrimp ----------
+const crabs = [{ x: 110, dir: 1 }, { x: 205, dir: -1 }].map(c => Object.assign(c, { st: 'walk', t: rnd(1, 3), ph: 0, lp: 0, y: 0 }));
+function crabNext(c) {
+  const r = Math.random();
+  if (r < 0.45) { c.st = 'walk'; c.t = rnd(1.5, 4); if (Math.random() < 0.4) c.dir *= -1; }
+  else if (r < 0.75) { c.st = 'peck'; c.t = rnd(1.5, 3); }
+  else { c.st = 'pause'; c.t = rnd(0.8, 2.5); }
+}
+function updCrabs(dt) {
+  for (const c of crabs) {
+    c.y = gT(c.x) - 2;
+    let th = null, bd = 1e9;
+    for (const t of threats) {
+      if (t.lv < 0.4) continue;
+      const d = Math.hypot(c.x - t.x, c.y - t.y);
+      if (d < (t.k === 'shark' ? 40 : 26) && d < bd) { bd = d; th = t; }
+    }
+    if (th && c.st !== 'flee' && c.st !== 'threat') {
+      if (th.k === 'shark') { c.st = 'threat'; c.t = 1.2; }
+      else { c.st = 'flee'; c.dir = Math.sign(c.x - th.x) || 1; c.t = 1.4; }
+    }
+    c.t -= dt;
+    if (c.st === 'walk') { c.x += c.dir * 7 * dt; c.ph += dt * 10; }
+    else if (c.st === 'flee') { c.x += c.dir * 24 * dt; c.ph += dt * 24; }
+    else if (c.st === 'peck') {
+      c.ph += dt * 5;
+      if ((c.ph | 0) !== c.lp) {
+        c.lp = c.ph | 0;
+        if (c.lp & 1) for (let i = 0; i < 2; i++) part({ x: c.x + (i ? 3 : -3), y: c.y + 2, vx: rnd(-4, 4), vy: rnd(-9, -4), g: 22, dr: 1, l: 0.6, m: 0.6, c: SAND0, L: 2, sz: 1 });
+      }
+    }
+    if (c.t <= 0) crabNext(c);
+    if (c.x < 70) { c.x = 70; c.dir = 1; } else if (c.x > 250) { c.x = 250; c.dir = -1; }
+    if (c.st !== 'pause') stir(c.x, c.y, 0.05);
+  }
+}
+function drawCrabs() {
+  const L = LUT[2], cols = [L[RED], L[ORNG], L[INK]];
+  for (const c of crabs) {
+    let s = CRAB[0];
+    if (c.st === 'walk' || c.st === 'flee') s = CRAB[(c.ph | 0) & 1];
+    else if (c.st === 'peck') s = (c.ph | 0) & 1 ? CRAB_PECK : CRAB[0];
+    else if (c.st === 'threat') s = CRAB_UP;
+    blit(s, R(c.x), R(c.y), false, cols, 0);
+  }
+}
+const shrimps = [{ x: 80, dir: 1 }, { x: 236, dir: -1 }].map(s => Object.assign(s, { st: 'walk', t: rnd(1, 3), ph: 0, h: 0, hv: 0, vx: 0, y: 0 }));
+function updShrimp(dt) {
+  for (const s of shrimps) {
+    s.y = gT(s.x) - 2;
+    if (s.st !== 'jump') {
+      for (const t of threats) {
+        if (t.lv >= 0.35 && Math.hypot(s.x - t.x, s.y - t.y) < (t.k === 'shark' ? 34 : 22)) {
+          s.st = 'jump'; s.dir = Math.sign(t.x - s.x) || s.dir; s.vx = -s.dir * 55; s.hv = -28; s.t = 0.6;
+          part({ x: s.x, y: s.y + 1, vx: 0, vy: -3, g: 0, dr: 1, l: 0.5, m: 0.5, c: SAND0, L: 2, sz: 1 });
+          break;
+        }
+      }
+    }
+    s.t -= dt;
+    if (s.st === 'walk') { s.x += s.dir * 4 * dt; s.ph += dt * 8; if (s.t <= 0) { s.st = 'rest'; s.t = rnd(1, 3); } }
+    else if (s.st === 'rest') { if (s.t <= 0) { s.st = 'walk'; s.t = rnd(1.5, 4); if (Math.random() < 0.5) s.dir *= -1; } }
+    else {
+      s.x += s.vx * dt; s.vx *= 1 - dt * 4;
+      s.h += s.hv * dt; s.hv += 120 * dt;
+      if (s.h >= 0) { s.h = 0; s.hv = 0; if (s.t <= 0) { s.st = 'rest'; s.t = rnd(1, 2); } }
+    }
+    if (s.x < 66) { s.x = 66; s.dir = 1; } else if (s.x > 250) { s.x = 250; s.dir = -1; }
+  }
+}
+function drawShrimp() {
+  const L = LUT[2], cols = [L[WHT], L[ORNG], L[RED], L[RED], L[INK]];
+  for (const s of shrimps) {
+    const x = R(s.x), y = R(s.y + s.h), flip = s.dir < 0;
+    blit(s.st === 'jump' && s.h < 0 ? SHR_CURL : SHR[s.st === 'walk' ? (s.ph | 0) & 1 : 0], x, y, flip, cols, 0);
+    if (s.st !== 'jump') for (let a = 0; a < 2; a++) for (let i = 1; i < 6; i++) {
+      PA(x + s.dir * (3 + i), R(y - 1 - i * (0.3 + a * 0.35) + Math.sin(T * 5 + i * 0.8 + a) * 0.5), L[WHT], 0.7);
+    }
+  }
+}
+
+// ---------- garden eels ----------
+const eels = [194, 199, 205, 210, 216, 221, 227].map((x, i) => ({ x, h: rnd(3, 10), mh: rnd(8, 13), ph: rnd(6), dl: 0, fd: i % 2 ? 1 : -1 }));
+function updEels(dt) {
+  for (const e of eels) {
+    const by = sandTop[e.x];
+    let hide = N > 0.55;
+    for (const t of threats) if (t.lv >= 0.35 && Math.hypot(t.x - e.x, t.y - (by - 6)) < (t.k === 'shark' ? 42 : 24)) hide = true;
+    if (hide) { e.h = Math.max(0, e.h - dt * 45); e.dl = rnd(1.2, 4); }
+    else if (e.dl > 0) e.dl -= dt;
+    else e.h = Math.min(e.mh, e.h + dt * 5);
+  }
+}
+function drawEels() {
+  const L = LUT[2];
+  for (const e of eels) {
+    const by = sandTop[e.x];
+    P(e.x - 1, by, L[SAND2]); P(e.x, by, L[ROCK2]); P(e.x + 1, by, L[SAND2]);
+    const n = e.h | 0;
+    for (let s = 0; s < n; s++) {
+      const t = s / e.mh, px = e.x + R(Math.sin(T * 1.3 + e.ph - s * 0.3) * t * 1.5 + cur * t * 2), py = by - 1 - s;
+      if (s === n - 1) { P(px, py, L[WHT]); P(px + e.fd, py, L[WHT]); P(px + e.fd, py - 1 < 0 ? 0 : py, L[INK]); P(px, py - 1, L[WHT]); }
+      else P(px, py, L[(s % 3 === 1) ? INK : WHT]);
+    }
+  }
+}
+
+// ---------- rays ----------
+function fillTri(ax, ay, bx, by, cx, cy, fn) {
+  const x0 = Math.floor(Math.min(ax, bx, cx)), x1 = Math.ceil(Math.max(ax, bx, cx));
+  const y0 = Math.floor(Math.min(ay, by, cy)), y1 = Math.ceil(Math.max(ay, by, cy));
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const e0 = (bx - ax) * (y - ay) - (by - ay) * (x - ax), e1 = (cx - bx) * (y - by) - (cy - by) * (x - bx), e2 = (ax - cx) * (y - cy) - (ay - cy) * (x - cx);
+    if ((e0 >= 0 && e1 >= 0 && e2 >= 0) || (e0 <= 0 && e1 <= 0 && e2 <= 0)) fn(x, y);
+  }
+}
+function drawRay(o, sc, amp, L, top, far, spot, tail, pix) {
+  const x = o.x, y = o.y, d = o.dir, f = Math.sin(o.ph) * amp;
+  const nx = x + d * 6 * sc, rx = x - d * 5 * sc, ry = y + 0.5 * sc, wx = x - d * 1.5 * sc;
+  const put = pix || ((px, py, c) => P(px, py, L[c]));
+  fillTri(nx, y, rx, ry, wx, y - (3 + f * 2) * sc, (px, py) => put(px, py, far));
+  for (let i = 0; i < tail; i++) put(R(rx - d * i), R(ry + Math.sin(o.ph * 0.8 - i * 0.4) * i * 0.08), far);
+  fillTri(nx, y, rx, ry, wx, y + (3 - f * 2) * sc, (px, py) => {
+    const u = R((px - x) * d / 2), v = R((py - y) / 2);
+    put(px, py, spot >= 0 && hash(u + 50, v + 50) < 0.22 ? spot : top);
+  });
+  put(R(nx - d), R(y - 1), INK);
+}
+const sting = { x: 150, y: 140, dir: 1, ph: 0, st: 'glide', t: rnd(6, 12), wait: 0, bury: 0, pt: 0, amp: 1 };
+function updSting(dt) {
+  const s = sting;
+  if (s.st === 'off') {
+    s.wait -= dt;
+    if (s.wait <= 0) { s.dir = Math.random() < 0.5 ? 1 : -1; s.x = s.dir > 0 ? -16 : W + 16; s.y = gT(s.x) - 4; s.st = 'glide'; s.t = rnd(5, 10); }
+    return;
+  }
+  if (s.st === 'glide') {
+    s.bury = Math.max(0, s.bury - dt * 1.5); s.amp = 1;
+    s.x += s.dir * 13 * dt; s.ph += dt * 3.2;
+    const gy = gT(s.x + s.dir * 4) - 4;
+    s.y += (gy + Math.sin(T * 0.9) * 1.2 - s.y) * Math.min(1, dt * 3);
+    s.pt -= dt;
+    if (s.pt <= 0 && gT(s.x) - s.y < 7) { s.pt = 0.12; puff(s.x - s.dir * 5, gT(s.x) - 1, 2, 7); }
+    s.t -= dt;
+    const xi = clamp(R(s.x), 0, W - 1);
+    if (s.t <= 0 && s.x > 60 && s.x < W - 90 && groundTop[xi] >= sandTop[xi] - 1) { s.st = 'settle'; s.t = rnd(5, 10); }
+    if (s.x < -18 || s.x > W + 18) { s.st = 'off'; s.wait = rnd(4, 12); }
+  } else {
+    s.y += (gT(s.x) - 2.5 - s.y) * Math.min(1, dt * 2);
+    s.ph += dt * 1.2; s.amp = 0.25;
+    s.bury = Math.min(0.55, s.bury + dt * 0.25); s.t -= dt;
+    if (s.t <= 0) { s.st = 'glide'; s.t = rnd(8, 14); puff(s.x, gT(s.x) - 1, 18, 16); if (Math.random() < 0.3) s.dir *= -1; }
+  }
+  threats.push({ x: s.x, y: s.y, r: 24, lv: 0.45, k: 'ray' });
+  stir(s.x, s.y, 0.2);
+}
+function drawSting() {
+  const s = sting;
+  if (s.st === 'off') return;
+  const L = LUT[2];
+  drawRay(s, 1, s.amp, L, SAND2, TSHL, BLUE, 9, (px, py, c) => P(px, py, L[s.bury > bay(px, py) && c !== INK ? SAND1 : c]));
+}
+const eagle = { x: -30, y: 80, dir: 1, ph: 0, st: 'off', wait: rnd(8, 16), ty: 80, tt: 0 };
+function updEagle(dt) {
+  const e = eagle;
+  if (e.st === 'off') {
+    e.wait -= dt;
+    if (e.wait <= 0) { e.dir = Math.random() < 0.5 ? 1 : -1; e.x = e.dir > 0 ? -24 : W + 24; e.y = e.ty = rnd(45, 105); e.st = 'swim'; }
+    return;
+  }
+  e.x += e.dir * 16 * dt; e.ph += dt * 2.2; e.tt -= dt;
+  if (e.tt <= 0) { e.ty = rnd(40, 110); e.tt = rnd(3, 7); }
+  e.y += (e.ty - e.y) * dt * 0.4;
+  if (e.x < -30 || e.x > W + 30) { e.st = 'off'; e.wait = rnd(10, 25); }
+  threats.push({ x: e.x, y: e.y, r: 26, lv: 0.4, k: 'eagle' });
+  stir(e.x, e.y, 0.3);
+}
+function drawEagle() {
+  const e = eagle;
+  if (e.st === 'off') return;
+  drawRay(e, 1.35, 1, LUT[2], ROCK2, INK, WHT, 22);
+  P(R(e.x + e.dir * 9), R(e.y), LUT[2][ROCK2]); P(R(e.x + e.dir * 10), R(e.y + 1), LUT[2][ROCK2]);
+}
+const manta = { x: 0, y: 60, dir: 1, ph: 0, st: 'off', wait: rnd(15, 30) };
+function updManta(dt) {
+  const m = manta;
+  if (m.st === 'off') {
+    m.wait -= dt;
+    if (m.wait <= 0) { m.dir = Math.random() < 0.5 ? 1 : -1; m.x = m.dir > 0 ? -40 : W + 40; m.y = rnd(45, 80); m.st = 'swim'; }
+    return;
+  }
+  m.x += m.dir * 6 * dt; m.ph += dt * 1.1; m.y += Math.sin(T * 0.3) * 1.5 * dt;
+  if (m.x < -45 || m.x > W + 45) { m.st = 'off'; m.wait = rnd(20, 40); }
+}
+
+// ---------- turtle ----------
+const turtle = { x: 70, y: 75, dir: 1, st: 'swim', t: rnd(6, 10), ph: 0, pitch: 0, cy: 75, wait: 0, bt: 0 };
+function updTurtle(dt) {
+  const t = turtle;
+  if (t.st === 'off') {
+    t.wait -= dt;
+    if (t.wait <= 0) { t.dir = Math.random() < 0.5 ? 1 : -1; t.x = t.dir > 0 ? -22 : W + 22; t.cy = N > 0.5 ? rnd(95, 122) : rnd(45, 110); t.y = t.cy; t.st = 'swim'; t.t = rnd(5, 12); }
+    return;
+  }
+  const slow = N > 0.5 ? 0.6 : 1;
+  let tp = 0, spd = 9 * slow;
+  t.t -= dt;
+  if (t.st === 'swim') {
+    t.y += (t.cy + Math.sin(T * 0.5) * 3 - t.y) * dt * 0.8;
+    if (t.t <= 0 && t.x > 40 && t.x < W - 60 && N < 0.6) t.st = 'rise';
+  } else if (t.st === 'rise') {
+    t.y -= 11 * dt; spd = 6; tp = -0.45;
+    if (t.y <= SURF + 6) { t.st = 'breathe'; t.t = rnd(2, 3.2); t.bt = 0; }
+  } else if (t.st === 'breathe') {
+    spd = 2; tp = -0.3; t.y += (SURF + 6 - t.y) * dt * 3;
+    t.bt -= dt;
+    if (t.bt <= 0) { t.bt = 0.9; ripples.push({ x: t.x + t.dir * 10, a: 0 }); for (let i = 0; i < 3; i++) bub(t.x + t.dir * 9 + rnd(-2, 2), t.y - 3, i & 1); }
+    if (t.t <= 0) t.st = 'dive';
+  } else {
+    t.y += 9 * dt; spd = 7; tp = 0.35;
+    if (t.y >= t.cy) { t.st = 'swim'; t.t = rnd(8, 14); }
+  }
+  t.pitch += (tp - t.pitch) * Math.min(1, dt * 2);
+  t.x += t.dir * spd * dt;
+  t.ph += dt * (t.st === 'breathe' ? 1.2 : 2.2 * slow);
+  if (t.x < -30 || t.x > W + 30) { t.st = 'off'; t.wait = rnd(5, 14); }
+  threats.push({ x: t.x, y: t.y, r: 26, lv: 0.35, k: 'turtle' });
+  stir(t.x, t.y, 0.3);
+}
+function drawTurtle() {
+  const t = turtle;
+  if (t.st === 'off') return;
+  const L = LUT[2], cx = t.x, cy = t.y, dir = t.dir, c = Math.cos(t.pitch), s = Math.sin(t.pitch);
+  const fa = PI - 0.7 + Math.sin(t.ph) * 0.95, fb = PI - 0.7 + Math.sin(t.ph - 0.9) * 0.8;
+  const fc = Math.cos(fa), fs = Math.sin(fa), gc = Math.cos(fb), gs = Math.sin(fb);
+  const x0 = R(cx), y0 = R(cy);
+  for (let py = y0 - 13; py <= y0 + 13; py++) for (let px = x0 - 15; px <= x0 + 15; px++) {
+    const X = (px - cx) * dir, Y = py - cy, lx = c * X + s * Y, ly = -s * X + c * Y;
+    let col = -1;
+    let qx = lx - 4, qy = ly - 1.5, ux = qx * fc + qy * fs, uy = -qx * fs + qy * fc;
+    if (ux > 0 && (ux - 5) * (ux - 5) / 25 + uy * uy / 1.8 < 1) col = uy < -0.4 ? GRN0 : TSKN;
+    if (col < 0) {
+      const hx = (lx - 10.2) / 2.6, hy = (ly - 0.3) / 2, nx = (lx - 7.5) / 2.5, ny = (ly - 0.8) / 1.5;
+      if (hx * hx + hy * hy < 1) col = (lx > 10.3 && lx < 11.6 && ly > -1 && ly < 0.2) ? INK : (ly > 1.2 && lx > 11 ? SAND1 : TSKN);
+      else if (nx * nx + ny * ny < 1) col = TSKN;
+    }
+    if (col < 0) {
+      const sx = (lx + 0.5) / 8.5, sy = (ly + 0.3) / 4.6, e = sx * sx + sy * sy;
+      if (e < 1 && ly < 2.6) col = e > 0.72 ? TSKN : (ly < -3.4 ? SAND2 : (Math.abs(((lx + 20) % 4.5) - 2.25) < 0.55 && ly < 1.2 ? SAND2 : TSHL));
+      else if (e < 1.1 && ly >= 2.6) col = SAND0;
+    }
+    if (col < 0) {
+      const rx = (lx + 8.5) / 2.8, ry = (ly - 2.2 + Math.sin(t.ph) * 0.5) / 1.1;
+      if (rx * rx + ry * ry < 1) col = TSKN;
+    }
+    if (col < 0) {
+      qx = lx - 3.5; qy = ly + 0.5; ux = qx * gc + qy * gs; uy = -qx * gs + qy * gc;
+      if (ux > 0 && (ux - 4.5) * (ux - 4.5) / 20 + uy * uy / 1.5 < 1) col = GRN1;
+    }
+    if (col >= 0) P(px, py, L[col]);
+  }
+}
+
+// ---------- jellyfish ----------
+const jellies = [...Array(6)].map((_, i) => {
+  const j = { x: rnd(W), y: rnd(25, 115), ty: rnd(30, 120), tt: rnd(5, 15), vx: rnd(-2, 2), vy: 0, ph: rnd(6), sp: rnd(1.1, 1.7), sz: 3 + (i % 3), hue: i % 2, tent: [] };
+  for (let k = 0; k < 4; k++) { const pts = []; for (let n = 0; n < 9 + (i % 3) * 2; n++) pts.push({ x: j.x, y: j.y + n }); j.tent.push(pts); }
+  return j;
+});
+function updJellies(dt) {
+  for (const j of jellies) {
+    j.tt -= dt;
+    if (j.tt <= 0) { j.ty = rnd(30, 125); j.tt = rnd(8, 20); }
+    const up = j.y > j.ty;
+    j.ph += dt * j.sp * (up ? 1.3 : 0.7);
+    const c = Math.max(0, Math.sin(j.ph));
+    j.vy += ((up ? 2.5 : 4) - c * c * (up ? 24 : 4)) * dt; j.vy *= 1 - dt * 1.2;
+    j.vx += (Math.sin(T * 0.1 + j.x * 0.01) * 3 + cur * 2 - j.vx) * dt * 0.3;
+    j.x += j.vx * dt; j.y += j.vy * dt;
+    if (j.y < SURF + 10) j.vy += 12 * dt;
+    if (j.x < -12) j.x = W + 10; else if (j.x > W + 12) j.x = -10;
+    const k = Math.min(1, dt * 7);
+    j.tent.forEach((pts, ti) => {
+      pts[0].x = j.x + (ti - 1.5) * j.sz * 0.5; pts[0].y = j.y + 1;
+      for (let n = 1; n < pts.length; n++) {
+        const p = pts[n], q = pts[n - 1];
+        p.x += (q.x + Math.sin(T * 1.5 + n * 0.4 + ti + j.ph) * 0.35 - p.x) * k;
+        p.y += (q.y + 1.2 - p.y) * k;
+      }
+    });
+    stir(j.x, j.y, c * 0.08);
+  }
+}
+function drawJellies() {
+  const L = LUT[2];
+  for (const j of jellies) {
+    const c = Math.max(0, Math.sin(j.ph));
+    const w = j.sz * (1 - 0.28 * c) + 0.5, h = j.sz * 0.8 * (1 + 0.25 * c);
+    const x0 = R(j.x), y0 = R(j.y), g = N;
+    const gcol = j.hue ? [220, 150, 240] : [110, 255, 225];
+    if (g > 0.05) {
+      const rr = 8;
+      for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) {
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < rr) { const a = (1 - d / rr) ** 2 * g * 0.35 * (0.8 + 0.2 * c); ADD(x0 + dx, y0 - 1 + dy, gcol[0] * a, gcol[1] * a, gcol[2] * a); }
+      }
+    }
+    const body = j.hue ? EM[JELY] : EM[GLOW];
+    for (const pts of j.tent) for (let n = 1; n < pts.length; n++) {
+      const px = R(pts[n].x), py = R(pts[n].y);
+      if (g > bay(px, py)) { PA(px, py, body, 0.8); }
+      else PA(px, py, L[JELY], 0.45);
+    }
+    const hh = Math.ceil(h), ww = Math.ceil(w);
+    for (let dy = -hh; dy <= 0; dy++) for (let dx = -ww; dx <= ww; dx++) {
+      const ex = dx / w, ey = dy / h;
+      if (ex * ex + ey * ey >= 1) continue;
+      const px = x0 + dx, py = y0 + dy, rim = dy === 0, inner = Math.abs(dx) < w * 0.45 && dy > -h * 0.65 && dy < -1;
+      if (g > bay(px, py)) PA(px, py, rim ? EM[WHT] : inner ? EM[j.hue ? PINK : AQUA] : body, 0.85);
+      else PA(px, py, L[rim ? WHT : inner ? PINK : JELY], rim ? 0.85 : inner ? 0.75 : 0.55);
+    }
+  }
+}
+
+// ---------- plants ----------
+const kelps = [[70, 34], [76, 26], [118, 22], [163, 30], [169, 40], [232, 28], [314, 36], [22, 18], [290, 16], [190, 20]]
+  .map(([x, n]) => ({ x, y: groundTop[x], n, ph: rnd(6), push: 0 }));
+function updKelp(dt) {
+  for (const k of kelps) {
+    let tgt = 0;
+    for (const t of threats) {
+      if (t.lv < 0.35) continue;
+      const dx = k.x - t.x;
+      if (Math.abs(dx) < 20 && t.y > k.y - k.n - 6 && t.y < k.y + 4) tgt += Math.sign(dx || 1) * (20 - Math.abs(dx)) * 0.35;
+    }
+    k.push += (tgt - k.push) * Math.min(1, dt * 2);
+  }
+}
+function drawKelp() {
+  const L = LUT[2];
+  for (const k of kelps) for (let s = 0; s <= k.n; s++) {
+    const t = s / k.n;
+    const off = Math.sin(T * 0.9 + k.ph - s * 0.11) * 3.2 * t * t + cur * 4 * t * t + k.push * t * t;
+    const px = R(k.x + off), py = k.y - s;
+    P(px, py, L[GRN1]);
+    if (s % 3 === 0 && s > 2) { const sd = (s / 3) & 1 ? 1 : -1; P(px + sd, py, L[GRN0]); if (s % 6 === 0) P(px + sd * 2, py - 1, L[GRN0]); }
+  }
+}
+const grass = [];
+for (let i = 0; i < 16; i++) grass.push({ x: rnd(0, 26), h: rnd(12, 30), ph: rnd(6), w: Math.random() < 0.5 ? 2 : 1 });
+for (let i = 0; i < 14; i++) grass.push({ x: rnd(296, 320), h: rnd(10, 26), ph: rnd(6), w: Math.random() < 0.5 ? 2 : 1 });
+for (let i = 0; i < 5; i++) grass.push({ x: rnd(150, 162), h: rnd(6, 11), ph: rnd(6), w: 1 });
+function drawGrass() {
+  const L = LUT[3];
+  for (const g of grass) for (let s = 0; s < g.h; s++) {
+    const t = s / g.h, off = Math.sin(T * 1.1 + g.ph - s * 0.1) * 4 * t * t + cur * 3 * t;
+    const px = R(g.x + off), py = H - 1 - s, c = L[s > g.h - 3 ? GRN0 : GRN1];
+    P(px, py, c);
+    if (g.w > 1 && t < 0.6) P(px + 1, py, c);
+  }
+}
+
+// ---------- ambient particles ----------
+const plank = [...Array(160)].map(() => ({ x: rnd(W), y: rnd(20, 150), ph: rnd(6), g: 0 }));
+const snow = [...Array(70)].map(() => ({ x: rnd(W), y: rnd(15, 150), v: rnd(1.5, 3.2), ph: rnd(6), far: Math.random() < 0.5 }));
+const stars = [...Array(26)].map(() => ({ x: R(rnd(W)), y: R(rnd(0, 8)), p: rnd(6) }));
+const clouds = [...Array(3)].map((_, i) => ({ x: rnd(W), y: 2 + i * 2, w: R(rnd(10, 22)), v: rnd(1.5, 3) }));
+const vents = [{ x: 42 }, { x: 290 }, { x: 146 }, { x: 214 }].map(v => ({ x: v.x, y: gT(v.x), t: rnd(2), n: 0 }));
+function updAmbient(dt) {
+  for (const p of plank) {
+    p.x += (cur * 1.5 + Math.sin(T * 0.3 + p.ph) * 1.2) * dt;
+    p.y += Math.sin(T * 0.25 + p.ph * 1.7) * 0.8 * dt;
+    if (p.x < 0) p.x += W; else if (p.x >= W) p.x -= W;
+    p.g = Math.max(p.g * Math.exp(-dt * 1.5), Math.min(1.2, gridAt(p.x, p.y)));
+    if (Math.random() < dt * 0.02) p.g = 1;
+  }
+  for (const s of snow) {
+    s.y += s.v * dt; s.x += (cur * 2 + Math.sin(T * 0.7 + s.ph) * 0.8) * dt;
+    if (s.y > 150) { s.y = SURF + 2; s.x = rnd(W); }
+    if (s.x < 0) s.x += W; else if (s.x >= W) s.x -= W;
+  }
+  for (const c of clouds) { c.x += c.v * dt; if (c.x > W + 5) { c.x = -c.w - 5; c.w = R(rnd(10, 22)); } }
+  for (const v of vents) {
+    v.t -= dt;
+    if (v.t <= 0) {
+      if (v.n > 0) { v.n--; v.t = rnd(0.06, 0.2); bub(v.x + rnd(-1, 1), v.y - 1, Math.random() < 0.3 ? 1 : 0); }
+      else { v.n = R(rnd(2, 7)); v.t = rnd(1.5, 5); }
+    }
+  }
+  if (Math.random() < dt * 0.4) bub(rnd(8, 30), H - 4, 2, true);
+  if (Math.random() < dt * 0.3) bub(rnd(292, 314), H - 4, 2, true);
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const b = bubbles[i];
+    b.y -= b.vy * dt; b.x += (Math.sin(T * 4 + b.ph) * 6 + cur * 2) * dt;
+    const sy = surf[clamp(R(b.x), 0, W - 1)];
+    if (b.y <= sy + 1) {
+      for (let k = 0; k < 2; k++) part({ x: b.x, y: sy, vx: rnd(-8, 8), vy: rnd(-14, -8), g: 40, dr: 0, l: 0.35, m: 0.35, c: WHT, L: 4, sz: 1 });
+      bubbles[i] = bubbles[bubbles.length - 1]; bubbles.pop();
+    } else stir(b.x, b.y, 0.02);
+  }
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.vx *= 1 - p.dr * dt; p.vy *= 1 - p.dr * dt; p.vy += p.g * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.l -= dt;
+    if (p.c !== WHT && p.c !== INK) { const gy = gT(p.x); if (p.y > gy - 1 && p.vy > 0) { p.y = gy - 1; p.vy = 0; p.vx *= 0.5; } }
+    if (p.l <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); }
+  }
+  for (let i = ripples.length - 1; i >= 0; i--) { ripples[i].a += dt; if (ripples[i].a > 3) ripples.splice(i, 1); }
+}
+
+// ---------- update ----------
+function update(dt) {
+  T += dt;
+  computeLight();
+  cur = Math.sin(T * 0.12) * 0.6 + Math.sin(T * 0.037) * 0.4;
+  for (let x = 0; x < W; x++) {
+    let o = Math.sin(x * 0.09 + T * 1.3) * 1.1 + Math.sin(x * 0.21 - T * 1.9) * 0.6;
+    for (const r of ripples) {
+      const d = Math.abs(x - r.x);
+      if (d < 45 && d < r.a * 22) o += Math.sin(d * 0.8 - r.a * 8) * 1.6 * Math.exp(-r.a * 0.9) * (1 - d / 45);
+    }
+    surf[x] = R(SURF + o);
+  }
+  threats.length = 0;
+  const dk = Math.exp(-dt * 2.5);
+  for (let i = 0; i < grid.length; i++) grid[i] *= dk;
+  for (const s of sharks) s.update(dt);
+  updMoray(dt); updOcto(dt); updSting(dt); updEagle(dt); updTurtle(dt); updManta(dt);
+  for (const s of schools) s.update(dt);
+  updClowns(dt); updCrabs(dt); updShrimp(dt); updEels(dt); updJellies(dt); updKelp(dt); updAmbient(dt);
+}
+
+// ---------- render ----------
+const rayT = new Float32Array(W + H), vrow = new Float32Array(H), rayFade = new Float32Array(H);
+for (let y = 0; y < H; y++) { vrow[y] = 0.7 + clamp((y - SURF) / 150, 0, 1) * 2.5; rayFade[y] = clamp(1 - (y - SURF) / 140, 0, 1); }
+function renderBG() {
+  const L0 = LUT[0], L1 = LUT[1], L4 = LUT[4];
+  const WC = [L4[1], L4[2], L4[3], L4[4], L4[5]];
+  const rs = Math.max(D, N * 0.3);
+  for (let u = 0; u < rayT.length; u++) {
+    const r = Math.sin(u * 0.055 + T * 0.22) + 0.8 * Math.sin(u * 0.021 - T * 0.11 + 1.7) + 0.4 * Math.sin(u * 0.13 + T * 0.5);
+    rayT[u] = Math.max(0, r - 1.0) * 0.9 * rs;
+  }
+  for (let y = 0; y < H; y++) {
+    const vr = vrow[y], rf = rayFade[y], yb = (y & 3) << 2, row = y * W, yh = y >> 1, st = y / SURF;
+    for (let x = 0; x < W; x++) {
+      const i = row + x, sy = surf[x];
+      let c;
+      if (y < sy) c = st > BAY[yb | (x & 3)] ? SKYB : SKYT;
+      else if (y === sy) c = SURFC;
+      else if (far1[i] !== 255) c = L1[far1[i]];
+      else if (far2[i] !== 255) c = L0[far2[i]];
+      else {
+        let v = vr - rayT[x + yh] * rf;
+        if (y === sy + 1) v -= 0.8;
+        if (v < 0) v = 0;
+        let k = v | 0;
+        if ((v - k - 0.3) * 2.5 > BAY[yb | (x & 3)]) k++;
+        c = WC[k > 4 ? 4 : k];
+      }
+      buf[i] = c;
+    }
+  }
+}
+function skyPix(x, y, c) { if (x >= 0 && x < W && y >= 0 && y < surf[x]) buf[y * W + x] = c; }
+function drawSky() {
+  if (N > 0.2) for (const s of stars) { if (N * (0.55 + 0.45 * Math.sin(T * 2 + s.p)) > bay(s.x, s.y) + 0.2) skyPix(s.x, s.y, EM[WHT]); }
+  if (phase < 0.56) {
+    const t = phase / 0.56, sx = R(-8 + t * (W + 16)), sy = R(10 - Math.sin(t * PI) * 7);
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (dx * dx + dy * dy <= 9) skyPix(sx + dx, sy + dy, WARM > bay(sx + dx, sy + dy) ? EM[ORNG] : EM[YEL]);
+  } else if (phase > 0.58 && phase < 0.98) {
+    const t = (phase - 0.58) / 0.4, sx = R(-6 + t * (W + 12)), sy = R(9 - Math.sin(t * PI) * 6);
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (dx * dx + dy * dy <= 5) skyPix(sx + dx, sy + dy, dx === 1 && dy === 0 ? EM[ROCK0] : EM[SILV]);
+  }
+  const cc = LUT[4][WHT], cs = LUT[4][SKY0];
+  for (const c of clouds) {
+    const x0 = R(c.x);
+    for (let x = x0; x < x0 + c.w; x++) { skyPix(x, c.y + 1, cs); if (x > x0 + 2 && x < x0 + c.w - 3) skyPix(x, c.y, cc); }
+  }
+  for (let x = 0; x < W; x++) {
+    if (D > 0.2 && Math.sin(x * 0.5 + T * 3) + Math.sin(x * 0.23 - T * 2) > 1.4) P(x, surf[x] + 1, LUT[4][WHT]);
+  }
+}
+function drawFar() {
+  const L1 = LUT[1], c1 = L1[SILV], c2 = L1[SHK0];
+  for (let i = 0; i < 34; i++) {
+    const t = T - i * 0.09;
+    const x = R(W / 2 + Math.sin(t * 0.13) * W * 0.55 + Math.sin(t * 0.31) * 30 + Math.sin(T * 1.3 + i * 2.1) * 3);
+    const y = R(88 + Math.sin(t * 0.21) * 10 + Math.sin(t * 0.53) * 5 + Math.cos(T * 1.1 + i * 1.7) * 2);
+    P(x, y, c1); P(x + 1, y, c2);
+  }
+  if (manta.st !== 'off') drawRay(manta, 2.3, 0.8, LUT[0], INK, ROCK2, -1, 6);
+  for (const s of snow) if (s.far) PA(R(s.x), R(s.y), L1[SILV], 0.6);
+}
+function renderMid() {
+  const L = LUT[2], caust = D > 0.05;
+  const T12 = T * 1.2, T08 = T * 0.8, T09 = T * 0.9, T06 = T * 0.6;
+  for (let n = 0; n < midI.length; n++) {
+    let c = midC[n];
+    const w = midW[n];
+    if (caust && w > 0) {
+      const x = midX[n], y = midY[n];
+      const a = Math.sin(x * 0.21 + T12 + Math.sin(y * 0.35 + T08) * 1.5);
+      const b = Math.sin(x * 0.15 - y * 0.3 - T09 + Math.sin(x * 0.09 - T06) * 1.3);
+      const s = (0.45 - Math.abs(a + b)) / 0.45 * D * w;
+      if (s > BAY[((y & 3) << 2) | (x & 3)]) c = LIGHT[c];
+    }
+    buf[midI[n]] = L[c];
+  }
+}
+function drawEffects() {
+  const L2 = LUT[2], L3 = LUT[3];
+  for (const b of bubbles) {
+    const L = b.near ? L3 : L2, x = R(b.x), y = R(b.y), cw = L[WHT], cs = L[SKY0];
+    if (b.r === 0) PA(x, y, cw, 0.8);
+    else if (b.r === 1) { P(x, y - 1, cw); P(x - 1, y, cs); P(x + 1, y, cs); P(x, y + 1, cs); }
+    else {
+      const ring = [[-1, -2], [0, -2], [1, -2], [-2, -1], [2, -1], [-2, 0], [2, 0], [-2, 1], [2, 1], [-1, 2], [0, 2], [1, 2]];
+      for (const [dx, dy] of ring) PA(x + dx, y + dy, cs, 0.85);
+      P(x - 1, y - 1, cw);
+    }
+  }
+  for (const p of parts) {
+    const a = p.l / p.m, x = R(p.x), y = R(p.y), c = LUT[p.L][p.c];
+    if (p.sz > 1) { const sz = p.c === INK ? 2 + R((1 - a) * 2) : 2; for (let dy = 0; dy < sz; dy++) for (let dx = 0; dx < sz; dx++) PA(x + dx - (sz >> 1), y + dy - (sz >> 1), c, a * 0.9); }
+    else PA(x, y, c, a);
+  }
+  if (N > 0.05) for (const p of plank) {
+    const b = N * (0.1 + 0.2 * (0.5 + 0.5 * Math.sin(T * 1.7 + p.ph * 3)) + p.g * 1.3);
+    if (b < 0.1) continue;
+    const x = R(p.x), y = R(p.y);
+    if (y <= surf[clamp(x, 0, W - 1)]) continue;
+    const bb = Math.min(1, b);
+    ADD(x, y, 70 * bb, 255 * bb, 210 * bb);
+    if (b > 0.5) { const h = 0.35 * bb; ADD(x - 1, y, 30 * h, 110 * h, 90 * h); ADD(x + 1, y, 30 * h, 110 * h, 90 * h); ADD(x, y - 1, 30 * h, 110 * h, 90 * h); ADD(x, y + 1, 30 * h, 110 * h, 90 * h); }
+  }
+  for (const s of snow) if (!s.far) PA(R(s.x), R(s.y), L2[SILV], 0.45 + D * 0.3);
+}
+function renderNear() {
+  const L = LUT[3];
+  for (let n = 0; n < nearI.length; n++) buf[nearI[n]] = L[nearMap[nearI[n]]];
+}
+function render() {
+  renderBG(); drawSky(); drawFar(); renderMid();
+  drawKelp(); drawEels(); drawMoray(); drawOcto(); drawCrabs(); drawShrimp(); drawSting();
+  for (const s of schools) s.draw();
+  drawTurtle(); drawEagle();
+  for (const s of sharks) s.draw();
+  drawClowns(); drawAnemone(); drawJellies(); drawEffects();
+  renderNear(); drawGrass();
+  ctx.putImageData(img, 0, 0);
+}
+
+// ---------- loop & debug ----------
+const dbg = document.getElementById('dbg');
+let showDbg = false, fpsN = 0, fpsT = 0, fps = 0, last = performance.now();
+addEventListener('keydown', e => { if (e.key === 'd' || e.key === 'D') { showDbg = !showDbg; dbg.style.display = showDbg ? 'block' : 'none'; } });
+function debugText() {
+  const fish = schools.reduce((a, s) => a + s.vis, 0);
+  const clock = ['朝', '昼', '昼', '昼', '夕', '夜', '夜', '夜', '夜', '朝'][Math.min(9, (phase * 10) | 0)];
+  return `FPS ${fps}\n時刻 ${clock} (${(phase * 100).toFixed(0)}%)  明るさ ${D.toFixed(2)}\n` +
+    `魚 ${fish}  サメ ${sharks.filter(s => s.wait <= 0).length}  クマノミ ${clowns.length}\n` +
+    `クラゲ ${jellies.length}  カニ ${crabs.length}  エビ ${shrimps.length}  チンアナゴ ${eels.length}\n` +
+    `ウミガメ ${turtle.st}  タコ ${octo.st} 擬態${octo.camo.toFixed(2)}\n` +
+    `エイ ${sting.st}  マダラトビエイ ${eagle.st}  マンタ ${manta.st}\n` +
+    `泡 ${bubbles.length}  粒子 ${parts.length}  プランクトン ${plank.length}\n` +
+    `サメ状態 ${sharks.map(s => s.wait > 0 ? 'away' : s.st).join(' / ')}`;
+}
+function frame(now) {
+  let dt = (now - last) / 1000; last = now;
+  if (dt > 0.05) dt = 0.05;
+  if (dt > 0) update(dt);
+  render();
+  fpsN++; fpsT += dt;
+  if (fpsT >= 0.5) { fps = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; if (showDbg) dbg.textContent = debugText(); }
+  requestAnimationFrame(frame);
+}
+for (let i = 0; i < 180; i++) update(1 / 60);
+T = 0;
+render();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
