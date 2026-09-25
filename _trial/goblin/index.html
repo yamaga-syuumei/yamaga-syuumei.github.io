@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="robots" content="noindex">
-<title>ゴブリン試作</title>
+<title>敵キャラ試作</title>
 <style>
-body{margin:0;background:#3a3f4a;display:flex;flex-wrap:wrap;gap:40px;align-items:center;justify-content:center;min-height:100vh;font:14px sans-serif;color:#ddd}
+body{margin:0;background:#3a3f4a;display:flex;flex-direction:column;gap:32px;align-items:center;justify-content:center;min-height:100vh;font:14px sans-serif;color:#ddd}
+.row{display:flex;flex-wrap:wrap;gap:40px;justify-content:center}
 figure{margin:0;text-align:center}
 canvas{image-rendering:pixelated;background:#556070;display:block}
 </style>
@@ -14,35 +15,40 @@ canvas{image-rendering:pixelated;background:#556070;display:block}
 <script>
 const FW = 112, FH = 96;
 const anims = [
-  { name: '待機', seq: [[0, 500], [1, 500]] },
-  { name: '歩き', seq: [[2, 150], [3, 150], [4, 150], [5, 150]] },
+  { name: '待機', seq: [[0, 500], [1, 500]], zslow: 1.4 },
+  { name: '歩き', seq: [[2, 150], [3, 150], [4, 150], [5, 150]], zslow: 1.6 },
   { name: '攻撃', seq: [[6, 300], [7, 90], [8, 140], [9, 220], [0, 700]] },
   { name: '被弾', seq: [[10, 80], [11, 350], [0, 900]] },
 ];
-const img = new Image();
-img.src = 'goblin_sheet.png';
-img.onload = () => {
-  for (const a of anims) {
-    const fig = document.createElement('figure');
-    const cv = document.createElement('canvas');
-    cv.width = FW; cv.height = FH;
-    const cap = document.createElement('figcaption');
-    cap.textContent = a.name;
-    fig.append(cv, cap);
-    document.body.append(fig);
-    const ctx = cv.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    let i = 0;
-    const tick = () => {
-      const [f, ms] = a.seq[i];
-      ctx.clearRect(0, 0, FW, FH);
-      ctx.drawImage(img, f * FW, 0, FW, FH, 0, 0, FW, FH);
-      i = (i + 1) % a.seq.length;
-      setTimeout(tick, ms);
-    };
-    tick();
-  }
-};
+for (const sheet of ['goblin_sheet.png', 'zombie_sheet.png']) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  document.body.append(row);
+  const img = new Image();
+  img.src = sheet;
+  img.onload = () => {
+    for (const a of anims) {
+      const fig = document.createElement('figure');
+      const cv = document.createElement('canvas');
+      cv.width = FW; cv.height = FH;
+      const cap = document.createElement('figcaption');
+      cap.textContent = a.name;
+      fig.append(cv, cap);
+      row.append(fig);
+      const ctx = cv.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      let i = 0;
+      const tick = () => {
+        const [f, ms] = a.seq[i];
+        ctx.clearRect(0, 0, FW, FH);
+        ctx.drawImage(img, f * FW, 0, FW, FH, 0, 0, FW, FH);
+        i = (i + 1) % a.seq.length;
+        setTimeout(tick, ms * (sheet.startsWith('zombie') ? a.zslow || 1 : 1));
+      };
+      tick();
+    }
+  };
+}
 </script>
 </body>
 </html>
