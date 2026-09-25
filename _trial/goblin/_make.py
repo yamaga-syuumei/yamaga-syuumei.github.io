@@ -1,6 +1,6 @@
 import os, struct, zlib
 
-SIZE = 24
+FW, FH = 28, 24
 SCALE = 4
 OUT = os.path.dirname(os.path.abspath(__file__))
 
@@ -41,7 +41,7 @@ TORSO = [
 
 
 def put(grid, x, y, c):
-    if 0 <= x < SIZE and 0 <= y < SIZE and c != '.':
+    if 0 <= x < FW and 0 <= y < FH and c != '.':
         grid[y][x] = c
 
 
@@ -68,26 +68,34 @@ def draw_back_arm(grid, dx, dy):
     put(grid, 8 + dx, 16 + dy, 'd')
 
 
-def draw_dagger_arm(grid, dx, dy):
-    put(grid, 17 + dx, 14 + dy, 'g')
-    put(grid, 18 + dx, 14 + dy, 'G')
-    put(grid, 18 + dx, 15 + dy, 'g')
-    put(grid, 19 + dx, 14 + dy, 'M')
-    put(grid, 19 + dx, 15 + dy, 'B')
-    for i, c in enumerate('mmm'):
-        put(grid, 20 + dx + i, 13 + dy - i, c)
-    put(grid, 19 + dx, 13 + dy, 'M')
+ARM_POSES = {
+    'hold': [(17, 14, 'g'), (18, 14, 'G'), (18, 15, 'g'), (19, 14, 'M'), (19, 15, 'B'), (19, 13, 'M'),
+             (20, 13, 'm'), (21, 12, 'm'), (22, 11, 'm')],
+    'windup': [(15, 12, 'g'), (14, 13, 'g'), (13, 14, 'g'), (12, 15, 'g'), (11, 15, 'G'), (10, 14, 'M'), (10, 16, 'M'),
+               (10, 15, 'M'), (9, 15, 'm'), (8, 15, 'm'), (7, 15, 'm'), (6, 15, 'm')],
+    'strike': [(16, 12, 'g'), (17, 12, 'g'), (18, 12, 'g'), (19, 12, 'G'), (19, 13, 'B'), (20, 11, 'M'), (20, 13, 'M'),
+               (20, 12, 'M'), (21, 12, 'm'), (22, 12, 'm'), (23, 12, 'm'), (24, 12, 'm')],
+    'follow': [(16, 13, 'g'), (17, 13, 'g'), (18, 14, 'g'), (19, 14, 'G'), (19, 15, 'B'), (20, 13, 'M'), (20, 15, 'M'),
+               (20, 14, 'M'), (21, 15, 'm'), (22, 16, 'm')],
+    'flail': [(15, 11, 'g'), (16, 10, 'g'), (17, 9, 'G'), (17, 10, 'B'), (18, 9, 'M'), (18, 8, 'M'),
+              (19, 8, 'm'), (20, 7, 'm'), (21, 6, 'm')],
+}
+
+
+def draw_dagger_arm(grid, dx, dy, pose='hold'):
+    for x, y, c in ARM_POSES[pose]:
+        put(grid, x + dx, y + dy, c)
 
 
 def outline(grid):
     out = [row[:] for row in grid]
-    for y in range(SIZE):
-        for x in range(SIZE):
+    for y in range(FH):
+        for x in range(FW):
             if grid[y][x] != '.':
                 continue
             for ox, oy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 nx, ny = x + ox, y + oy
-                if 0 <= nx < SIZE and 0 <= ny < SIZE and grid[ny][nx] not in '.K':
+                if 0 <= nx < FW and 0 <= ny < FH and grid[ny][nx] not in '.K':
                     out[y][x] = 'K'
                     break
     return out
@@ -115,18 +123,45 @@ LEGS_PASS_B = {
 }
 
 
-def frame(legs, body_dy=0, head_dy=0, arm_dx=0, dagger_dy=0):
-    grid = [['.'] * SIZE for _ in range(SIZE)]
+FACE_HURT = [
+    (6, {14: 'KK'}),
+    (5, {13: 'gdd'}),
+    (9, {9: 'dgKwKKwK'}),
+    (10, {10: 'dKKKgd'}),
+]
+SMEAR = {
+    'strike': [(24, 9), (25, 10), (26, 11), (26, 13), (25, 14), (24, 15)],
+    'follow': [(24, 12), (25, 13)],
+}
+SMEAR_COL = (236, 244, 255, 255)
+
+
+def shift(pts, dx):
+    return [(x + dx, y) for x, y in pts]
+
+
+def frame(legs, body_dy=0, head_dy=0, arm_dx=0, dagger_dy=0, body_dx=0, head_dx=0, legs_dx=0,
+          arm='hold', face=None, smear=None, flash=False):
+    grid = [['.'] * FW for _ in range(FH)]
     back_pts, back_foot = legs['back']
     front_pts, front_foot = legs['front']
-    draw_leg(grid, back_pts, back_foot, 'd')
-    draw_back_arm(grid, -arm_dx, body_dy)
-    draw_rows(grid, TORSO, 0, body_dy)
-    draw_leg(grid, front_pts, front_foot, 'g')
-    draw_rows(grid, TORSO[-3:], 0, body_dy)
-    draw_rows(grid, HEAD, 0, body_dy + head_dy)
-    draw_dagger_arm(grid, arm_dx, body_dy + dagger_dy)
-    return outline(grid)
+    draw_leg(grid, shift(back_pts, legs_dx), (back_foot[0] + legs_dx,) + back_foot[1:], 'd')
+    draw_back_arm(grid, body_dx - arm_dx, body_dy)
+    draw_rows(grid, TORSO, body_dx, body_dy)
+    draw_leg(grid, shift(front_pts, legs_dx), (front_foot[0] + legs_dx,) + front_foot[1:], 'g')
+    draw_rows(grid, TORSO[-3:], body_dx, body_dy)
+    draw_rows(grid, HEAD, body_dx + head_dx, body_dy + head_dy)
+    if face:
+        draw_rows(grid, face, body_dx + head_dx, body_dy + head_dy)
+    draw_dagger_arm(grid, body_dx + arm_dx, body_dy + dagger_dy, arm)
+    g = outline(grid)
+    if flash:
+        g = [['w' if c not in '.K' else c for c in row] for row in g]
+    if smear:
+        for x, y in SMEAR[smear]:
+            if 0 <= x < FW and 0 <= y < FH and g[y][x] == '.':
+                g[y][x] = '*'
+    return g
 
 
 FRAMES = [
@@ -136,6 +171,12 @@ FRAMES = [
     ('walk_1', frame(LEGS_PASS_A, body_dy=-1)),
     ('walk_2', frame(LEGS_STRIDE_B, arm_dx=-1)),
     ('walk_3', frame(LEGS_PASS_B, body_dy=-1)),
+    ('attack_0', frame(LEGS_STAND, body_dx=-1, head_dx=-1, arm='windup')),
+    ('attack_1', frame(LEGS_STRIDE_A, body_dx=1, legs_dx=1, head_dy=1, arm='strike', smear='strike')),
+    ('attack_2', frame(LEGS_STRIDE_A, body_dx=1, legs_dx=1, body_dy=1, arm='follow', smear='follow')),
+    ('attack_3', frame(LEGS_STAND, arm='hold', dagger_dy=1)),
+    ('hurt_0', frame(LEGS_STAND, body_dx=-1, head_dx=-1, arm='flail', face=FACE_HURT, flash=True)),
+    ('hurt_1', frame(LEGS_STAND, body_dx=-2, head_dx=-1, legs_dx=-1, head_dy=-1, arm='flail', face=FACE_HURT)),
 ]
 
 
@@ -150,16 +191,18 @@ def write_png(path, w, h, rgba_rows):
 
 
 def rgba(c):
-    return (0, 0, 0, 0) if c == '.' else PAL[c] + (255,)
+    if c == '.':
+        return (0, 0, 0, 0)
+    return SMEAR_COL if c == '*' else PAL[c] + (255,)
 
 
 def render(grids, scale):
-    w, h = SIZE * len(grids) * scale, SIZE * scale
+    w, h = FW * len(grids) * scale, FH * scale
     rows = []
     for y in range(h):
         row = []
         for g in grids:
-            for x in range(SIZE * scale):
+            for x in range(FW * scale):
                 row.extend(rgba(g[y // scale][x // scale]))
         rows.append(row)
     return w, h, rows
