@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>サバンナの一日</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none}
+body{display:flex;align-items:center;justify-content:center}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#dbg{position:fixed;left:8px;top:8px;font:12px/1.5 monospace;color:#8f8;background:rgba(0,0,0,.65);padding:6px 9px;white-space:pre;display:none;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c" width="320" height="180"></canvas>
+<div id="dbg"></div>
+<script>
+'use strict';
+(() => {
+const W = 320, H = 180, CYCLE = 90, START = 0.1, HOR = 106;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d', { alpha: false });
+ctx.imageSmoothingEnabled = false;
+const img = ctx.createImageData(W, H);
+const buf = new Uint32Array(img.data.buffer);
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const s = Math.min(innerWidth * dpr / W, innerHeight * dpr / H);
+  const k = s >= 1 ? Math.floor(s) : s;
+  cv.style.width = (W * k / dpr) + 'px';
+  cv.style.height = (H * k / dpr) + 'px';
+}
+addEventListener('resize', resize);
+resize();
+
+// ---------- utilities ----------
+const R = Math.round, PI = Math.PI;
+const rnd = (a, b) => b === undefined ? Math.random() * a : a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
+const bay = (x, y) => BAY[((y & 3) << 2) | (x & 3)];
+const pack = (r, g, b) => 0xff000000 | (clamp(b | 0, 0, 255) << 16) | (clamp(g | 0, 0, 255) << 8) | clamp(r | 0, 0, 255);
+
+function P(x, y, c) { if (x < 0 || y < 0 || x >= W || y >= H) return; buf[y * W + x] = c; }
+function PA(x, y, c, a) { if (a >= 1 || a > bay(x, y)) P(x, y, c); }
+function ADD(x, y, r, g, b) {
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  const i = y * W + x, c = buf[i];
+  buf[i] = 0xff000000 | (Math.min(255, ((c >> 16) & 255) + b) << 16) | (Math.min(255, ((c >> 8) & 255) + g) << 8) | Math.min(255, (c & 255) + r);
+}
+function MUL(x, y, f) {
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  const i = y * W + x, c = buf[i];
+  buf[i] = 0xff000000 | ((((c >> 16) & 255) * f) << 16) | ((((c >> 8) & 255) * f) << 8) | ((c & 255) * f);
+}
+
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const srnd = mulberry(20260927);
+function hash(x, y) { let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  return lerp(lerp(hash(xi, yi), hash(xi + 1, yi), u), lerp(hash(xi, yi + 1), hash(xi + 1, yi + 1), u), v);
+}
+
+// ---------- palette (32) ----------
+const PAL = [
+  [196,226,244],[110,170,230],[60,110,190],[248,244,236],
+  [236,208,120],[196,160,80],[142,116,56],
+  [212,160,110],[168,104,64],[110,66,44],
+  [120,160,70],[66,104,50],[84,58,40],
+  [120,180,200],[56,110,140],[110,100,150],
+  [206,142,74],[120,70,36],[240,236,226],[26,22,26],
+  [120,116,118],[70,66,72],[150,140,140],[96,88,92],
+  [236,176,70],[140,80,40],[246,140,50],[200,60,50],[240,150,170],[250,240,120],[255,255,255],[210,140,80]
+];
+const SKY0=0,SKY1=1,SKY2=2,CLOUD=3,GRS0=4,GRS1=5,GRS2=6,DIRT0=7,DIRT1=8,DIRT2=9,LEAF0=10,LEAF1=11,BARK=12,WAT0=13,WAT1=14,MTN=15,
+  LION0=16,LION1=17,ZEB=18,INK=19,GRAY0=20,GRAY1=21,ELE0=22,ELE1=23,GIR0=24,GIR1=25,ORNG=26,RED=27,PINK=28,GLOW=29,WHT=30,TAN=31;
+const LIGHT = [...Array(32).keys()];
+LIGHT[GRS2]=GRS1; LIGHT[GRS1]=GRS0; LIGHT[GRS0]=GLOW; LIGHT[DIRT1]=DIRT0; LIGHT[DIRT2]=DIRT1;
+
+// ---------- time of day ----------
+const KEYS = [
+  [0.00,[0.78,0.6,0.62]],[0.07,[1.0,0.9,0.82]],[0.14,[1.05,1.03,0.98]],[0.40,[1.08,1.02,0.92]],
+  [0.48,[1.2,0.78,0.5]],[0.54,[0.7,0.42,0.45]],[0.61,[0.22,0.26,0.44]],[0.90,[0.22,0.26,0.44]],
+  [0.96,[0.46,0.4,0.56]],[1.00,[0.78,0.6,0.62]]
+];
+const SKYK = [
+  [0.00,[70,72,130],[250,160,120]],[0.07,[96,150,215],[236,214,186]],[0.14,[72,140,222],[196,222,238]],
+  [0.40,[72,136,218],[214,224,226]],[0.48,[80,70,150],[255,150,70]],[0.53,[46,34,96],[214,76,64]],
+  [0.58,[20,20,56],[90,50,80]],[0.63,[6,10,28],[24,32,64]],[0.90,[6,10,28],[24,32,64]],
+  [0.96,[30,32,78],[130,86,112]],[1.00,[70,72,130],[250,160,120]]
+];
+function keyAt(K, p) {
+  for (let i = 0; i < K.length - 1; i++) {
+    if (p >= K[i][0] && p <= K[i + 1][0]) {
+      let t = (p - K[i][0]) / (K[i + 1][0] - K[i][0]); t = t * t * (3 - 2 * t);
+      return K[i].slice(1).map((arr, j) => arr.map((v, k) => lerp(v, K[i + 1][j + 1][k], t)));
+    }
+  }
+  return K[0].slice(1);
+}
+// layers: 0 mountain, 1 horizon, 2 mid, 3 foreground, 4 unfogged, 5 mid-far
+const FOG = [0.62, 0.36, 0, 0, 0, 0.22], DARK = [1, 1, 1, 0.62, 1, 1];
+const LUT = [0, 1, 2, 3, 4, 5].map(() => new Uint32Array(32));
+const EM = new Uint32Array(32);
+for (let i = 0; i < 32; i++) EM[i] = pack(PAL[i][0], PAL[i][1], PAL[i][2]);
+const SKYB = new Uint32Array(8);
+let T = 0, phase = START, D = 1, N = 0, WARM = 0, AMB = [1, 1, 1], SKY_TOP = [0, 0, 0], SKY_HOR = [0, 0, 0], HAZE = 0, wind = 0;
+let sunX = 0, sunY = 0, sunUp = false;
+
+function computeLight() {
+  phase = (T / CYCLE + START) % 1;
+  AMB = keyAt(KEYS, phase)[0];
+  const lum = (AMB[0] + AMB[1] + AMB[2]) / 3;
+  D = clamp((lum - 0.3) / 0.65, 0, 1); N = 1 - D;
+  const dusk = Math.max(0, 1 - Math.abs(phase - 0.5) / 0.08);
+  const dawn = Math.max(0, 1 - Math.min(phase, 1 - phase) / 0.07);
+  WARM = Math.max(dusk, dawn * 0.8);
+  const sk = keyAt(SKYK, phase);
+  SKY_TOP = sk[0]; SKY_HOR = sk[1];
+  for (let b = 0; b < 8; b++) {
+    const t = b / 7;
+    SKYB[b] = pack(lerp(SKY_TOP[0], SKY_HOR[0], t), lerp(SKY_TOP[1], SKY_HOR[1], t), lerp(SKY_TOP[2], SKY_HOR[2], t));
+  }
+  const fog = SKY_HOR.map(v => v * 0.9);
+  for (let l = 0; l < 6; l++) {
+    const f = FOG[l], d = DARK[l], L = LUT[l];
+    for (let i = 0; i < 32; i++) {
+      const p = PAL[i];
+      L[i] = pack(lerp(p[0] * AMB[0] * d, fog[0], f), lerp(p[1] * AMB[1] * d, fog[1], f), lerp(p[2] * AMB[2] * d, fog[2], f));
+    }
+  }
+  sunUp = phase < 0.53;
+  const st = phase / 0.53;
+  sunX = -6 + st * (W + 12);
+  sunY = HOR + 2 - Math.sin(st * PI) * 88;
+  HAZE = sunUp ? clamp(Math.sin(st * PI) - 0.75, 0, 1) * 4 : 0;
+}
+
+// ---------- terrain ----------
+const WX = 222, WY = 140, WRX = 44, WRY = 9;
+const inWater = (x, y, m) => { const dx = (x - WX) / (WRX * (m || 1)), dy = (y - WY) / (WRY * (m || 1)); return dx * dx + dy * dy < 1; };
+const TREE = { x: 63, base: 132 };
+const BURROWS = [{ x: 154, y: 154 }, { x: 162, y: 155 }, { x: 171, y: 154 }];
+const midMap = new Uint8Array(W * H).fill(255), kind = new Uint8Array(W * H);
+const far1 = new Uint8Array(W * H).fill(255), far2 = new Uint8Array(W * H).fill(255);
+function plot(map, x, y, c, k) {
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  map[y * W + x] = c;
+  if (map === midMap) kind[y * W + x] = k || 2;
+}
+function tline(map, x0, y0, x1, y1, c, w) {
+  const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+  for (let i = 0; i <= n; i++) {
+    const x = R(lerp(x0, x1, i / n)), y = R(lerp(y0, y1, i / n));
+    for (let k = 0; k < w; k++) plot(map, x + k, y, c);
+  }
+}
+function acacia(map, bx, by, top, bot, half, trunkTop, branches) {
+  for (let y = by; y >= trunkTop; y--) {
+    const x = R(bx + (by - y) * 0.06);
+    plot(map, x, y, BARK); plot(map, x + 1, y, BARK); if (y > by - 8) plot(map, x - 1, y, BARK);
+  }
+  const tx = R(bx + (by - trunkTop) * 0.06);
+  for (const [ex, ey] of branches) { tline(map, tx, trunkTop, ex, ey, BARK, 2); }
+  for (let x = bx - half; x <= bx + half; x++) {
+    const u = (x - bx) / half;
+    const t0 = R(top + u * u * 5 + (vnoise(x * 0.2, 3) - 0.5) * 3);
+    const t1 = R(bot - u * u * 3 + (vnoise(x * 0.17, 8) - 0.5) * 2);
+    for (let y = t0; y <= t1; y++) {
+      if (vnoise(x * 0.25, y * 0.5) > 0.8 && y > t0 + 1) continue;
+      const c = y < t0 + 2 ? LEAF0 : y >= t1 ? LEAF1 : (vnoise(x * 0.3, y * 0.4) < 0.4 ? LEAF0 : LEAF1);
+      plot(map, x, y, c);
+    }
+  }
+}
+
+(function genTerrain() {
+  for (let x = 0; x < W; x++) {
+    const m = HOR - 2 - 44 * Math.exp(-(((x - 238) / 34) ** 2)) - 12 * Math.exp(-(((x - 196) / 26) ** 2))
+      - 8 * Math.exp(-(((x - 70) / 60) ** 2)) - 3 * vnoise(x * 0.08, 1.7);
+    const top = R(m);
+    for (let y = top; y < HOR + 4; y++) {
+      let c = MTN;
+      if (top < 76 && y - top < (80 - top) * 0.35 + (vnoise(x * 0.3, y * 0.3) - 0.5) * 3) c = CLOUD;
+      else if (vnoise(x * 0.15, y * 0.12) < 0.3) c = GRAY1;
+      far2[y * W + x] = c;
+    }
+    const t1 = R(HOR - 2 - vnoise(x * 0.05, 4) * 2);
+    for (let y = t1; y < HOR + 6; y++) far1[y * W + x] = y === t1 ? GRS2 : GRS1;
+  }
+  for (let i = 0; i < 16; i++) {
+    const x = R(srnd() * W), y = HOR - 2, w = 2 + R(srnd() * 3);
+    for (let k = 1; k <= 3; k++) plot(far1, x, y - k, BARK);
+    for (let dx = -w; dx <= w; dx++) { plot(far1, x + dx, y - 4, LEAF1); if (Math.abs(dx) < w) plot(far1, x + dx, y - 5, LEAF1); }
+  }
+  for (let i = 0; i < 40; i++) { const x = R(srnd() * W), y = HOR - 2 + R(srnd() * 4); plot(far1, x, y, LEAF1); plot(far1, x + 1, y, LEAF1); }
+
+  const pathY = x => 160 - 12 * Math.sin(x * 0.012 + 0.5);
+  for (let y = HOR; y < H; y++) for (let x = 0; x < W; x++) {
+    const d = (y - HOR) / (H - HOR);
+    const n = vnoise(x * 0.06 / (0.3 + d), y * 0.25);
+    let c = d < 0.15 ? (n < 0.45 ? GRS0 : GRS1) : (n < 0.35 ? GRS0 : n < 0.7 ? GRS1 : GRS2);
+    const dn = vnoise(x * 0.03, y * 0.08 + 9);
+    if (dn > 0.74) c = dn > 0.8 ? DIRT1 : DIRT0;
+    if (d > 0.25 && hash(x, y) < 0.09 * d) c = GRS2;
+    if (d > 0.25 && hash(x + 7, y) < 0.05 * d) c = GRS0;
+    if (x < 176 && Math.abs(y - pathY(x)) < 1 + d * 2) c = hash(x, y + 3) < 0.25 ? DIRT1 : DIRT0;
+    const sx = (x - TREE.x) / 44, sy = (y - TREE.base - 2) / 5;
+    if (sx * sx + sy * sy < 1) c = c === GRS0 ? GRS1 : c === GRS1 ? GRS2 : c === DIRT0 ? DIRT1 : c;
+    const ex = (x - WX) / WRX, ey = (y - WY) / WRY, e = ex * ex + ey * ey;
+    if (e < 1) { plot(midMap, x, y, WAT1, 4); continue; }
+    if (e < 1.45) c = e < 1.18 ? DIRT2 : DIRT1;
+    plot(midMap, x, y, c, 1);
+  }
+  const solid = new Uint8Array(W * H);
+  const blob = (cx, cy, rx, ry) => {
+    for (let y = cy - ry - 2; y <= cy + ry + 2; y++) for (let x = cx - rx - 2; x <= cx + rx + 2; x++) {
+      const dx = (x - cx) / rx, dy = (y - cy) / ry;
+      if (dx * dx + dy * dy < 1 + (vnoise(x * 0.25, y * 0.25) - 0.5) * 0.5 && y < cy + ry * 0.5) solid[y * W + x] = 1;
+    }
+  };
+  blob(112, 124, 10, 6); blob(126, 122, 8, 7); blob(138, 126, 6, 4);
+  for (let y = 1; y < H; y++) for (let x = 1; x < W - 1; x++) {
+    const i = y * W + x;
+    if (!solid[i]) continue;
+    const top = !solid[i - W];
+    plot(midMap, x, y, top ? GRAY0 : (!solid[i + 1] || vnoise(x * 0.3, y * 0.3) < 0.35) ? GRAY1 : GRAY0, 3);
+  }
+  for (let y = 104; y <= 124; y++) {
+    const w = 1 + (y - 104) * 0.28;
+    for (let x = R(186 - w); x <= R(186 + w); x++) plot(midMap, x, y, x < 186 - w * 0.4 ? DIRT0 : x > 186 + w * 0.5 ? DIRT2 : DIRT1, 3);
+  }
+  for (let y = 151; y <= 158; y++) for (let x = 146; x <= 178; x++) {
+    const dx = (x - 162) / 16, dy = (y - 156) / 4;
+    if (dx * dx + dy * dy < 1) plot(midMap, x, y, y < 153 ? DIRT0 : hash(x, y) < 0.3 ? DIRT1 : DIRT0, 3);
+  }
+  for (const b of BURROWS) { plot(midMap, b.x, b.y, INK, 3); plot(midMap, b.x + 1, b.y, INK, 3); plot(midMap, b.x, b.y - 1, DIRT2, 3); plot(midMap, b.x + 1, b.y - 1, DIRT2, 3); }
+  acacia(midMap, TREE.x, TREE.base, 80, 92, 44, 104, [[40, 93], [52, 91], [64, 90], [78, 91], [90, 93]]);
+  acacia(midMap, 292, 120, 95, 101, 22, 106, [[280, 101], [292, 100], [304, 101]]);
+})();
+function buildList(map) {
+  const I = [], C = [], X = [], Y = [], K = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    if (map[i] === 255) continue;
+    I.push(i); C.push(map[i]); X.push(x); Y.push(y); K.push(kind[i]);
+  }
+  return { I, C, X, Y, K };
+}
+const MID = buildList(midMap), F1 = buildList(far1), F2 = buildList(far2);
+const avoidWater = o => {
+  const dx = (o.x - WX) / (WRX + 3), dy = (o.y - WY) / (WRY + 2.5), e = dx * dx + dy * dy;
+  if (e < 1) { const a = Math.atan2(dy, dx); o.x = WX + Math.cos(a) * (WRX + 3); o.y = WY + Math.sin(a) * (WRY + 2.5); }
+};
+const DRINK_SPOTS = [];
+for (let a = -0.8; a <= 0.8; a += 0.2) {
+  DRINK_SPOTS.push({ x: WX + Math.cos(a) * (WRX + 3), y: WY + Math.sin(a) * (WRY + 2.5), dir: -1 });
+  DRINK_SPOTS.push({ x: WX - Math.cos(a) * (WRX + 3), y: WY + Math.sin(a) * (WRY + 2.5), dir: 1 });
+}
+
+// ---------- shared state ----------
+const threats = [];
+const parts = [];
+function part(o) { if (parts.length < 700) parts.push(o); }
+function dust(x, y, n, sp) {
+  for (let i = 0; i < n; i++) part({ x: x + rnd(-2, 2), y: y - rnd(0, 1), vx: rnd(-sp, sp) * 0.5, vy: -rnd(2, sp), g: 4, dr: 1.8, l: rnd(0.8, 1.8), m: 1.8, c: Math.random() < 0.5 ? DIRT0 : GRS0, L: 2, gy: y + 1 });
+}
+function splash(x, y, n, sp) {
+  for (let i = 0; i < n; i++) part({ x: x + rnd(-2, 2), y, vx: rnd(-sp, sp) * 0.4, vy: -rnd(sp * 0.4, sp), g: 60, dr: 0.5, l: rnd(0.4, 0.9), m: 0.9, c: Math.random() < 0.5 ? WHT : WAT0, L: 2, gy: y + 1 });
+}
+const ripples = [];
+function ripple(x, y) { if (ripples.length < 30) ripples.push({ x, y, a: 0 }); }
+const nearest = (list, x, y) => { let b = null, bd = 1e9; for (const o of list) { const d = Math.hypot(o.x - x, (o.y - y) * 1.5); if (d < bd) { bd = d; b = o; } } return [b, bd]; };
+
+// ---------- quadruped drawing ----------
+let QX = 0, QY = 0, QD = 1, QL = LUT[2];
+function qp(lx, ly, c) { P(Math.floor(QX + lx * QD + 0.5), Math.floor(QY + ly + 0.5), QL[c]); }
+function qadd(lx, ly, r, g, b) { ADD(Math.floor(QX + lx * QD + 0.5), Math.floor(QY + ly + 0.5), r, g, b); }
+function qline(x0, y0, x1, y1, c, w) {
+  const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, cc = typeof c === 'function' ? c(i, n) : c;
+    qp(x, y, cc);
+    if (w > 1) qp(x + 1, y, cc);
+    if (w > 2) qp(x - 1, y, cc);
+    if (w > 3) qp(x + 2, y, cc);
+  }
+}
+function qell(cx, cy, rx, ry, fn) {
+  const x0 = Math.floor(-rx), x1 = Math.ceil(rx), y0 = Math.floor(-ry), y1 = Math.ceil(ry);
+  for (let dy = y0; dy <= y1; dy++) for (let dx = x0; dx <= x1; dx++) {
+    const e = (dx / rx) ** 2 + (dy / ry) ** 2;
+    if (e < 1) { const c = fn(dx, dy, e); if (c >= 0) qp(cx + dx, cy + dy, c); }
+  }
+}
+function qrell(cx, cy, rx, ry, ang, fn) {
+  const ca = Math.cos(ang), sa = Math.sin(ang), r = Math.ceil(Math.max(rx, ry)) + 1;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    const u = dx * ca + dy * sa, v = -dx * sa + dy * ca, e = (u / rx) ** 2 + (v / ry) ** 2;
+    if (e < 1) { const c = fn(u, v, e); if (c >= 0) qp(cx + dx, cy + dy, c); }
+  }
+}
+function layerFor(y) { return y < 124 ? LUT[5] : LUT[2]; }
+function shadow(x, y, rx) {
+  if (D < 0.15) return;
+  const f = 1 - 0.28 * D;
+  for (let dx = -rx; dx <= rx; dx++) { MUL(R(x + dx), R(y), f); if (Math.abs(dx) < rx - 1) MUL(R(x + dx), R(y) + 1, f); }
+}
+function headGeneric(hx, hy, hd, hl, hh, cHead, cMuz, eye) {
+  const cx = hx + Math.cos(hd) * hl * 0.5, cy = hy + Math.sin(hd) * hl * 0.5;
+  qrell(cx, cy, hl * 0.55, hh, hd, u => u > hl * 0.22 ? cMuz : cHead);
+  if (eye >= 0) qp(hx + Math.cos(hd) * hl * 0.25 + Math.sin(hd) * 0.8, hy + Math.sin(hd) * hl * 0.25 - Math.cos(hd) * 0.8, eye);
+}
+const SPEC = {
+  wild: { bl: 5.5, bh: 2.6, hump: 1.2, leg: 5, neck: 3.5, nw: 2, nUp: -0.55, nDn: 1.25, hl: 4, tail: 4, tailC: INK, legN: GRAY1, legF: INK, slope: 0.1,
+    body: (dx, dy, hh) => dy < -hh * 0.55 ? GRAY1 : ((dx + 40) % 3 === 0 && dy < hh * 0.4 ? GRAY1 : GRAY0), neckC: GRAY1,
+    head: (hx, hy, hd) => { headGeneric(hx, hy, hd, 4, 1.4, GRAY1, INK, INK); qp(hx - 1, hy - 1.2, GRAY0); qp(hx - 1.6, hy - 2, GRAY0); qp(hx + 0.6, hy - 1.8, GRAY0); },
+    mane: INK },
+  zebra: { bl: 5, bh: 2.6, leg: 5, neck: 3.5, nw: 2, nUp: -0.6, nDn: 1.2, hl: 3.8, tail: 4, tailC: INK, legN: i => i % 2 ? INK : ZEB, legF: i => i % 2 ? ZEB : INK,
+    body: (dx, dy, hh) => (dy > hh * 0.55 && dx > -2) ? ZEB : (Math.floor(dx * 0.8 + dy * 0.35 + 40) % 2 === 0 ? INK : ZEB), neckC: i => i % 2 ? INK : ZEB,
+    head: (hx, hy, hd) => { headGeneric(hx, hy, hd, 3.8, 1.3, ZEB, INK, INK); qp(hx - 0.6, hy - 1.7, ZEB); qp(hx + 0.2, hy - 1.9, INK); },
+    mane: i => i % 2 ? INK : ZEB },
+  gaz: { bl: 3.5, bh: 1.6, leg: 5, neck: 3, nw: 1, nUp: -0.8, nDn: 1.2, hl: 2.6, tail: 2, tailC: INK, legN: TAN, legF: DIRT1, tsw: 9,
+    body: (dx, dy, hh) => dy > hh * 0.45 ? ZEB : (dy > -0.2 ? INK : TAN), neckC: TAN,
+    head: (hx, hy, hd) => { headGeneric(hx, hy, hd, 2.6, 1, TAN, ZEB, INK); qp(hx - 0.4, hy - 1.3, INK); qp(hx - 0.8, hy - 2.3, INK); qp(hx - 1.3, hy - 3.1, INK); } },
+  wart: { bl: 3.5, bh: 2.1, leg: 2.4, neck: 0.8, nw: 3, nUp: 0.3, nDn: 0.9, hl: 3.4, tail: 3, tailC: GRAY1, legN: GRAY1, legF: INK, tailUp: true,
+    body: (dx, dy, hh) => dy < -hh * 0.55 ? GRAY1 : GRAY0, neckC: GRAY0,
+    head: (hx, hy, hd) => {
+      headGeneric(hx, hy, hd, 3.4, 1.6, GRAY0, GRAY1, INK);
+      const mx = hx + Math.cos(hd) * 3, my = hy + Math.sin(hd) * 3;
+      qp(mx, my - 1, WHT); qp(mx - 0.3, my - 1.8, WHT); qp(hx - 0.6, hy - 1.6, GRAY1);
+    } },
+  lion: { bl: 5.5, bh: 2.2, leg: 4, neck: 2.2, nw: 3, nUp: -0.3, nDn: 0.6, hl: 3.2, tail: 6, tailC: LION1, legN: LION0, legF: LION1, lw: 2, curlTail: true,
+    body: (dx, dy, hh) => dy > hh * 0.5 ? DIRT0 : (dy < -hh * 0.6 ? DIRT1 : LION0), neckC: LION0,
+    head: (hx, hy, hd, a) => {
+      if (a.male) qell(hx - 0.6, hy + 0.4, 2.8, 3.3, (dx, dy) => hash(dx + 30, dy + 30) < 0.3 ? DIRT2 : LION1);
+      headGeneric(hx, hy, hd, 3.2, 1.8, LION0, GRS0, INK);
+      const mx = hx + Math.cos(hd) * 3.2, my = hy + Math.sin(hd) * 3.2;
+      qp(mx, my - 0.5, INK);
+      if (a.roar > 0) { qp(mx - 0.5, my + 0.6, PINK); qp(mx, my + 1.2, LION0); qp(mx - 1, my + 1.2, INK); }
+      if (!a.male) { qp(hx - 0.7, hy - 1.9, LION1); qp(hx + 0.4, hy - 2, LION1); }
+    } },
+  hyena: { bl: 4.5, bh: 2.3, leg: 4.2, neck: 2.5, nw: 2, nUp: -0.2, nDn: 0.7, hl: 3, tail: 3, tailC: INK, legN: GRS1, legF: GRAY1, slope: 0.25,
+    body: (dx, dy, hh) => hash(dx + 50, dy + 50) < 0.22 ? INK : (dy > hh * 0.5 ? GRS0 : GRS1), neckC: GRS1,
+    head: (hx, hy, hd, a) => {
+      headGeneric(hx, hy, hd, 3, 1.6, GRS1, INK, INK);
+      qp(hx - 0.5, hy - 1.8, GRS1); qp(hx + 0.3, hy - 2.1, GRS1);
+      if (N > 0.3) { const ex = hx + Math.cos(hd) * 0.8 + Math.sin(hd) * 0.8, ey = hy + Math.sin(hd) * 0.8 - Math.cos(hd) * 0.8, b = N; qadd(ex, ey, 240 * b, 230 * b, 90 * b); }
+    } },
+  giraffe: { bl: 5, bh: 3, leg: 13, neck: 15, nw: 2, nUp: -1.2, nDn: 1.0, hl: 3, tail: 5, tailC: INK, legN: GIR0, legF: GIR1, slope: 0.3,
+    body: (dx, dy, hh) => {
+      if (dy > hh * 0.6) return GIR0;
+      const gx = (dx + 40) / 2.4, gy = (dy + 40) / 2.2;
+      return (gx % 1 < 0.28 || gy % 1 < 0.3) ? GIR0 : GIR1;
+    },
+    neckC: i => (i % 3 === 0 ? GIR0 : GIR1),
+    head: (hx, hy, hd) => { headGeneric(hx, hy, hd, 3, 1.1, GIR0, GIR0, INK); qp(hx - 0.8, hy - 1.6, INK); qp(hx + 0.2, hy - 1.7, INK); qp(hx - 1.4, hy - 0.8, GIR0); },
+    mane: GIR1 },
+};
+function drawQuad(a, sp) {
+  QX = a.x; QY = a.y - (a.hop || 0); QD = a.dir; QL = layerFor(a.y);
+  const lie = a.pose === 'lie', crouch = a.pose === 'crouch', drink = a.pose === 'drink';
+  const bl = sp.bl, bh = sp.bh, slope = sp.slope || 0;
+  const leg = lie ? 0 : crouch ? sp.leg * 0.5 : drink ? sp.leg * 0.8 : sp.leg;
+  const bob = a.gait === 2 ? Math.abs(Math.sin(a.ph)) * 1.2 : a.gait === 1 ? Math.abs(Math.sin(a.ph)) * 0.5 : 0;
+  const by = lie ? -bh : -leg - bh - bob;
+  const amp = a.gait === 2 ? 0.9 : a.gait === 1 ? 0.4 : 0;
+  if (!a.hop) shadow(a.x, a.y, R(bl + 1));
+  const legs = near => {
+    if (lie) return;
+    for (const ox of [bl * 0.62, -bl * 0.62]) {
+      const front = ox > 0;
+      let sw;
+      if (a.gait === 2) sw = Math.sin(a.ph + (front ? 0 : PI * 0.8) + (near ? 0 : 0.5)) * amp;
+      else sw = Math.sin(a.ph + (front ? 0 : PI) + (near ? 0 : PI * 0.5)) * amp;
+      if (drink && front) sw = near ? 0.45 : -0.35;
+      if (a.hop) sw = front ? 0.25 : -0.25;
+      const hx = ox + (near ? 0 : 0.8), hipY = by + bh * 0.7 - ox * slope;
+      const L = Math.max(1, -hipY);
+      qline(hx, hipY, hx + Math.sin(sw) * L, hipY + Math.cos(sw) * L, near ? sp.legN : sp.legF, sp.lw || 1);
+    }
+  };
+  legs(false);
+  const rx = -bl, ry = by - bh * 0.3 + bl * slope;
+  let ta = sp.tailUp && a.gait === 2 ? -PI / 2 : PI * 0.62 + Math.sin(T * (sp.tsw || 2) + a.ph * 0.3) * 0.25;
+  if (lie) ta = PI * 0.95;
+  const tx = rx + Math.cos(ta) * sp.tail, ty = ry + Math.sin(ta) * sp.tail;
+  qline(rx, ry, tx, ty, sp.tailC, 1);
+  if (sp.curlTail) qp(tx - 0.5, ty - (lie ? 0 : 1), sp.tailC);
+  const cb = Math.ceil(bl);
+  for (let dx = -cb; dx <= cb; dx++) {
+    const t = dx / bl;
+    if (Math.abs(t) > 1) continue;
+    const hh = bh * Math.sqrt(1 - t * t), hump = sp.hump ? sp.hump * Math.max(0, t) * 2 * (1 - t) : 0, yo = -dx * slope;
+    for (let dy = Math.floor(-hh - hump); dy <= Math.ceil(hh * 0.9); dy++) { const c = sp.body(dx, dy, hh, a); if (c >= 0) qp(dx, by + dy + yo, c); }
+  }
+  legs(true);
+  if (lie) { qline(bl * 0.5, -0.5, bl * 0.5 + 3, -0.5, sp.legN, 1); }
+  const shx = bl * 0.7, shy = by - bh * 0.5 - bl * 0.7 * slope - (sp.hump || 0);
+  const na = crouch ? 0.25 : lie ? sp.nUp * 0.7 : lerp(sp.nUp, sp.nDn, a.head);
+  const hx = shx + Math.cos(na) * sp.neck, hy = shy + Math.sin(na) * sp.neck;
+  qline(shx, shy, hx, hy, sp.neckC, sp.nw);
+  if (sp.mane !== undefined) qline(shx - 1, shy - 1, hx - 0.8, hy - 1, sp.mane, 1);
+  const hd = crouch ? 0.15 : lie ? 0.3 : lerp(0.35, 1.45, clamp(a.head, 0, 1));
+  sp.head(hx, hy, hd, a);
+}
+
+// ---------- herds ----------
+class Herd {
+  constructor(o) {
+    Object.assign(this, o);
+    this.an = []; this.mode = 'graze'; this.mt = rnd(8, 16); this.goal = { x: o.x, y: o.y }; this.panic = 0; this.cx = o.x; this.cy = o.y;
+    this.fdx = 1;
+    for (let i = 0; i < o.n; i++) {
+      const a = { x: o.x + rnd(-o.spread, o.spread), y: clamp(o.y + rnd(-8, 8), o.lane[0], o.lane[1]), vx: 0, vy: 0, dir: Math.random() < 0.5 ? 1 : -1, ph: rnd(6), head: rnd(1),
+        st: 'graze', t: rnd(1, 4), hop: 0, hv: 0, tx: 0, ty: 0, gait: 0, pose: 'stand', spot: null };
+      avoidWater(a);
+      this.an.push(a);
+    }
+  }
+  pickGoal() { this.goal = { x: rnd(this.region[0], this.region[1]), y: rnd(this.lane[0], this.lane[1]) }; }
+  assignDrink() {
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const spots = DRINK_SPOTS.filter(s => s.dir === side);
+    this.an.forEach((a, i) => { const s = spots[i % spots.length]; a.spot = { x: s.x - s.dir * Math.floor(i / spots.length) * 7, y: s.y, dir: s.dir }; });
+  }
+  update(dt) {
+    const night = N > 0.55;
+    let cx = 0, cy = 0;
+    for (const a of this.an) { cx += a.x; cy += a.y; }
+    cx /= this.an.length; cy /= this.an.length; this.cx = cx; this.cy = cy;
+    let hit = null, hd = 1e9;
+    for (const t of threats) {
+      if (t.lv < 0.6 || t.k === 'eagle') continue;
+      for (const a of this.an) { const d = Math.hypot(a.x - t.x, (a.y - t.y) * 1.4); if (d < t.r && d < hd) { hd = d; hit = t; } }
+    }
+    if (hit) {
+      if (this.mode !== 'flee') this.fdx = Math.sign(cx - hit.x) || 1;
+      this.mode = 'flee'; this.panic = Math.max(this.panic, rnd(3, 4.5));
+    }
+    if (this.mode === 'flee') {
+      this.panic -= dt;
+      if (this.panic <= 0) { this.mode = night ? 'rest' : 'graze'; this.mt = rnd(6, 12); }
+    } else if (night && this.mode !== 'rest') this.mode = 'rest';
+    else if (!night && this.mode === 'rest') { this.mode = 'graze'; this.mt = rnd(5, 10); }
+    else if (this.mode !== 'rest') {
+      this.mt -= dt;
+      if (this.mt <= 0) {
+        const r = Math.random();
+        if (this.mode === 'drink' || r < 0.4) { this.mode = 'travel'; this.pickGoal(); this.mt = rnd(9, 15); }
+        else if (r < 0.62 && this.drinks) { this.mode = 'drink'; this.assignDrink(); this.mt = rnd(14, 22); }
+        else { this.mode = 'graze'; this.mt = rnd(10, 18); }
+      }
+    }
+    const spd = this.walk;
+    for (const a of this.an) {
+      let dvx = 0, dvy = 0, gait = 0, headT = 0.2, alert = false;
+      for (const t of threats) {
+        if (t.lv < 0.3 || t.lv >= 0.6 || t.k === 'eagle') continue;
+        const dx = a.x - t.x, dy = a.y - t.y, d = Math.hypot(dx, dy * 1.4) + 0.01;
+        if (d < t.r) { alert = true; dvx += dx / d * 8; dvy += dy / d * 4; }
+      }
+      a.t -= dt;
+      a.pose = 'stand';
+      if (this.mode === 'flee') {
+        let fx = this.fdx * 1, fy = 0;
+        for (const t of threats) {
+          if (t.lv < 0.6) continue;
+          const dx = a.x - t.x, dy = a.y - t.y, d = Math.hypot(dx, dy) + 0.01;
+          if (d < t.r * 1.3) { fx += dx / d * 2; fy += dy / d * 1.2; }
+        }
+        const m = Math.hypot(fx, fy) + 0.01;
+        dvx = fx / m * this.run; dvy = fy / m * this.run * 0.5; gait = 2; headT = 0;
+        if (this.pronk && a.hop <= 0 && Math.random() < dt * 1.5) { a.hv = 34; a.hop = 0.01; }
+      } else if (this.mode === 'travel') {
+        const gx = this.goal.x - a.x, gy = this.goal.y - a.y, gd = Math.hypot(gx, gy) + 0.01;
+        if (gd > 14) { dvx += gx / gd * spd; dvy += gy / gd * spd * 0.6; gait = 1; } else { headT = 1; }
+        if (Math.hypot(this.goal.x - cx, this.goal.y - cy) < 12) { this.mode = 'graze'; this.mt = rnd(10, 18); }
+      } else if (this.mode === 'drink' && a.spot) {
+        const gx = a.spot.x - a.x, gy = a.spot.y - a.y, gd = Math.hypot(gx, gy);
+        if (gd > 1.5) { dvx += gx / gd * spd; dvy += gy / gd * spd; gait = 1; }
+        else { a.x = a.spot.x; a.y = a.spot.y; a.dir = a.spot.dir; headT = 1; a.pose = this.splay ? 'drink' : 'stand'; if (Math.random() < dt * 0.4) ripple(a.x + a.dir * (this.sp.bl + 5), a.y + 1); }
+      } else if (this.mode === 'graze') {
+        if (a.st === 'graze') { headT = 1; if (a.t <= 0) { a.st = 'step'; a.t = rnd(1, 2.5); a.tx = clamp(cx + rnd(-this.spread, this.spread), 8, W - 8); a.ty = clamp(cy + rnd(-8, 8), this.lane[0], this.lane[1]); } }
+        else {
+          const gx = a.tx - a.x, gy = a.ty - a.y, gd = Math.hypot(gx, gy) + 0.01;
+          if (gd > 2) { dvx += gx / gd * spd * 0.55; dvy += gy / gd * spd * 0.4; gait = 1; headT = 0.4; }
+          if (a.t <= 0 || gd <= 2) { a.st = 'graze'; a.t = rnd(2, 6); }
+        }
+      } else {
+        headT = Math.sin(T * 0.3 + a.ph) > 0.7 ? 0.8 : 0.1;
+        const gx = cx - a.x, gy = cy - a.y, gd = Math.hypot(gx, gy);
+        if (gd > this.spread * 0.7) { dvx += gx / gd * spd * 0.4; dvy += gy / gd * spd * 0.3; gait = 1; }
+      }
+      if (alert && this.mode !== 'flee') { headT = 0; if (gait === 0) { dvx *= 0.3; dvy *= 0.3; } }
+      for (const o of this.an) {
+        if (o === a) continue;
+        const dx = a.x - o.x, dy = (a.y - o.y) * 2, d2 = dx * dx + dy * dy;
+        if (d2 < this.sep * this.sep && d2 > 0.01) { const d = Math.sqrt(d2); dvx += dx / d * (this.sep - d) * 3; dvy += dy / d * (this.sep - d) * 1.2; }
+      }
+      if (a.x < 6) dvx += 20; if (a.x > W - 6) dvx -= 20;
+      if (a.y < this.lane[0]) dvy += 10; if (a.y > this.lane[1]) dvy -= 10;
+      const k = Math.min(1, dt * (gait === 2 ? 4 : 3));
+      a.vx += (dvx - a.vx) * k; a.vy += (dvy - a.vy) * k;
+      a.x += a.vx * dt; a.y += a.vy * dt;
+      avoidWater(a);
+      if (a.x < 5) { a.x = 5; if (this.mode === 'flee') this.fdx = 1; }
+      else if (a.x > W - 5) { a.x = W - 5; if (this.mode === 'flee') this.fdx = -1; }
+      a.y = clamp(a.y, HOR + 6, H - 6);
+      const sp2 = Math.hypot(a.vx, a.vy);
+      a.gait = sp2 > this.walk * 1.3 ? 2 : sp2 > 1.2 ? 1 : 0;
+      if (!(this.mode === 'drink' && headT === 1)) { if (a.vx > 1) a.dir = 1; else if (a.vx < -1) a.dir = -1; }
+      a.ph += dt * (a.gait === 2 ? 13 : 7) * this.phs;
+      a.head += (headT - a.head) * Math.min(1, dt * 3);
+      if (a.hop > 0) { a.hop += a.hv * dt; a.hv -= 110 * dt; if (a.hop <= 0) { a.hop = 0; dust(a.x, a.y, 3, 6); } }
+      if (a.gait === 2 && Math.random() < dt * 6) dust(a.x - a.dir * this.sp.bl, a.y, 2, 7);
+    }
+  }
+}
+const herds = [
+  new Herd({ name: 'ヌー', sp: SPEC.wild, n: 11, x: 150, y: 120, lane: [113, 128], region: [30, 300], spread: 26, walk: 7, run: 38, sep: 9, phs: 1, drinks: true }),
+  new Herd({ name: 'シマウマ', sp: SPEC.zebra, n: 7, x: 90, y: 150, lane: [140, 166], region: [20, 200], spread: 20, walk: 7, run: 40, sep: 9, phs: 1, drinks: true }),
+  new Herd({ name: 'ガゼル', sp: SPEC.gaz, n: 8, x: 250, y: 160, lane: [150, 170], region: [110, 305], spread: 20, walk: 8, run: 50, sep: 7, phs: 1.2, pronk: true, drinks: true }),
+  new Herd({ name: 'イボイノシシ', sp: SPEC.wart, n: 3, x: 120, y: 138, lane: [132, 150], region: [80, 170], spread: 8, walk: 8, run: 34, sep: 6, phs: 1.5 }),
+];
+
+// ---------- lions ----------
+const pride = { st: 'rest', t: rnd(14, 22), tgt: null };
+const lions = [
+  { x: 50, y: 136, rx: 50, ry: 136, dir: 1, male: false, off: -6 },
+  { x: 76, y: 138, rx: 76, ry: 138, dir: -1, male: false, off: 6 },
+  { x: 38, y: 134, rx: 38, ry: 134, dir: 1, male: true, off: 0 },
+].map(l => Object.assign(l, { ph: rnd(6), gait: 0, head: 0, pose: 'lie', roar: 0, rt: rnd(20, 40), vx: 0, vy: 0 }));
+function updLions(dt) {
+  pride.t -= dt;
+  const hunters = lions.filter(l => !l.male);
+  if (pride.st === 'rest' && pride.t <= 0) {
+    if (Math.random() < (N > 0.3 ? 0.7 : 0.2)) {
+      let best = null, bd = 1e9;
+      for (const h of herds) for (const a of h.an) {
+        if (a.x < 15 || a.x > W - 15) continue;
+        const d = Math.hypot(a.x - hunters[0].x, a.y - hunters[0].y);
+        if (d < bd) { bd = d; best = a; }
+      }
+      if (best) { pride.st = 'stalk'; pride.tgt = best; pride.t = rnd(9, 14); } else pride.t = rnd(6, 10);
+    } else pride.t = rnd(10, 18);
+  } else if (pride.st === 'stalk') {
+    const d = Math.min(...hunters.map(l => Math.hypot(l.x - pride.tgt.x, l.y - pride.tgt.y)));
+    if (pride.t <= 0 || d < 18) { pride.st = 'charge'; pride.t = rnd(2.6, 3.6); }
+  } else if (pride.st === 'charge' && pride.t <= 0) pride.st = 'return';
+  else if (pride.st === 'return' && hunters.every(l => Math.hypot(l.x - l.rx, l.y - l.ry) < 3)) { pride.st = 'rest'; pride.t = rnd(22, 36); }
+  for (const l of lions) {
+    let tx = l.rx, ty = l.ry, spd = 10, pose = 'stand';
+    if (l.male) {
+      l.rt -= dt; l.roar -= dt;
+      if (l.rt <= 0) { l.rt = N > 0.5 ? rnd(12, 22) : rnd(30, 50); l.roar = 1.8; birdsFlush(); }
+      pose = l.roar > 0 ? 'stand' : 'lie';
+      if (l.roar > 0) threats.push({ x: l.x, y: l.y, r: 90, lv: 0.35, k: 'roar' });
+      l.head += ((l.roar > 0 ? 0 : (Math.sin(T * 0.4) > 0.6 ? 0.5 : 0)) - l.head) * dt * 3;
+      l.pose = pose; l.gait = 0; l.dir = 1;
+      threats.push({ x: l.x, y: l.y, r: 26, lv: 0.35, k: 'lion' });
+      continue;
+    }
+    if (pride.st === 'stalk' || pride.st === 'charge') { tx = pride.tgt.x - Math.sign(pride.tgt.x - l.x) * 2; ty = pride.tgt.y + l.off; }
+    const dx = tx - l.x, dy = ty - l.y, d = Math.hypot(dx, dy);
+    if (pride.st === 'stalk') { spd = 7; pose = 'crouch'; }
+    else if (pride.st === 'charge') spd = 44;
+    else if (pride.st === 'return') spd = 11;
+    let vx = 0, vy = 0;
+    if (d > 1.5 && !(pride.st === 'rest' && d < 3)) { vx = dx / d * spd; vy = dy / d * spd * 0.8; }
+    l.vx += (vx - l.vx) * Math.min(1, dt * 4); l.vy += (vy - l.vy) * Math.min(1, dt * 4);
+    l.x = clamp(l.x + l.vx * dt, 4, W - 4); l.y = clamp(l.y + l.vy * dt, HOR + 8, H - 6);
+    avoidWater(l);
+    const v = Math.hypot(l.vx, l.vy);
+    if (pride.st === 'rest' && v < 2) pose = 'lie';
+    l.pose = pose;
+    l.gait = v > 20 ? 2 : v > 1 ? 1 : 0;
+    if (l.vx > 1) l.dir = 1; else if (l.vx < -1) l.dir = -1;
+    l.ph += dt * (l.gait === 2 ? 13 : pose === 'crouch' ? 4 : 7);
+    l.head += ((pose === 'lie' ? (Math.sin(T * 0.5 + l.off) > 0.5 ? 0.8 : 0) : pose === 'crouch' ? 0 : 0.2) - l.head) * dt * 3;
+    if (pride.st === 'charge') { threats.push({ x: l.x, y: l.y, r: 60, lv: 1, k: 'lion' }); if (Math.random() < dt * 8) dust(l.x - l.dir * 5, l.y, 2, 8); }
+    else if (pride.st === 'stalk') threats.push({ x: l.x, y: l.y, r: 20, lv: 0.3, k: 'lion' });
+    else threats.push({ x: l.x, y: l.y, r: 26, lv: 0.35, k: 'lion' });
+  }
+}
+
+// ---------- hyenas ----------
+const hpack = { st: 'off', goal: { x: 200, y: 150 }, gt: 0, trot: 0 };
+const hyenas = [0, 1, 2].map(i => ({ x: W + 30, y: 150, dir: -1, ph: rnd(6), gait: 0, head: 0, pose: 'stand', ox: -i * 9, oy: (i - 1) * 6, vx: 0, vy: 0, laugh: 0 }));
+function updHyenas(dt) {
+  if (hpack.st === 'off') {
+    if (N > 0.55) { hpack.st = 'roam'; hyenas.forEach((h, i) => { h.x = W + 12 + i * 9; h.y = 148 + i * 5; }); hpack.gt = 0; }
+    return;
+  }
+  if (hpack.st === 'roam' && D > 0.45) { hpack.st = 'leave'; hpack.goal = { x: W + 40, y: 150 }; }
+  hpack.gt -= dt; hpack.trot -= dt;
+  if (hpack.st === 'roam' && hpack.gt <= 0) { hpack.goal = { x: rnd(20, 300), y: rnd(125, 170) }; hpack.gt = rnd(6, 12); if (Math.random() < 0.35) hpack.trot = 2.5; }
+  const lead = hyenas[0];
+  hyenas.forEach((h, i) => {
+    const tx = i === 0 ? hpack.goal.x : lead.x - lead.dir * 9 * i, ty = i === 0 ? hpack.goal.y : lead.y + h.oy;
+    const dx = tx - h.x, dy = ty - h.y, d = Math.hypot(dx, dy);
+    const spd = hpack.trot > 0 ? 24 : 10;
+    const vx = d > 2 ? dx / d * spd : 0, vy = d > 2 ? dy / d * spd * 0.7 : 0;
+    h.vx += (vx - h.vx) * Math.min(1, dt * 3); h.vy += (vy - h.vy) * Math.min(1, dt * 3);
+    h.x += h.vx * dt; h.y += h.vy * dt;
+    avoidWater(h);
+    const v = Math.hypot(h.vx, h.vy);
+    h.gait = v > 16 ? 2 : v > 1 ? 1 : 0;
+    if (h.vx > 1) h.dir = 1; else if (h.vx < -1) h.dir = -1;
+    h.ph += dt * (h.gait === 2 ? 12 : 7);
+    h.laugh -= dt;
+    if (h.gait === 0 && h.laugh < -3 && Math.random() < dt * 0.3) h.laugh = 1.2;
+    h.head += ((h.laugh > 0 ? -0.2 + Math.abs(Math.sin(T * 14)) * 0.4 : h.gait ? 0.6 : 0.3) - h.head) * Math.min(1, dt * 6);
+    if (h.x > -10 && h.x < W + 10) threats.push({ x: h.x, y: h.y, r: hpack.trot > 0 ? 40 : 30, lv: hpack.trot > 0 ? 0.6 : 0.45, k: 'hyena' });
+  });
+  if (hpack.st === 'leave' && hyenas.every(h => h.x > W + 20)) hpack.st = 'off';
+}
+
+// ---------- elephants ----------
+const fam = { st: 'walk', wait: 0, dir: 1, t: 0 };
+const eles = [{ s: 1, x: -30, y: 128 }, { s: 0.62, x: -48, y: 133 }].map(e => Object.assign(e, { dir: 1, ph: rnd(6), gait: 1, tr: 'hang', play: 0 }));
+function famStart() {
+  fam.dir = Math.random() < 0.5 ? 1 : -1; fam.st = 'walk'; fam.t = 0;
+  eles[0].x = fam.dir > 0 ? -30 : W + 30; eles[0].y = rnd(124, 128);
+  eles[1].x = eles[0].x - fam.dir * 18; eles[1].y = eles[0].y + 5;
+}
+famStart();
+eles[0].x = 40; eles[1].x = 22;
+function updEles(dt) {
+  if (fam.st === 'off') { fam.wait -= dt; if (fam.wait <= 0) famStart(); return; }
+  const m = eles[0], c = eles[1];
+  const dspot = { x: fam.dir > 0 ? WX - WRX - 11 : WX + WRX + 11, y: WY - 3 };
+  let tx, ty, spd = 7;
+  if (fam.st === 'walk') { tx = dspot.x; ty = dspot.y; if (Math.hypot(tx - m.x, ty - m.y) < 2) { fam.st = 'drink'; fam.t = rnd(10, 14); } }
+  else if (fam.st === 'drink') {
+    tx = m.x; ty = m.y; fam.t -= dt;
+    const cyc = (fam.t % 4.5) / 4.5;
+    m.tr = fam.t < 3.5 ? 'spray' : cyc < 0.5 ? 'drink' : 'hang';
+    if (m.tr === 'spray' && Math.random() < dt * 25) {
+      const bx = m.x + m.dir * 13, by = m.y - 22;
+      part({ x: bx, y: by, vx: -m.dir * rnd(5, 18), vy: -rnd(8, 20), g: 45, dr: 0.3, l: rnd(0.6, 1.1), m: 1.1, c: Math.random() < 0.5 ? WHT : WAT0, L: 2, gy: m.y + 1 });
+    }
+    if (m.tr === 'drink' && Math.random() < dt) ripple(m.x + m.dir * 16, m.y + 2);
+    if (fam.t <= 0) { fam.st = 'leave'; m.tr = 'hang'; }
+  } else { tx = fam.dir > 0 ? W + 45 : -45; ty = 124; if (fam.dir > 0 ? m.x > W + 35 : m.x < -35) { fam.st = 'off'; fam.wait = rnd(10, 25); } }
+  const move = (e, tx, ty, spd) => {
+    const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
+    if (d > 1.5) { e.x += dx / d * spd * dt; e.y += dy / d * spd * dt * 0.7; e.gait = 1; e.dir = Math.sign(dx) || e.dir; e.ph += dt * spd * 0.55; }
+    else e.gait = 0;
+  };
+  move(m, tx, ty, spd);
+  c.play -= dt;
+  if (c.play < -6 && Math.random() < dt * 0.2) c.play = 2;
+  const ctx2 = m.x - fam.dir * (fam.st === 'drink' ? -2 : 17) + (c.play > 0 ? Math.sin(T * 3) * 6 : 0), cty = m.y + (fam.st === 'drink' ? 7 : 5);
+  move(c, ctx2, cty, c.play > 0 ? 14 : 8);
+  if (fam.st === 'drink' && c.gait === 0) c.dir = fam.dir;
+  c.tr = fam.st === 'drink' ? 'drink' : 'hang';
+  for (const e of eles) { avoidWater(e); if (e.x > -20 && e.x < W + 20) threats.push({ x: e.x, y: e.y, r: 30 * e.s, lv: 0.4, k: 'ele' }); }
+}
+function drawEle(e) {
+  const s = e.s;
+  QX = e.x; QY = e.y; QD = e.dir; QL = layerFor(e.y);
+  const bl = 10 * s, bh = 6 * s, leg = 7 * s, lw = s > 0.8 ? 3 : 2, amp = e.gait ? 0.28 : 0;
+  const by = -leg - bh + (e.gait ? Math.abs(Math.sin(e.ph)) * 0.6 : 0);
+  shadow(e.x, e.y, R(bl + 2));
+  for (const [ox, off] of [[bl * 0.55, PI * 0.5], [-bl * 0.55, PI * 1.5]]) {
+    const sw = Math.sin(e.ph + off) * amp, hx = ox + 1, hy = by + bh * 0.6, L = -hy;
+    qline(hx, hy, hx + Math.sin(sw) * L, hy + Math.cos(sw) * L, ELE1, lw);
+  }
+  qline(-bl, by - bh * 0.2, -bl - 1, by + bh * 0.7, ELE1, 1);
+  qell(0, by, bl, bh, (dx, dy) => dy > bh * 0.55 ? ELE1 : (dy < -bh * 0.6 ? ELE0 : (hash(dx + 60, dy + 60) < 0.1 ? ELE1 : ELE0)));
+  for (const [ox, off] of [[bl * 0.55, 0], [-bl * 0.55, PI]]) {
+    const sw = Math.sin(e.ph + off) * amp, hx = ox, hy = by + bh * 0.5, L = -hy;
+    const fx = hx + Math.sin(sw) * L, fy = hy + Math.cos(sw) * L;
+    qline(hx, hy, fx, fy, ELE0, lw);
+    qp(fx + 1, fy, WHT);
+  }
+  const hx = bl * 0.95, hy = by - bh * 0.25;
+  qell(hx + 1 * s, hy, 3.4 * s, 3.8 * s, () => ELE0);
+  qp(hx + 2.2 * s, hy - 1.2 * s, INK);
+  if (s > 0.8) qline(hx + 2.5 * s, hy + 2.4 * s, hx + 5.2 * s, hy + 3.6 * s, WHT, 1);
+  let a, curl;
+  if (e.tr === 'spray') { a = -PI * 0.3; curl = -0.16; }
+  else if (e.tr === 'drink') { a = PI * 0.28; curl = 0.02; }
+  else { a = PI * 0.47 + Math.sin(T * 1.3 + e.ph) * 0.12; curl = 0.035; }
+  let x = hx + 3.2 * s, y = hy + 0.5 * s;
+  const n = R((e.tr === 'drink' ? 14 : 10) * s);
+  for (let i = 0; i < n; i++) {
+    a += curl; x += Math.cos(a); y += Math.sin(a);
+    qp(x, y, ELE0);
+    if (i < n * 0.55) qp(x - 1, y, ELE0);
+  }
+  const flap = 0.75 + 0.25 * Math.sin(T * 1.8 + e.ph * 0.3);
+  qell(hx - 1.6 * s, hy + 0.8 * s, 3 * s * flap, 4.6 * s, (dx, dy, e2) => e2 > 0.55 ? ELE1 : ELE0);
+}
+
+// ---------- giraffes ----------
+const giraffes = [{ x: 40, y: 125 }, { x: 108, y: 121 }].map(g => Object.assign(g, { dir: 1, ph: rnd(6), gait: 0, head: 0, pose: 'stand', st: 'browse', t: rnd(4, 9), tx: g.x, ty: g.y, vx: 0, vy: 0, flee: 0 }));
+function updGiraffes(dt) {
+  for (const g of giraffes) {
+    for (const t of threats) if (t.lv >= 1 && Math.hypot(t.x - g.x, t.y - g.y) < 70 && g.flee <= 0) { g.flee = 3.5; g.fdir = Math.sign(g.x - t.x) || 1; }
+    g.t -= dt; g.flee -= dt;
+    let headT = 0.1, pose = 'stand', spd = 0, tx = g.tx, ty = g.ty;
+    if (g.flee > 0) { tx = g.x + g.fdir * 40; ty = g.y; spd = 22; }
+    else if (g.st === 'walk') {
+      spd = 8;
+      if (Math.hypot(tx - g.x, ty - g.y) < 2) { g.st = g.next; g.t = g.st === 'drink' ? rnd(6, 10) : rnd(8, 16); }
+    } else if (g.st === 'browse') { headT = -0.1 + Math.sin(T * 3 + g.ph) * 0.03; if (N > 0.6) headT = 0.1; }
+    else if (g.st === 'drink') { headT = 1; pose = 'drink'; g.dir = g.ddir; if (Math.random() < dt * 0.5) ripple(g.x + g.dir * 14, g.y + 1); }
+    if (g.st !== 'walk' && g.t <= 0 && g.flee <= 0) {
+      const r = Math.random();
+      if (r < 0.45) { g.next = 'browse'; g.tx = rnd(32, 96); g.ty = rnd(122, 128); }
+      else if (r < 0.7 && N < 0.5) { const s = DRINK_SPOTS[(Math.random() * DRINK_SPOTS.length) | 0]; g.next = 'drink'; g.tx = s.x - s.dir * 4; g.ty = s.y; g.ddir = s.dir; }
+      else { g.next = 'browse'; g.tx = rnd(20, 300); g.ty = rnd(116, 128); }
+      g.st = 'walk';
+      for (const o of giraffes) if (o !== g && Math.abs(o.tx - g.tx) < 14) g.tx += 20;
+    }
+    const dx = tx - g.x, dy = ty - g.y, d = Math.hypot(dx, dy);
+    let vx = 0, vy = 0;
+    if (spd && d > 1) { vx = dx / d * spd; vy = dy / d * spd * 0.6; }
+    g.vx += (vx - g.vx) * Math.min(1, dt * 2); g.vy += (vy - g.vy) * Math.min(1, dt * 2);
+    g.x += g.vx * dt; g.y += g.vy * dt;
+    g.x = clamp(g.x, 8, W - 8); g.y = clamp(g.y, 112, 150);
+    if (g.st !== 'drink') avoidWater(g);
+    const v = Math.hypot(g.vx, g.vy);
+    g.gait = v > 14 ? 2 : v > 0.8 ? 1 : 0;
+    if (g.vx > 0.8) g.dir = 1; else if (g.vx < -0.8) g.dir = -1;
+    g.ph += dt * (g.gait === 2 ? 7 : 4);
+    g.pose = g.gait ? 'stand' : pose;
+    g.head += ((g.gait ? 0.05 : headT) - g.head) * Math.min(1, dt * 2);
+    threats.push({ x: g.x, y: g.y, r: 18, lv: 0.32, k: 'gir' });
+  }
+}
+
+// ---------- meerkats ----------
+function spr(rows, keys) {
+  const h = rows.length, w = Math.max(...rows.map(r => r.length)), d = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const k = keys.indexOf(rows[y][x] || '.'); d[y * w + x] = k < 0 ? 0 : k + 1; }
+  return { w, h, d };
+}
+function blitB(s, x, y, flip, cols) {
+  for (let r = 0; r < s.h; r++) for (let c = 0; c < s.w; c++) {
+    const k = s.d[r * s.w + c];
+    if (k) P(flip ? x + (s.w - 1 - c) : x + c, y + r, cols[k - 1]);
+  }
+}
+const MK_STAND = [spr(['..hh.', '..hkh', '..hhs', '..bb.', '.bbl.', '.bbl.', '..bl.', 'tbbb.'], 'hksblt'), spr(['..hh.', '..hkh', '..hhs', '..bb.', '.bba.', '.bbl.', '..bl.', 'tbbb.'], 'hksblta')];
+const MK_FOR = [spr(['....hh.', 'tbbbbkh', '.l..l.s'], 'hksblt'), spr(['....hh.', 'tbbbbkh', '..l.l.s'], 'hksblt')];
+const MK_PEEK = spr(['hh.', 'hkh'], 'hksblt');
+const meerkats = [0, 1, 2, 3, 4].map(i => ({ x: 150 + i * 6, y: 156 + (i % 2) * 3, dir: i % 2 ? 1 : -1, st: 'forage', t: rnd(1, 4), ph: rnd(6), b: BURROWS[i % 3], sent: i === 0, tx: 0, ty: 0, dl: 0 }));
+function updMeerkats(dt) {
+  let danger = N > 0.55;
+  for (const t of threats) {
+    if (t.k === 'eagle' && Math.abs(t.x - 162) < 45) danger = true;
+    else if ((t.k === 'lion' || t.k === 'hyena') && Math.hypot(t.x - 162, t.y - 155) < 45) danger = true;
+  }
+  for (const m of meerkats) {
+    m.t -= dt; m.ph += dt;
+    if (danger && m.st !== 'hide') { m.st = 'run'; m.tx = m.b.x; m.ty = m.b.y + 1; }
+    if (m.st === 'run') {
+      const dx = m.tx - m.x, dy = m.ty - m.y, d = Math.hypot(dx, dy);
+      if (d < 1.5) { if (danger) { m.st = 'hide'; m.dl = rnd(2, 5); } else { m.st = 'forage'; m.t = rnd(2, 5); } }
+      else { m.x += dx / d * 30 * dt; m.y += dy / d * 30 * dt; m.dir = Math.sign(dx) || m.dir; m.ph += dt * 10; }
+    } else if (m.st === 'hide') {
+      if (!danger) { m.dl -= dt; if (m.dl <= 0) { m.st = 'peek'; m.t = rnd(1, 2); } }
+    } else if (m.st === 'peek') {
+      if (danger) m.st = 'hide';
+      else if (m.t <= 0) { m.st = 'forage'; m.t = rnd(2, 4); }
+    } else if (m.st === 'forage') {
+      if (Math.random() < dt * 3) part({ x: m.x + m.dir * 4, y: m.y + 2, vx: rnd(-6, 6), vy: rnd(-8, -3), g: 30, dr: 1, l: 0.5, m: 0.5, c: DIRT1, L: 2, gy: m.y + 3 });
+      if (m.t <= 0) {
+        if (m.sent || Math.random() < 0.3) { m.st = 'stand'; m.t = rnd(2, 5); if (m.sent) { m.x = 162; m.y = 144; } }
+        else { m.st = 'run'; m.tx = clamp(m.x + rnd(-12, 12), 142, 184); m.ty = clamp(m.y + rnd(-3, 3), 155, 164); }
+      }
+    } else if (m.st === 'stand') {
+      if (Math.random() < dt * 0.8) m.dir *= -1;
+      if (m.t <= 0) { if (m.sent) { m.x = 158; m.y = 157; } m.st = 'forage'; m.t = rnd(3, 6); }
+    }
+  }
+}
+function drawMeerkat(m) {
+  if (m.st === 'hide') return;
+  const L = layerFor(m.y), cols = [L[DIRT0], L[INK], L[INK], L[TAN], L[GRS0], L[GRS2], L[TAN]];
+  if (m.st === 'peek') { blitB(MK_PEEK, R(m.b.x) - 1, R(m.b.y) - 2, false, cols); return; }
+  if (m.st === 'stand') blitB(MK_STAND[(m.ph * 0.7 | 0) & 1], R(m.x) - 2, R(m.y) - 7, m.dir < 0, cols);
+  else blitB(MK_FOR[(m.ph * 6 | 0) & 1], R(m.x) - 3, R(m.y) - 2, m.dir < 0, cols);
+}
+
+// ---------- waterhole dwellers ----------
+const croc = { x: 230, y: 143, dir: -1, st: 'drift', t: rnd(4, 8), tx: 230, ty: 143, cool: rnd(12, 20), lt: 0, tgt: null };
+function waterPoint(m) { const a = rnd(0, PI * 2), r = Math.sqrt(Math.random()) * m; return { x: WX + Math.cos(a) * WRX * r, y: WY + Math.sin(a) * WRY * r }; }
+function updCroc(dt) {
+  const c = croc;
+  c.t -= dt; c.cool -= dt;
+  if (c.st === 'drift') {
+    if (c.t <= 0) { const p = waterPoint(0.6); c.tx = p.x; c.ty = p.y; c.t = rnd(6, 10); }
+    if (c.cool <= 0) {
+      const drinkers = [];
+      for (const h of herds) if (h.mode === 'drink') for (const a of h.an) if (a.head > 0.8 && a.spot && Math.abs(a.x - a.spot.x) < 1) drinkers.push(a);
+      for (const g of giraffes) if (g.st === 'drink' && g.gait === 0) drinkers.push(g);
+      if (drinkers.length) { c.tgt = drinkers[(Math.random() * drinkers.length) | 0]; c.st = 'stalk'; }
+      else c.cool = rnd(3, 6);
+    }
+  }
+  if (c.st === 'stalk') {
+    const a = Math.atan2(c.tgt.y - WY, c.tgt.x - WX);
+    c.tx = WX + Math.cos(a) * WRX * 0.72; c.ty = WY + Math.sin(a) * WRY * 0.6;
+    if (Math.hypot(c.tx - c.x, c.ty - c.y) < 2) { c.st = 'lunge'; c.lt = 0.7; splash(c.x + c.dir * 8, c.y, 14, 30); ripple(c.x, c.y); }
+  }
+  let spd = c.st === 'stalk' ? 6 : 3;
+  if (c.st === 'lunge') {
+    c.lt -= dt; spd = 0;
+    threats.push({ x: c.x + c.dir * 10, y: c.y, r: 34, lv: 1, k: 'croc' });
+    if (c.lt <= 0) { c.st = 'drift'; c.cool = rnd(25, 45); c.t = 0; splash(c.x + c.dir * 6, c.y, 8, 20); }
+  }
+  const dx = c.tx - c.x, dy = c.ty - c.y, d = Math.hypot(dx, dy);
+  if (spd && d > 0.5) { c.x += dx / d * spd * dt; c.y += dy / d * spd * dt; if (Math.abs(dx) > 0.5) c.dir = Math.sign(dx); }
+  if (Math.random() < dt * 0.3) ripple(c.x - c.dir * 6, c.y);
+}
+function drawCroc() {
+  const c = croc, L = LUT[2], x = R(c.x), y = R(c.y), d = c.dir;
+  const lunge = c.st === 'lunge';
+  for (let i = -8; i <= 6; i++) {
+    const px = x + i * d;
+    if (i % 2 === 0) P(px, y - 1, L[LEAF1]);
+    P(px, y, L[GRAY1]);
+  }
+  if (!lunge) {
+    P(x + 4 * d, y - 2, L[LEAF1]); P(x + 5 * d, y - 2, L[INK]); P(x + 8 * d, y - 1, L[LEAF1]); P(x + 7 * d, y, L[GRAY1]); P(x + 8 * d, y, L[GRAY1]);
+  } else {
+    for (let i = 0; i <= 7; i++) {
+      P(x + (4 + i) * d, y - 2 - R(i * 0.7), L[LEAF1]);
+      P(x + (4 + i) * d, y - 1 + R(i * 0.2), L[GRAY1]);
+      for (let k = y - 1 - R(i * 0.7); k < y - 1 + R(i * 0.2); k++) P(x + (4 + i) * d, k, L[PINK]);
+      if (i % 2) { P(x + (4 + i) * d, y - 1 - R(i * 0.7), L[WHT]); }
+    }
+    P(x + 4 * d, y - 3, L[INK]);
+  }
+}
+const hippos = [{ x: 210, y: 141 }, { x: 238, y: 145 }].map(h => Object.assign(h, { tx: h.x, ty: h.y, st: 'float', t: rnd(5, 12), h: 1, yawn: 0, dir: Math.random() < 0.5 ? 1 : -1 }));
+function updHippos(dt) {
+  for (const h of hippos) {
+    h.t -= dt;
+    if (h.st === 'float') {
+      if (h.t <= 0) {
+        const r = Math.random();
+        if (r < 0.3) { h.st = 'sink'; h.t = rnd(4, 8); }
+        else if (r < 0.6) { h.yawn = 2.2; h.t = rnd(6, 12); ripple(h.x, h.y); }
+        else { const p = waterPoint(0.55); h.tx = p.x; h.ty = p.y; h.t = rnd(5, 10); }
+      }
+      h.h = Math.min(1, h.h + dt * 0.8);
+    } else {
+      h.h = Math.max(0, h.h - dt * 0.8);
+      if (Math.random() < dt * 1.5) ripple(h.x + rnd(-3, 3), h.y);
+      if (h.t <= 0) { h.st = 'float'; h.t = rnd(6, 12); const p = waterPoint(0.55); h.x = p.x; h.y = p.y; h.tx = h.x; h.ty = h.y; ripple(h.x, h.y); }
+    }
+    h.yawn -= dt;
+    const dx = h.tx - h.x, dy = h.ty - h.y, d = Math.hypot(dx, dy);
+    if (d > 0.5) { h.x += dx / d * 2 * dt; h.y += dy / d * 2 * dt; if (Math.abs(dx) > 0.5) h.dir = Math.sign(dx); }
+  }
+}
+function drawHippo(h) {
+  if (h.h <= 0.05) return;
+  const L = LUT[2], x = R(h.x), y = R(h.y), d = h.dir, lift = R((1 - h.h) * 3);
+  const put = (dx, dy, c) => { const py = y + dy + lift; if (py <= y) P(x + dx * d, py, L[c]); };
+  if (h.yawn > 0) {
+    const open = Math.min(1, Math.sin(Math.min(1, (2.2 - h.yawn) / 2.2) * PI) * 1.4);
+    for (let i = -4; i <= 2; i++) for (let k = -4; k <= 0; k++) put(i, k, k === -4 ? GRAY0 : ELE1);
+    const top = R(open * 7);
+    for (let i = 2; i <= 8; i++) {
+      put(i, 0, ELE1);
+      const uy = -1 - R((i - 2) / 6 * top);
+      put(i, uy, ELE1);
+      for (let k = uy + 1; k < 0; k++) put(i, k, PINK);
+    }
+    put(8, -1, WHT); put(8, -1 - top, WHT); put(-2, -5, INK); put(-3, -6, ELE1);
+    return;
+  }
+  for (let i = -4; i <= 4; i++) { put(i, 0, ELE1); if (Math.abs(i) < 4) put(i, -1, GRAY0); }
+  put(-2, -2, GRAY0); put(-1, -2, INK); put(-3, -2, ELE1); put(-3, -3, PINK); put(3, -2, GRAY0); put(4, -2, ELE1);
+}
+
+// ---------- sky life ----------
+class Flock {
+  constructor(n, x, y) {
+    this.b = []; this.goal = { x, y }; this.gt = 0; this.panic = 0; this.roost = [];
+    for (let i = 0; i < n; i++) {
+      this.b.push({ x: x + rnd(-15, 15), y: y + rnd(-6, 6), vx: rnd(-10, 10), vy: rnd(-3, 3), ph: rnd(6), hid: false, th: rnd(0.35, 0.6), rx: rnd(26, 100), ry: rnd(82, 88) });
+    }
+  }
+  update(dt) {
+    this.gt -= dt; this.panic -= dt;
+    if (this.gt <= 0) { this.goal = { x: rnd(20, 300), y: rnd(18, 80) }; this.gt = rnd(4, 8); }
+    for (const b of this.b) {
+      const awake = D > b.th || this.panic > 0;
+      if (b.hid) { if (awake) { b.hid = false; b.vx = rnd(-20, 20); b.vy = -rnd(10, 20); } else continue; }
+      if (!awake && Math.abs(b.x - b.rx) < 2 && Math.abs(b.y - b.ry) < 2) { b.hid = true; continue; }
+      let ax = 0, ay = 0, n = 0, sx = 0, sy = 0, svx = 0, svy = 0;
+      for (const o of this.b) {
+        if (o === b || o.hid) continue;
+        const dx = o.x - b.x, dy = o.y - b.y, d2 = dx * dx + dy * dy;
+        if (d2 < 196) { n++; sx += o.x; sy += o.y; svx += o.vx; svy += o.vy; if (d2 < 9) { ax -= dx * 8; ay -= dy * 8; } }
+      }
+      if (n) { ax += (sx / n - b.x) * 0.8 + (svx / n - b.vx) * 1.2; ay += (sy / n - b.y) * 0.8 + (svy / n - b.vy) * 1.2; }
+      const g = awake ? this.goal : { x: b.rx, y: b.ry };
+      const gx = g.x - b.x, gy = g.y - b.y, gd = Math.hypot(gx, gy) + 0.01, want = awake ? 28 : Math.min(24, gd * 2);
+      ax += (gx / gd * want - b.vx) * (awake ? 0.5 : 2); ay += (gy / gd * want - b.vy) * (awake ? 0.5 : 2);
+      for (const t of threats) if (t.k === 'eagle' || t.k === 'roar') { const dx = b.x - t.x, dy = b.y - t.y, d = Math.hypot(dx, dy) + 0.01; if (d < 50) { ax += dx / d * 120; ay += dy / d * 80; } }
+      if (awake && b.y > HOR - 8) ay -= 60;
+      b.vx += ax * dt; b.vy += ay * dt;
+      const sp = Math.hypot(b.vx, b.vy), mx = awake ? 40 : 26;
+      if (sp > mx) { b.vx *= mx / sp; b.vy *= mx / sp; }
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.x < -20) b.vx += 40 * dt * 10; if (b.x > W + 20) b.vx -= 40 * dt * 10;
+      b.ph += dt * 14;
+    }
+  }
+  draw() {
+    const c = LUT[4][INK];
+    for (const b of this.b) {
+      if (b.hid) continue;
+      const x = R(b.x), y = R(b.y), up = Math.sin(b.ph) > 0;
+      P(x, y, c); P(x - 1, y - (up ? 1 : 0), c); P(x + 1, y - (up ? 1 : 0), c);
+    }
+  }
+}
+const flocks = [new Flock(14, 120, 40), new Flock(10, 240, 55)];
+function birdsFlush() { for (const f of flocks) f.panic = 2.5; }
+const vultures = [0, 1, 2].map(i => ({ cx: 150 + i * 30, cy: 28 + i * 7, r: rnd(18, 28), a: rnd(6), sp: rnd(0.35, 0.5) * (i % 2 ? 1 : -1), off: 0 }));
+function updVultures(dt) {
+  for (const v of vultures) {
+    v.a += v.sp * dt; v.cx += Math.sin(T * 0.05 + v.r) * 2 * dt;
+    const want = D > 0.5 ? 0 : 1;
+    v.off += (want - v.off) * dt * 0.25;
+  }
+}
+function drawVultures() {
+  const c = LUT[4][INK], h = LUT[4][PINK];
+  for (const v of vultures) {
+    const x = R(v.cx + Math.cos(v.a) * v.r + v.off * 260), y = R(v.cy + Math.sin(v.a) * v.r * 0.35 - v.off * 40);
+    const dir = -Math.sin(v.a) * Math.sign(v.sp) >= 0 ? 1 : -1, bank = Math.cos(v.a) > 0.6 ? 1 : 0;
+    for (let i = 1; i <= 5; i++) { P(x + i, y - (i > 3 ? 1 : 0) + (bank && i > 2 ? 1 : 0), c); P(x - i, y - (i > 3 ? 1 : 0), c); }
+    P(x, y, c); P(x + dir, y, c); P(x + dir * 2, y, h); P(x - dir, y + 1, c);
+    P(x + 6, y - 2, c); P(x - 6, y - 2, c);
+  }
+}
+const eagle = { st: 'off', wait: rnd(8, 16), x: 0, y: 60, dir: 1, ph: 0 };
+function updEagle(dt) {
+  const e = eagle;
+  if (e.st === 'off') { e.wait -= dt; if (e.wait <= 0 && D > 0.6) { e.st = 'fly'; e.dir = Math.random() < 0.5 ? 1 : -1; e.x = e.dir > 0 ? -10 : W + 10; e.y = rnd(55, 85); } return; }
+  e.x += e.dir * 30 * dt; e.y += Math.sin(T * 0.8) * 4 * dt; e.ph += dt * 6;
+  threats.push({ x: e.x, y: e.y, r: 60, lv: 0.3, k: 'eagle' });
+  if (e.x < -15 || e.x > W + 15) { e.st = 'off'; e.wait = rnd(18, 35); }
+}
+function drawEagle() {
+  const e = eagle;
+  if (e.st === 'off') return;
+  const c = LUT[4][GRAY1], w = LUT[4][WHT], x = R(e.x), y = R(e.y), f = Math.sin(e.ph) > 0.4 ? -1 : 0;
+  for (let i = 1; i <= 6; i++) { P(x + i, y + (i > 3 ? f : 0), c); P(x - i, y + (i > 3 ? f : 0), c); }
+  P(x, y, c); P(x + e.dir, y, c); P(x + e.dir * 2, y, w); P(x - e.dir, y, c); P(x - e.dir * 2, y + 1, c); P(x, y + 1, w);
+}
+const bats = [...Array(6)].map((_, i) => ({ p: rnd(6), a: rnd(0.8, 1.6), b: rnd(1.1, 2.2), cx: rnd(30, 110), cy: rnd(55, 85) }));
+function drawBats() {
+  const on = clamp((N - 0.3) * 3, 0, 1) * (phase > 0.5 && phase < 0.75 ? 1 : 0.4);
+  if (on <= 0.05) return;
+  const c = LUT[4][INK];
+  for (const b of bats) {
+    if (hash(b.cx | 0, b.cy | 0) > on) continue;
+    const x = R(b.cx + Math.sin(T * b.a + b.p) * 40 + Math.sin(T * 3.1 + b.p) * 4), y = R(b.cy + Math.sin(T * b.b + b.p * 2) * 14);
+    const up = Math.sin(T * 18 + b.p) > 0;
+    P(x, y, c); P(x - 1, y + (up ? -1 : 1), c); P(x + 1, y + (up ? -1 : 1), c);
+  }
+}
+
+// ---------- sky, clouds, stars ----------
+const stars = [];
+for (let i = 0; i < 70; i++) stars.push({ x: R(rnd(W)), y: R(rnd(0, HOR - 20)), p: rnd(6), b: rnd(0.5, 1) });
+for (let i = 0; i < 220; i++) { const t = Math.random(), g = (Math.random() + Math.random() + Math.random() - 1.5) * 14; stars.push({ x: R(t * W), y: R(8 + t * 55 + g), p: rnd(6), b: rnd(0.2, 0.55) }); }
+const clouds = [...Array(6)].map((_, i) => {
+  const w = R(rnd(22, 48)), h = R(w * 0.32), m = [];
+  const blobs = [...Array(5)].map(() => [rnd(w * 0.15, w * 0.85), rnd(h * 0.4, h * 0.8), rnd(h * 0.35, h * 0.6)]);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = 0;
+    for (const [bx, by, br] of blobs) v = Math.max(v, 1 - Math.hypot((x - bx) / 1.6, y - by) / br);
+    if (y > h * 0.75) v = Math.min(v, (h - y) / (h * 0.25) * 0.5);
+    m.push(v > 0 ? (y < h * 0.45 ? 2 : 1) * (v > 0.15 ? 1 : 0.5) : 0);
+  }
+  return { x: rnd(W), y: R(rnd(10, 58)), w, h, m, v: rnd(1.2, 2.6) };
+});
+const meteors = [];
+const MILKY = pack(150, 160, 205);
+function drawSky() {
+  for (const s of stars) {
+    if (N < 0.3) break;
+    const v = N * s.b * (0.65 + 0.35 * Math.sin(T * 2 + s.p));
+    if (v > bay(s.x, s.y) * 0.6 + 0.1) P(s.x, s.y, s.b > 0.6 ? EM[WHT] : MILKY);
+  }
+  if (sunUp) {
+    const x = R(sunX), y = R(sunY), low = clamp((sunY - 40) / 60, 0, 1);
+    const col = low > 0.55 ? [255, 120, 60] : low > 0.2 ? [255, 200, 110] : [255, 250, 220];
+    const hr = 10 + low * 14, hs = 0.25 + low * 0.35;
+    for (let dy = -hr; dy <= hr; dy++) for (let dx = -hr; dx <= hr; dx++) {
+      const d = Math.hypot(dx, dy);
+      if (d < hr && y + dy < HOR + 2) { const a = (1 - d / hr) ** 2 * hs; ADD(x + dx, y + dy, col[0] * a, col[1] * a * 0.8, col[2] * a * 0.5); }
+    }
+    for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) if (dx * dx + dy * dy <= 22) P(x + dx, y + dy, pack(col[0], col[1], col[2]));
+  } else if (phase > 0.57 && phase < 0.97) {
+    const t = (phase - 0.57) / 0.4, x = R(-6 + t * (W + 12)), y = R(HOR - 4 - Math.sin(t * PI) * 80);
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (dx * dx + dy * dy <= 10) P(x + dx, y + dy, (dx === 1 && dy === -1) || (dx === -1 && dy === 1) ? EM[GRAY0] : pack(236, 236, 220));
+    for (let dy = -9; dy <= 9; dy++) for (let dx = -9; dx <= 9; dx++) { const d = Math.hypot(dx, dy); if (d > 3 && d < 9) { const a = (1 - d / 9) ** 2 * 0.25; ADD(x + dx, y + dy, 40 * a, 50 * a, 70 * a); } }
+  }
+  if (N > 0.6 && Math.random() < 0.004 && meteors.length < 2) meteors.push({ x: rnd(40, W - 40), y: rnd(5, 40), vx: rnd(-90, 90), vy: rnd(30, 50), l: 0.5 });
+  for (let i = meteors.length - 1; i >= 0; i--) {
+    const m = meteors[i];
+    for (let k = 0; k < 6; k++) PA(R(m.x - m.vx * k * 0.012), R(m.y - m.vy * k * 0.012), EM[WHT], (1 - k / 6) * m.l * 2);
+  }
+  const lit = [lerp(248 * AMB[0], 255, WARM * 0.5), lerp(244 * AMB[1], 190, WARM * 0.5), lerp(236 * AMB[2], 150, WARM * 0.5)];
+  const shd = [lerp(160, 220, WARM) * AMB[0], lerp(170, 100, WARM) * AMB[1], lerp(196, 110, WARM) * AMB[2]];
+  const cl = pack(lit[0], lit[1], lit[2]), cs = pack(shd[0], shd[1], shd[2]);
+  for (const c of clouds) {
+    const x0 = R(c.x);
+    for (let y = 0; y < c.h; y++) for (let x = 0; x < c.w; x++) {
+      const v = c.m[y * c.w + x];
+      if (!v) continue;
+      const px = x0 + x, py = c.y + y;
+      const cc = v >= 1 ? (v >= 2 ? cl : cs) : cs;
+      if (v % 1 === 0 || bay(px, py) < 0.5) P(px, py, cc);
+    }
+  }
+}
+
+// ---------- ground ambience ----------
+const tufts = [];
+for (let i = 0; i < 70; i++) {
+  const x = rnd(4, W - 4), y = rnd(HOR + 4, H - 6);
+  if (inWater(x, y, 1.5) || Math.abs(x - TREE.x) < 3) continue;
+  const d = (y - HOR) / (H - HOR);
+  tufts.push({ x, y, n: 3 + (i % 3), h: (3 + rnd(4)) * (0.5 + d), ph: rnd(6) });
+}
+function drawTuft(t) {
+  const L = layerFor(t.y), c0 = L[GRS2], c1 = L[GRS0];
+  for (let b = 0; b < t.n; b++) {
+    const bx = t.x + (b - t.n / 2) * 1.2, h = t.h * (0.7 + 0.3 * ((b * 7) % 3) / 2);
+    for (let s = 0; s < h; s++) {
+      const u = s / h, off = (Math.sin(T * 1.6 + t.ph + b + t.x * 0.05) * 0.8 + wind) * u * u * 2 + (b - t.n / 2) * u * 0.8;
+      P(R(bx + off), R(t.y - s), s > h - 2 ? c1 : c0);
+    }
+  }
+}
+const nearGrass = [];
+for (let i = 0; i < 26; i++) nearGrass.push({ x: rnd(0, 46), h: rnd(12, 34), ph: rnd(6), w: Math.random() < 0.5 ? 2 : 1 });
+for (let i = 0; i < 22; i++) nearGrass.push({ x: rnd(278, 320), h: rnd(10, 30), ph: rnd(6), w: Math.random() < 0.5 ? 2 : 1 });
+for (let i = 0; i < 8; i++) nearGrass.push({ x: rnd(100, 250), h: rnd(5, 11), ph: rnd(6), w: 1 });
+function drawNearGrass() {
+  const L = LUT[3];
+  for (const g of nearGrass) for (let s = 0; s < g.h; s++) {
+    const t = s / g.h, off = (Math.sin(T * 1.4 + g.ph - s * 0.1 + g.x * 0.03) * 2.5 + wind * 3) * t * t;
+    const px = R(g.x + off), py = H - 1 - s, c = L[s > g.h - 3 ? GRS0 : s > g.h * 0.5 ? GRS1 : GRS2];
+    P(px, py, c);
+    if (g.w > 1 && t < 0.6) P(px + 1, py, c);
+  }
+}
+const flies = [...Array(40)].map(() => ({ x: rnd(W), y: rnd(116, 176), p: rnd(6), s: rnd(0.4, 1) }));
+function drawFireflies() {
+  if (N < 0.35) return;
+  for (const f of flies) {
+    const x = R(f.x + Math.sin(T * 0.4 * f.s + f.p) * 10), y = R(f.y + Math.sin(T * 0.6 * f.s + f.p * 2) * 4);
+    const b = Math.max(0, Math.sin(T * 1.7 * f.s + f.p * 3)) ** 3 * (N - 0.35) * 1.6;
+    if (b < 0.05) continue;
+    ADD(x, y, 200 * b, 255 * b, 90 * b);
+    ADD(x - 1, y, 60 * b, 80 * b, 20 * b); ADD(x + 1, y, 60 * b, 80 * b, 20 * b); ADD(x, y - 1, 60 * b, 80 * b, 20 * b); ADD(x, y + 1, 60 * b, 80 * b, 20 * b);
+  }
+}
+const beetle = { x: 60, y: 171, wait: 0, ph: 0 };
+function updBeetle(dt) {
+  if (beetle.wait > 0) { beetle.wait -= dt; if (beetle.wait <= 0) beetle.x = -4; return; }
+  beetle.x += 2.4 * dt; beetle.ph += dt * 5;
+  if (beetle.x > W + 4) beetle.wait = rnd(10, 30);
+}
+function drawBeetle() {
+  if (beetle.wait > 0) return;
+  const L = LUT[2], x = R(beetle.x), y = beetle.y, r = (beetle.ph | 0) & 1;
+  P(x, y - 1, L[DIRT1]); P(x + 1, y - 1, L[r ? DIRT2 : DIRT1]); P(x, y - 2, L[r ? DIRT2 : DIRT1]); P(x + 1, y - 2, L[DIRT1]);
+  P(x - 1, y - 1, L[INK]); P(x - 2, y - 1, L[INK]); P(x - 1, y - 2 + r, L[INK]);
+}
+const devil = { on: false, x: 0, t: 0, y: 0, wait: rnd(20, 40) };
+function updDevil(dt) {
+  if (!devil.on) { devil.wait -= dt; if (devil.wait <= 0 && HAZE > 0.3) { devil.on = true; devil.x = rnd(40, 280); devil.y = rnd(120, 160); devil.t = rnd(7, 11); } return; }
+  devil.x += Math.sin(T * 0.7) * 8 * dt + 4 * dt; devil.t -= dt;
+  if (devil.t <= 0) { devil.on = false; devil.wait = rnd(25, 50); }
+}
+function drawDevil() {
+  if (!devil.on) return;
+  const fade = Math.min(1, devil.t / 2, 1), L = LUT[2];
+  for (let k = 0; k < 60; k++) {
+    const h = k * 0.7, a = T * 7 + k * 0.9, r = 1 + h * 0.18;
+    const px = R(devil.x + Math.cos(a) * r + Math.sin(T * 2 + h * 0.1) * h * 0.1), py = R(devil.y - h);
+    PA(px, py, L[k % 3 ? DIRT0 : GRS0], (1 - h / 45) * 0.8 * fade);
+  }
+}
+
+// ---------- update ----------
+function update(dt) {
+  T += dt;
+  computeLight();
+  wind = Math.sin(T * 0.21) * 0.6 + Math.sin(T * 0.057) * 0.5;
+  threats.length = 0;
+  updLions(dt); updHyenas(dt); updEles(dt); updGiraffes(dt); updCroc(dt); updEagle(dt);
+  for (const h of herds) h.update(dt);
+  updMeerkats(dt); updHippos(dt);
+  for (const f of flocks) f.update(dt);
+  updVultures(dt); updBeetle(dt); updDevil(dt);
+  for (const c of clouds) { c.x += c.v * dt * (0.6 + wind * 0.3); if (c.x > W + 5) { c.x = -c.w - 5; c.y = R(rnd(10, 58)); } }
+  for (let i = meteors.length - 1; i >= 0; i--) { const m = meteors[i]; m.x += m.vx * dt; m.y += m.vy * dt; m.l -= dt; if (m.l <= 0) meteors.splice(i, 1); }
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.vx *= 1 - p.dr * dt; p.vy *= 1 - p.dr * dt; p.vy += p.g * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.l -= dt;
+    if (p.y > p.gy && p.vy > 0) { p.y = p.gy; p.vy = 0; p.vx *= 0.5; }
+    if (p.l <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); }
+  }
+  for (let i = ripples.length - 1; i >= 0; i--) { ripples[i].a += dt; if (ripples[i].a > 2.2) ripples.splice(i, 1); }
+}
+
+// ---------- render ----------
+const skyRow = new Float32Array(HOR);
+for (let y = 0; y < HOR; y++) skyRow[y] = Math.pow(y / HOR, 1.25) * 7;
+function renderSky() {
+  for (let y = 0; y < HOR; y++) {
+    const v = skyRow[y], k = v | 0, f = v - k, yb = (y & 3) << 2, row = y * W;
+    const c0 = SKYB[k], c1 = SKYB[Math.min(7, k + 1)];
+    for (let x = 0; x < W; x++) buf[row + x] = (f - 0.3) * 2.5 > BAY[yb | (x & 3)] ? c1 : c0;
+  }
+}
+function renderFar(Lst, L) {
+  const { I, C, X, Y } = Lst;
+  for (let n = 0; n < I.length; n++) {
+    const y = Y[n];
+    let x = X[n];
+    if (HAZE > 0 && y > 88) x += R(Math.sin(y * 1.7 + T * 7) * HAZE * 0.7);
+    if (x >= 0 && x < W) buf[y * W + x] = L[C[n]];
+  }
+}
+function renderMid() {
+  const { I, C, X, Y, K } = MID, L2 = LUT[2], L5 = LUT[5];
+  const wr = [], wh = [];
+  for (let y = 0; y < H; y++) {
+    const t = clamp(1 - (y - (WY - WRY)) / (WRY * 2), 0, 1);
+    const s = [0, 1, 2].map(k => lerp(SKY_HOR[k], SKY_TOP[k], t * 0.6));
+    const w = [0, 1, 2].map(k => lerp(s[k], PAL[WAT1][k] * AMB[k], 0.42));
+    wr[y] = pack(w[0], w[1], w[2]); wh[y] = pack(w[0] * 1.2 + 25, w[1] * 1.2 + 25, w[2] * 1.2 + 25);
+  }
+  const glint = sunUp && sunY > 55 ? sunX : -99;
+  for (let n = 0; n < I.length; n++) {
+    const x = X[n], y = Y[n], k = K[n];
+    let c = C[n];
+    if (k === 4) {
+      let hi = Math.sin(x * 0.35 + T * 1.6 + Math.sin(y * 1.3 + T * 0.8) * 2) > 0.82;
+      if (!hi) for (const r of ripples) {
+        const rr = r.a * 9, d = Math.hypot(x - r.x, (y - r.y) * 3.2);
+        if (Math.abs(d - rr) < 0.7 && r.a < 2) { hi = bay(x, y) < 1 - r.a / 2.2; if (hi) break; }
+      }
+      if (Math.abs(x - glint) < 3 && hash(x, y + (T * 8 | 0)) < 0.35) { buf[I[n]] = EM[WHT]; continue; }
+      buf[I[n]] = hi ? wh[y] : wr[y];
+      continue;
+    }
+    if (k === 1) {
+      const g = Math.sin(x * 0.045 - T * 1.3 + y * 0.09) + 0.6 * Math.sin(x * 0.017 - T * 0.55);
+      if ((g - 1.0) * 1.6 * (0.3 + 0.7 * D) > BAY[((y & 3) << 2) | (x & 3)]) c = LIGHT[c];
+    }
+    buf[I[n]] = (y < 118 ? L5 : L2)[c];
+  }
+}
+const drawList = [];
+function render() {
+  renderSky(); drawSky();
+  renderFar(F2, LUT[0]); renderFar(F1, LUT[1]);
+  drawVultures();
+  renderMid();
+  for (const h of hippos) drawHippo(h);
+  drawCroc();
+  drawList.length = 0;
+  for (const t of tufts) drawList.push([t.y, drawTuft, t]);
+  for (const h of herds) for (const a of h.an) drawList.push([a.y, drawQuad, a, h.sp]);
+  for (const l of lions) drawList.push([l.y, drawQuad, l, SPEC.lion]);
+  if (hpack.st !== 'off') for (const h of hyenas) drawList.push([h.y, drawQuad, h, SPEC.hyena]);
+  if (fam.st !== 'off') for (const e of eles) drawList.push([e.y, drawEle, e]);
+  for (const g of giraffes) drawList.push([g.y, drawQuad, g, SPEC.giraffe]);
+  for (const m of meerkats) drawList.push([m.y, drawMeerkat, m]);
+  drawList.push([beetle.y, drawBeetle, beetle]);
+  drawList.push([devil.y + 1, drawDevil, devil]);
+  drawList.sort((a, b) => a[0] - b[0]);
+  for (const d of drawList) d[1](d[2], d[3]);
+  const Lp = LUT[2];
+  for (const p of parts) PA(R(p.x), R(p.y), (p.L === 2 ? Lp : LUT[p.L])[p.c], p.l / p.m);
+  for (const f of flocks) f.draw();
+  drawEagle(); drawBats();
+  drawNearGrass();
+  drawFireflies();
+  ctx.putImageData(img, 0, 0);
+}
+
+// ---------- loop & debug ----------
+const dbg = document.getElementById('dbg');
+let showDbg = false, fpsN = 0, fpsT = 0, fps = 0, last = performance.now();
+addEventListener('keydown', e => { if (e.key === 'd' || e.key === 'D') { showDbg = !showDbg; dbg.style.display = showDbg ? 'block' : 'none'; } });
+function debugText() {
+  const clock = ['朝', '昼', '昼', '昼', '夕', '夜', '夜', '夜', '夜', '朝'][Math.min(9, (phase * 10) | 0)];
+  return `FPS ${fps}\n時刻 ${clock} (${(phase * 100).toFixed(0)}%)  明るさ ${D.toFixed(2)}\n` +
+    herds.map(h => `${h.name} ${h.an.length} ${h.mode}`).join('  ') + '\n' +
+    `ライオン ${pride.st}  ハイエナ ${hpack.st}  ゾウ ${fam.st}  キリン ${giraffes.map(g => g.st).join('/')}\n` +
+    `ミーアキャット ${meerkats.map(m => m.st).join('/')}\n` +
+    `ワニ ${croc.st}  カバ ${hippos.map(h => h.yawn > 0 ? 'yawn' : h.st).join('/')}  ワシ ${eagle.st}\n` +
+    `粒子 ${parts.length}  波紋 ${ripples.length}`;
+}
+function frame(now) {
+  let dt = (now - last) / 1000; last = now;
+  if (dt > 0.05) dt = 0.05;
+  if (dt > 0) update(dt);
+  render();
+  fpsN++; fpsT += dt;
+  if (fpsT >= 0.5) { fps = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; if (showDbg) dbg.textContent = debugText(); }
+  requestAnimationFrame(frame);
+}
+for (let i = 0; i < 180; i++) update(1 / 60);
+T = 0;
+render();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
