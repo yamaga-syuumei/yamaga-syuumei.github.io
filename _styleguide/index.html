@@ -9,6 +9,9 @@
 <!-- サイト本体と同じCSSを読む。部品は本番とまったく同じ見た目で出る -->
 <link rel="stylesheet" href="../assets/style.css">
 
+<!-- 各ゲームの現状CSSのコピー（接頭辞付きルールのみ。:root は .g-作品名 に読み替え） -->
+<link rel="stylesheet" href="games.css">
+
 <style>
 /* 見本表そのものの体裁。サイトのCSSと衝突しないよう sg- 接頭辞で閉じる */
 .sg-bar{position:sticky;top:0;z-index:50;background:#101418;color:#fff;padding:10px 16px;
@@ -36,6 +39,15 @@
 .sg-sw span{display:block;padding:6px 8px;font:12px/1.5 ui-monospace,Consolas,monospace;color:#414a56}
 .sg-sw span em{display:block;font-style:normal;color:#8a94a3}
 .sg-type p{margin:0 0 10px}
+
+/* ゲーム部品の展示。position:fixed のオーバーレイを枠内に収める */
+.sg-game{position:relative;min-height:230px;overflow:hidden;background:var(--bg)}
+.sg-game .tk-modal,.sg-game .al-ov,.sg-game .ss-modal,.sg-game .cf-modal{position:absolute}
+.sg-flat{padding:18px 16px;background:var(--bg);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.sg-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.sg-grid2 > div{border-right:1px dashed #cbd3dd;border-bottom:1px dashed #cbd3dd;min-width:0}
+.sg-cap{font:11px/1.4 ui-monospace,Consolas,monospace;color:#5b6675;background:#f4f6f9;padding:5px 8px;border-bottom:1px dashed #cbd3dd}
+.sg-body code{font:12px ui-monospace,Consolas,monospace;background:#eef1f5;padding:1px 5px;border-radius:3px}
 
 /* 現状と基準の併記。基準は参照作品の実測値 */
 .sg-std{font:12px/1.7 ui-monospace,Consolas,monospace;border-top:1px dashed #cbd3dd}
@@ -640,6 +652,365 @@
   </figure>
 </section>
 
+
+<!-- ========================================================== -->
+<!-- ここからゲーム部品。CSS は games.css（各作品の現状のコピー） -->
+<!-- ========================================================== -->
+
+<div class="sg-note" style="background:#eef4ff;border-color:#c3d7f5;color:#22406b">
+<b>ここから下はゲーム部品</b>。サイト本体とは別の CSS（<code>games.css</code>）で描いている。
+中身は各作品の <code>style.css</code> から接頭辞付きのルールだけを抜き出した<b>コピー</b>で、
+<code>:root</code> は <code>.g-作品名</code> に読み替えてトークンの衝突を避けている。原本は各作品側。
+</div>
+
+<section class="sg-sec">
+  <h2>14 ゲーム部品 / 現状の把握</h2>
+  <p class="sg-lead">8作品は CSS を1行も共有していない。同じ部品がそれぞれ別名で実装されている。</p>
+
+  <figure class="sg-item">
+    <figcaption><b>同じ部品の呼び名</b><em>接頭辞は tk- / ss- / al- / cs- / of- / cf-</em></figcaption>
+    <div class="sg-stage">
+      <table class="sg-table">
+        <thead><tr><th>部品</th><th>tank</th><th>garage</th><th>alchemy</th><th>comet</th><th>onestroke</th><th>colorfusion</th></tr></thead>
+        <tbody>
+          <tr><td>ボタン</td><td>tk-btn</td><td>ss-btn</td><td>al-btn</td><td>cs-btn</td><td>of-btn</td><td>—</td></tr>
+          <tr><td>主ボタン</td><td>tk-btn-main</td><td>ss-btn-main</td><td>al-btn-p</td><td>cs-btn-p</td><td>of-btn-p</td><td>—</td></tr>
+          <tr><td>危険ボタン</td><td>tk-btn-danger</td><td>ss-btn-danger</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>歯車アイコン</td><td>tk-icon-gear</td><td>ss-icon-gear</td><td>al-icon-gear</td><td>cs-icon-gear</td><td>of-icon-gear</td><td>cf-icon-gear</td></tr>
+          <tr><td>HUD</td><td>tk-hud</td><td>ss-status</td><td>al-bar / al-money</td><td>cs-hud</td><td>of-bar / of-stats</td><td>hud</td></tr>
+          <tr><td>ゲージ</td><td>tk-bar</td><td>ss-bar</td><td>al-bar</td><td>cs-bar</td><td>of-bar</td><td>—</td></tr>
+          <tr><td>オーバーレイ</td><td>tk-modal</td><td>ss-modal</td><td>al-ov</td><td>cs-ov</td><td>of-ov</td><td>cf-modal / over</td></tr>
+          <tr><td>その箱</td><td>tk-modal-box</td><td>ss-modal-box</td><td>al-panel</td><td>cs-panel</td><td>of-panel</td><td>cf-modal-box</td></tr>
+          <tr><td>その見出し</td><td>tk-modal-head</td><td>ss-modal-head</td><td>al-ovhead</td><td>—</td><td>of-ov-head</td><td>cf-modal-head</td></tr>
+          <tr><td>タイトル画面</td><td>tk-intro / tk-title</td><td>ss-title</td><td>al-titlecard</td><td>cs-title-ov</td><td>of-titlecard</td><td>—</td></tr>
+          <tr><td>リザルト</td><td>tk-result</td><td>ss-result / ss-summary</td><td>al-cert</td><td>—</td><td>of-ov + of-stars</td><td>—</td></tr>
+          <tr><td>設定行</td><td>tk-opt-row / tk-opt-k</td><td>ss-opt-row / ss-opt-k</td><td>al-optrow</td><td>cs-vol</td><td>of-vol</td><td>—</td></tr>
+          <tr><td>トースト</td><td>tk-toast</td><td>ss-toast</td><td>al-toast</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>タブ</td><td>tk-tabs / tk-tab</td><td>ss-tabs / ss-tab</td><td>al-tabs / al-tab</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>版表示</td><td>tk-opt-ver</td><td>ss-opt-ver</td><td>al-ver</td><td>cs-ver</td><td>of-ver</td><td>ver</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>15の部品概念が<u>最大6回ずつ別名で実装</u>されている。歯車アイコンは6作品すべてに存在する。</span></div>
+      <div class="sg-ref"><b>基準</b><span>デジタル庁デザインシステムは、この表の左端（部品）を<b>1つずつ定義して共有</b>する形。現状は右側の列が実装の本体で、共有物が存在しない。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>作品ごとの実測</b><em>すべて実測値</em></figcaption>
+    <div class="sg-stage">
+      <table class="sg-table">
+        <thead><tr><th>作品</th><th>CSSルール</th><th>角丸</th><th>transition</th><th>font-size</th><th>CSS色</th><th>JS色</th><th>:root変数</th></tr></thead>
+        <tbody>
+          <tr><td>coralreef</td><td>22</td><td>3</td><td>1</td><td>3</td><td>12</td><td>—</td><td>0</td></tr>
+          <tr><td>savanna</td><td>22</td><td>3</td><td>1</td><td>3</td><td>12</td><td>—</td><td>0</td></tr>
+          <tr><td>colorfusion</td><td>48</td><td>4</td><td>0</td><td>5</td><td>31</td><td>56</td><td>0</td></tr>
+          <tr><td>comet</td><td>68</td><td>4</td><td>2</td><td>10</td><td>28</td><td>102</td><td>6</td></tr>
+          <tr><td>onestroke</td><td>89</td><td>5</td><td>0</td><td>10</td><td>29</td><td>43</td><td>7</td></tr>
+          <tr><td>tank</td><td>144</td><td>9</td><td>3</td><td>14</td><td>34</td><td>49</td><td>15</td></tr>
+          <tr><td>alchemy</td><td>155</td><td>10</td><td>3</td><td>14</td><td>37</td><td>120</td><td>2</td></tr>
+          <tr><td>garage</td><td>442</td><td>13</td><td>8</td><td>18</td><td>114</td><td>75</td><td>15</td></tr>
+          <tr class="ok"><td><b>基準（Wordle）</b></td><td><b>45</b></td><td><b>1</b></td><td><b>1</b></td><td><b>3</b></td><td><b>約10</b></td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>破綻の向きが2つある。<u>colorfusion と onestroke は transition が0種</u>（操作しても何も返らない）。<u>garage は角丸13種・色114</u>で値が制御を離れている。</span></div>
+      <div class="sg-ref"><b>基準</b><span>基準は「1種類を全部に効かせる」。<b>0 も 8 も同じく基準外</b>。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>15 ゲーム部品 / ボタン</h2>
+  <p class="sg-lead">各作品の現物。背景はその作品の --bg。</p>
+
+  <figure class="sg-item">
+    <figcaption><b>5作品のボタン</b><em>tk-btn / ss-btn / al-btn / cs-btn / of-btn</em></figcaption>
+    <div class="sg-stage flush">
+      <div class="sg-grid2">
+        <div>
+          <div class="sg-cap">tank — .tk-btn / .tk-btn-main / .tk-btn-danger</div>
+          <div class="g-tank sg-flat">
+            <button class="tk-btn tk-btn-main">閉じる</button>
+            <button class="tk-btn">やり直す</button>
+            <button class="tk-btn tk-btn-danger">はい</button>
+          </div>
+        </div>
+        <div>
+          <div class="sg-cap">garage — .ss-btn / .ss-btn-main / .ss-btn-danger</div>
+          <div class="g-garage sg-flat">
+            <button class="ss-btn ss-btn-main">決定</button>
+            <button class="ss-btn">戻る</button>
+            <button class="ss-btn ss-btn-danger">破棄する</button>
+          </div>
+        </div>
+        <div>
+          <div class="sg-cap">alchemy — .al-btn / .al-btn-p / .al-btn-i</div>
+          <div class="g-alchemy sg-flat">
+            <button class="al-btn al-btn-p">はじめる</button>
+            <button class="al-btn">最初から</button>
+            <button class="al-btn al-btn-i al-icon-gear" aria-label="オプション"></button>
+          </div>
+        </div>
+        <div>
+          <div class="sg-cap">comet — .cs-btn / .cs-btn-p</div>
+          <div class="g-comet sg-flat">
+            <button class="cs-btn cs-btn-p">はじめる</button>
+            <button class="cs-btn">ミュート</button>
+            <button class="cs-btn cs-icon cs-icon-gear" aria-label="オプション"></button>
+          </div>
+        </div>
+        <div>
+          <div class="sg-cap">onestroke — .of-btn / .of-btn-p / .of-btn-i</div>
+          <div class="g-onestroke sg-flat">
+            <button class="of-btn of-btn-p">はじめる</button>
+            <button class="of-btn">ステージ</button>
+            <button class="of-btn of-btn-i of-icon-gear" aria-label="オプション"></button>
+          </div>
+        </div>
+        <div>
+          <div class="sg-cap">colorfusion — ボタンの定義が無い</div>
+          <div class="g-colorfusion sg-flat" style="background:#161a22;color:#8d9bad;font:12px ui-monospace,monospace">
+            :root 変数 0個 / ボタン用のクラス無し
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>役割の分け方は<b>5作品でほぼ一致</b>している（通常 / 主 / アイコン / 危険）。<u>名前だけが違う</u>。colorfusion にはボタンの定義が無い。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle のボタンは <b>min-height 40px</b> でタップ領域を確保し、角丸は 4px 1種。<u>押下時のフィードバック</u>が状態表現の中心。役割がすでに揃っているので、共通化の第一候補。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>16 ゲーム部品 / HUD</h2>
+  <p class="sg-lead">遊びの上に重ねる状態表示。配置の考え方が作品ごとに違う。</p>
+
+  <figure class="sg-item">
+    <figcaption><b>tank</b><em>.tk-hud / .tk-hud-hp / .tk-hud-k / .tk-bar / .tk-gear</em><em>右上に固定、パネルとして置く</em></figcaption>
+    <div class="sg-stage flush">
+      <div class="g-tank sg-game">
+        <div class="tk-hud">
+          <div class="tk-hud-hp">
+            <span class="tk-hud-k">HP</span>
+            <span class="tk-bar"><i style="width:62%"></i></span>
+            <b>62</b>
+          </div>
+          <div class="tk-hud-gold">
+            <span class="tk-hud-k">所持金</span>
+            <b>1,240 G</b>
+          </div>
+          <div class="tk-gear">
+            <div><i class="tk-sw"></i><span class="tk-hud-k">主砲</span><b>速射砲</b></div>
+            <div><i class="tk-sw"></i><span class="tk-hud-k">装甲</span><b>複合装甲</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>数値は tabular-nums 指定あり。角丸 9px、font-size 11.5px。<u>この作品だけの値</u>。</span></div>
+      <div class="sg-ref"><b>基準</b><span>数値が動く表示に等幅数字を当てるのは正しい。値は共通トークンへ寄せたい。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>comet</b><em>.cs-hud</em><em>上端いっぱい、pointer-events: none</em></figcaption>
+    <div class="sg-stage flush">
+      <div class="g-comet sg-game">
+        <div class="cs-hud">
+          <div class="cs-left"><span>SCORE</span><b>12,400</b></div>
+          <div class="cs-mid"><span class="cs-bar"><i style="width:45%"></i></span></div>
+          <div class="cs-right"><span>TIME</span><b>38.2</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span><b>pointer-events: none</b> を当てて、HUDが操作を邪魔しないようにしている。<u>この配慮があるのは comet だけ</u>。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Doodle も HUD が遊びの操作面を塞がない作り。<b>全作品に広げる価値がある</b>。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>onestroke</b><em>.of-bar / .of-stats / .of-stat</em><em>盤面の外、ヘッダーとして置く</em></figcaption>
+    <div class="sg-stage flush">
+      <div class="g-onestroke sg-flat" style="display:block;padding:0">
+        <header class="of-bar">
+          <button class="of-btn">ステージ</button>
+          <div class="of-title"><span>12</span><b>合流点</b></div>
+          <div class="of-nums">
+            <div class="of-stats">
+              <span class="of-stat"><u>★</u><i>マス</i><b>24</b><em>/ 22</em></span>
+              <span class="of-stat ok"><u>★</u><i>時間</i><b>18.4</b><em>/ 30</em></span>
+            </div>
+          </div>
+          <button class="of-btn">やり直す</button>
+          <button class="of-btn of-btn-i of-icon-gear" aria-label="オプション"></button>
+        </header>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>重ねずに<b>盤面の外</b>に置く方式。<u>tank / comet とは前提が違う</u>。font-variant-numeric: tabular-nums あり。</span></div>
+      <div class="sg-ref"><b>基準</b><span>重ねる / 外に置くは作品の判断でよい。共通化するのは<b>中の部品</b>（ラベル・数値・ゲージ・ボタン）で、配置は作品側に残す。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>17 ゲーム部品 / オーバーレイ</h2>
+  <p class="sg-lead">タイトル・設定・リザルト。<b>構造が作品間でほぼ同一</b>だった箇所。</p>
+
+  <figure class="sg-item">
+    <figcaption><b>タイトル画面</b><em>alchemy と onestroke</em><em>構造が完全に一致している</em></figcaption>
+    <div class="sg-stage flush">
+      <div class="sg-grid2">
+        <div>
+          <div class="sg-cap">alchemy — .al-ov.al-ov-title &gt; .al-titlecard</div>
+          <div class="g-alchemy sg-game">
+            <div class="al-ov al-ov-title">
+              <div class="al-titlecard">
+                <h1>錬金工場と魔法のお店</h1>
+                <p class="al-tagline">掘って、錬成して、売る。世界一の魔法のお店にする。</p>
+                <div class="al-ov-btns">
+                  <button class="al-btn al-btn-p">はじめる</button>
+                  <button class="al-btn">最初から</button>
+                </div>
+                <p class="al-titlenote">つづきから遊べます</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="sg-cap">onestroke — .of-ov.of-ov-title &gt; .of-titlecard</div>
+          <div class="g-onestroke sg-game">
+            <div class="of-ov of-ov-title">
+              <div class="of-titlecard">
+                <h1>ワンストローク・ファクトリー</h1>
+                <p class="of-tagline">一筆書きでベルトを引き、工場をつなぐ</p>
+                <div class="of-ov-btns">
+                  <button class="of-btn of-btn-p">はじめる</button>
+                  <button class="of-btn">ステージ選択</button>
+                </div>
+                <p class="of-titlenote">ステージ12まで進んでいます</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>入れ子・要素・順序が<b>完全に同じ</b>（覆い &gt; カード &gt; h1 &gt; 説明 &gt; ボタン群 &gt; 注記）。<u>接頭辞だけが違う</u>。</span></div>
+      <div class="sg-ref"><b>基準</b><span>これは共通部品にできる。<b>見た目は作品ごとに変え、構造とトークンだけ共有</b>する形が合う。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>設定オーバーレイ</b><em>.tk-modal / .tk-modal-box / .tk-modal-head / .tk-opt-row</em><em>tank</em></figcaption>
+    <div class="sg-stage flush">
+      <div class="g-tank sg-game" style="min-height:280px">
+        <div class="tk-modal">
+          <div class="tk-modal-box" role="dialog" aria-modal="true" aria-label="オプション">
+            <div class="tk-modal-head">
+              <b class="tk-modal-title">オプション</b>
+              <button class="tk-btn tk-btn-main">閉じる</button>
+            </div>
+            <div class="tk-opt">
+              <label class="tk-opt-row">
+                <span class="tk-opt-k">効果音</span>
+                <input type="range" min="0" max="100" step="5" value="70">
+                <b>70</b>
+              </label>
+              <label class="tk-opt-row">
+                <span class="tk-opt-k">音楽</span>
+                <input type="range" min="0" max="100" step="5" value="40">
+                <b>40</b>
+              </label>
+              <div class="tk-opt-note">設定はこのブラウザにのみ保存されます。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>role="dialog" / aria-modal / aria-label は指定済み。<u>この構造は garage・colorfusion にも別名で存在する</u>（tk- / ss- / cf-）。</span></div>
+      <div class="sg-ref"><b>基準</b><span>デジタル庁は「モーダルダイアログ」を1コンポーネントとして定義し、<b>ガイドラインで閉じ方とフォーカスの扱いを規定</b>している。現状は作品ごとに実装が分かれている。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>リザルト</b><em>.of-ov &gt; .of-panel / .of-ov-head / .of-stars / .of-score</em><em>onestroke</em></figcaption>
+    <div class="sg-stage flush">
+      <div class="g-onestroke sg-game" style="min-height:260px">
+        <div class="of-ov">
+          <div class="of-panel">
+            <div class="of-ov-stage">STAGE 12</div>
+            <div class="of-ov-head">納品完了</div>
+            <div class="of-stars">★★☆</div>
+            <ul class="of-score">
+              <li><span>マス</span><b>24</b></li>
+              <li><span>時間</span><b>18.4</b></li>
+            </ul>
+            <div class="of-ov-btns">
+              <button class="of-btn">もう一度</button>
+              <button class="of-btn of-btn-p">次のステージ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>リザルトを持つのは <u>tank / garage / alchemy / onestroke の4作品</u>。comet / colorfusion / coralreef / savanna には無い。</span></div>
+      <div class="sg-ref"><b>基準</b><span>結果表示は<b>遊びの締め</b>にあたる。持たない作品が半分あるのは、見せ方の下限に直結する差分。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>18 ゲーム部品 / 基準との差</h2>
+
+  <figure class="sg-item">
+    <figcaption><b>アクセシビリティ</b><em>実測</em></figcaption>
+    <div class="sg-stage">
+      <table class="sg-table">
+        <thead><tr><th>項目</th><th>現状</th><th>基準</th></tr></thead>
+        <tbody>
+          <tr><td>prefers-reduced-motion 対応</td><td>8作品中 <b>1作品のみ</b>（garage）</td><td>演出のある作品は全部</td></tr>
+          <tr><td>色以外での状態表現</td><td>確認できた範囲では無し</td><td>Wordle は色＋ボーダー形状で二重に符号化</td></tr>
+          <tr><td>色覚異常モード</td><td>なし</td><td>Wordle は配色の差し替えを標準装備</td></tr>
+          <tr><td>HUD が操作を塞がない</td><td>1作品のみ（comet の pointer-events: none）</td><td>Doodle も同様の作り</td></tr>
+          <tr><td>タップ領域の下限</td><td>指定なし</td><td>Wordle は min-height 40px</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sg-std">
+      <div class="sg-ref"><b>基準</b><span>garage の <code>html.no-motion</code> は既に動いている実装。<b>他作品へ展開するだけ</b>で埋まる。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>読み込みと解像度</b><em>Magic Cat Academy / Google Doodle 2016 の実測</em></figcaption>
+    <div class="sg-stage">
+      <table class="sg-table">
+        <thead><tr><th>項目</th><th>基準（実測）</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td>canvas 解像度</td><td>640×360 固定、CSSで465pxに縮小</td><td>内部解像度を固定し、表示はCSSで伸縮</td></tr>
+          <tr><td>初期ロード</td><td>4ファイル / 207KB</td><td>本編アセットは後読み</td></tr>
+          <tr><td>最大のファイル</td><td>音声 83KB（全体の40%）</td><td>容量の最大枠を音に割く</td></tr>
+          <tr><td>画像</td><td>スプライトシート</td><td>個別画像を並べない</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>各作品の canvas 設定と読み込み構成は<u>未計測</u>。次の工程で測る。</span></div>
+    </div>
+  </figure>
+</section>
 </div>
 </body>
 </html>
