@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>サンゴ礁とサバンナの一日を、眺めるだけの作品にした | ヒノガタリ開発ブログ</title>
+<meta name="description" content="生き物どうしが逃げたり隠れたりするピクセルアートの「サンゴ礁の一日」「サバンナの一日」を公開した話。Claudeに作ってもらい、動きを数字で見直した。">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="サンゴ礁とサバンナの一日を、眺めるだけの作品にした">
+<meta property="og:description" content="生き物どうしが逃げたり隠れたりするピクセルアートの「サンゴ礁の一日」「サバンナの一日」を公開した話。Claudeに作ってもらい、動きを数字で見直した。">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/blog/2026-09-27-pixel-habitat.html">
+<meta property="og:image" content="https://yamaga-syuumei.github.io/img/thumbnail-savanna.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="675">
+<meta name="twitter:image" content="https://yamaga-syuumei.github.io/img/thumbnail-savanna.png">
+<link rel="canonical" href="https://yamaga-syuumei.github.io/blog/2026-09-27-pixel-habitat.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="../style.css?v=e0491f54">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="../" class="logo">
+      <span class="logo-name">ヒノガタリ</span>
+      <span class="logo-circle">山賀秀明</span>
+    </a>
+    <div class="head-right">
+    <nav>
+      <a href="../#news">お知らせ</a>
+      <a href="../#web">ブラウザゲーム</a>
+      <a href="../#games">ゲーム</a>
+      <a href="../#novels">小説</a>
+      <a href="../blog.html">ブログ</a>
+    </nav>
+      <a class="head-x" href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener" aria-label="X（@SyuumeiYamaga）" title="X ／ @SyuumeiYamaga">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <article class="post">
+
+    <div class="post-head">
+      <div class="post-date">2026.09.27</div>
+      <h1>サンゴ礁とサバンナの一日を、眺めるだけの作品にした</h1>
+    </div>
+
+    <div class="post-body">
+
+      <p>「<a href="../coralreef/">サンゴ礁の一日</a>」と「<a href="../savanna/">サバンナの一日</a>」を公開しました。どちらも遊ぶゲームではなく、眺めるだけの作品です。90秒で朝から夜までが一巡し、画面のどこかで必ず生き物が動いています。</p>
+
+      <h2>きっかけはZennの記事</h2>
+
+      <p>PeopleXテックブログの「<a href="https://zenn.dev/peoplex_blog/articles/1bc5c181ad19f0" target="_blank" rel="noopener">Claude Opus 5.5によるピクセルアニメーション生成の検証</a>」を読んだのが始まりです。文章の指示だけで、サンゴ礁のピクセルアニメーションをどこまで作れるかを試した記事でした。</p>
+
+      <p>記事に載っていたプロンプトをほぼそのままClaudeに渡して、自分のサイト用に作ってもらいました。指示の中身はだいたいこんな感じです。</p>
+
+      <ul>
+        <li>320×180の低い解像度で描いて、整数倍に拡大する。色は32色前後</li>
+        <li>画像ファイルも外部ライブラリも使わず、HTML1枚で動く</li>
+        <li>小魚は群れで泳ぎ、サメが近づくと散って逃げ、しばらくすると集まり直す。クマノミはイソギンチャクに隠れ、タコは岩の色に化ける</li>
+        <li>朝・昼・夕・夜で色も生き物の行動も変わる</li>
+        <li>作り終えたら自分で見直して、不自然な動きを直す</li>
+      </ul>
+
+      <h2>頼んでいない生き物が増えていた</h2>
+
+      <p>できあがったものを見ると、プロンプトにない生き物がいました。夜に穴から身を乗り出して魚に噛みつこうとするウツボ、砂から顔を出して大きな魚が来ると引っ込むチンアナゴ、夜だけ岩陰から出てきて目の下を光らせるヒカリキンメ。ほかにも、遠くを横切るマンタや、擬態が間に合わないと墨を吐いて逃げるタコがいます。</p>
+
+      <p>面白かったのは、参考にした記事の検証でも、ウツボ・チンアナゴ・ヒカリキンメの3種が同じように付け足されていたことです。サンゴ礁らしさを足そうとすると、同じところに行き着くようです。</p>
+
+      <h2>見直しは数字でやっていた</h2>
+
+      <p>Claudeは作り終えたあと、アニメーションを早回しで数分ぶん回して、生き物の状態を数字で記録していました。そこで見つかったのがこんな問題です。</p>
+
+      <ul>
+        <li>昼の9割の時間、魚の群れがサメから逃げっぱなしだった</li>
+        <li>クラゲが全部、水面近くに固まっていた</li>
+        <li>チンアナゴとクマノミが、ほとんど隠れたままだった</li>
+      </ul>
+
+      <p>サメは一定時間泳いだら画面の外へ去り、しばらくして戻ってくるように直りました。群れが逃げている時間は9割から14%に減っています。画面を眺めているだけだと「にぎやかだな」で終わってしまうところを、割合で見つけて直しているのが印象的でした。</p>
+
+      <h2>サバンナにも持っていった</h2>
+
+      <p>同じ仕組みのまま、舞台をサバンナに移したのが2本目です。ヌー・シマウマ・ガゼルの群れが草を食み、ライオンは身を低くして忍び寄ってから一気に駆け出します。群れは土煙を上げて散り、ガゼルは跳ねながら逃げます。</p>
+
+      <p>水場では、ゾウの親子が鼻で水を浴び、カバが大きなあくびをし、ワニが水を飲みに来た動物を狙います。巣穴のまわりではミーアキャットが1匹見張りに立っていて、ワシが空を横切ると全員が穴に潜ります。いちばんの見どころは夕焼けです。</p>
+
+      <p>こちらでも見直しで直したところがあります。寝そべったライオンが草の色に溶けて見えなかったので、体の色を濃くしました。狩りも最初は頻繁すぎて、忍び寄る場面がほとんど見えなかったので、間隔を空けています。</p>
+
+      <h2>今回も画像ファイルはゼロ</h2>
+
+      <p>これまでのブラウザゲームと同じく、絵はすべてコードで点を打って描いています。地形は毎回同じ形ですが、生き物の動きは乱数で決まるので、同じ光景は二度と出てきません。</p>
+
+      <h2>録画しやすいようにした</h2>
+
+      <p>画面には何も表示されません。マウスを動かすと右上に歯車が出て、数秒で消えます。そのまま画面録画すれば、壁紙や動画素材としても使えます。スマホで見るときは横向きがおすすめです。</p>
+
+      <p>作業の合間に、ぼんやり眺めてもらえたら嬉しいです。</p>
+
+    </div>
+
+    <div class="post-nav">
+      <a href="../blog.html">← 記事一覧へ戻る</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="foot-name">ヒノガタリ</span>
+    <span>
+      <a href="https://x.com/SyuumeiYamaga" target="_blank" rel="noopener">X</a>
+      <a href="../">トップへ</a>
+    </span>
+  </div>
+</footer>
+
+<script src="../main.js"></script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
