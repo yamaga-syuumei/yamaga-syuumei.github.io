@@ -1,3 +1,23 @@
+:root{
+
+  /* 形・動き・文字サイズ。サイト側と同じ基準に合わせている。
+     値の一覧と、参照作品の実測値は website/_styleguide/index.html を見ること。
+     新しい値を足さず、ここから選ぶ。 */
+  --r-1:4px;        /* ボタン、小さい面 */
+  --r-2:14px;       /* 盤面、パネル */
+  --r-pill:999px;   /* 完全な丸端 */
+
+  --t:.16s ease-out;
+
+  --fs-1:10px;
+  --fs-2:12px;
+  --fs-3:14px;
+  --fs-4:15px;
+  --fs-5:18px;
+  --fs-6:24px;
+  --fs-7:30px;
+}
+
 /* カラー・フュージョン 試作 step1
    画面は固定。ページ側は一切スクロールさせない（§4.11） */
 
@@ -31,18 +51,18 @@ html, body {
   left: max(12px, env(safe-area-inset-left));
   right: max(12px, env(safe-area-inset-right));
   display: flex; gap: 8px; align-items: center; justify-content: flex-end;
-  font-size: 12px; letter-spacing: .04em;
+  font-size:var(--fs-2); letter-spacing: .04em;
   color: rgba(180,215,255,.6);
   pointer-events: none;
 }
 .hud span { flex: 1; }
 .hud button {
   pointer-events: auto;
-  font: inherit; font-size: 12px;
+  font: inherit; font-size:var(--fs-2);
   color: rgba(200,230,255,.85);
   background: rgba(30,60,95,.45);
   border: 1px solid rgba(130,190,255,.35);
-  border-radius: 5px;
+  border-radius:var(--r-1);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -61,7 +81,7 @@ html, body {
   left: max(12px, env(safe-area-inset-left));
   right: max(12px, env(safe-area-inset-right));
   text-align: center;
-  font-size: 11px;
+  font-size:var(--fs-2);
   color: rgba(160,200,240,.45);
   pointer-events: none;
 }
@@ -75,10 +95,10 @@ html, body {
   width: 250px;
   background: rgba(8,16,28,.92);
   border: 1px solid rgba(120,180,255,.28);
-  border-radius: 8px;
+  border-radius:var(--r-1);
   padding: 10px 12px;
   display: flex; flex-direction: column; gap: 7px;
-  font-size: 12px;
+  font-size:var(--fs-2);
 }
 .panel label {
   display: grid;
@@ -101,11 +121,11 @@ html, body {
   transform: translateX(-50%);
 }
 .over button {
-  font: inherit; font-size: 13px;
+  font: inherit; font-size:var(--fs-3);
   color: rgba(210,238,255,.9);
   background: rgba(28,58,92,.6);
   border: 1px solid rgba(130,190,255,.45);
-  border-radius: 6px;
+  border-radius:var(--r-1);
   padding: 7px 16px;
   cursor: pointer;
 }
@@ -121,19 +141,19 @@ html, body {
 .cf-modal-box {
   width: 100%; max-width: 420px;
   background: rgba(14,26,44,.96); border: 1px solid rgba(130,190,255,.3);
-  border-radius: 12px; padding: 14px 18px 18px;
+  border-radius:var(--r-2); padding: 14px 18px 18px;
   display: grid; gap: 4px;
-  color: rgba(200,230,255,.85); font-size: 12px; letter-spacing: .04em;
+  color: rgba(200,230,255,.85); font-size:var(--fs-2); letter-spacing: .04em;
 }
 .cf-modal-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   margin-bottom: 8px;
 }
-.cf-modal-title { font-size: 14px; color: #cfe8ff; letter-spacing: .08em; }
+.cf-modal-title { font-size:var(--fs-3); color: #cfe8ff; letter-spacing: .08em; }
 .cf-modal-close {
-  font: inherit; font-size: 12px; text-decoration: none;
+  font: inherit; font-size:var(--fs-2); text-decoration: none;
   color: rgba(210,238,255,.9); background: rgba(28,58,92,.6);
-  border: 1px solid rgba(130,190,255,.45); border-radius: 6px;
+  border: 1px solid rgba(130,190,255,.45); border-radius:var(--r-1);
   padding: 5px 13px; cursor: pointer; white-space: nowrap;
 }
 .cf-modal-close:hover { background: rgba(45,90,138,.75); }
@@ -144,13 +164,13 @@ html, body {
 .cf-row input[type=range] { width: 100%; accent-color: #5fc8ff; }
 .cf-row > b { text-align: right; font-variant-numeric: tabular-nums; color: #8fd8ff; }
 .cf-row-wide { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.cf-row-wide b { color: #cfe8ff; font-size: 12.5px; }
+.cf-row-wide b { color: #cfe8ff; font-size:var(--fs-2); }
 .cf-note { display: block; margin-top: 3px; color: rgba(160,200,240,.6); }
 .credits { margin-top: 10px; color: rgba(175,210,245,.7); line-height: 1.6; }
 .credits .ttl { color: rgba(200,230,255,.85); margin-bottom: 3px; }
 .credits .none { color: rgba(160,195,230,.5); }
 .credits a { color: #8fd8ff; }
-.ver { margin-top: 8px; color: rgba(140,180,220,.5); font-size: 11px; text-align: right; }
+.ver { margin-top: 8px; color: rgba(140,180,220,.5); font-size:var(--fs-2); text-align: right; }
 .hud.bare { justify-content: flex-end; }
 
 /* 計測結果。クリックで閉じる */
@@ -160,14 +180,26 @@ html, body {
   min-width: 260px;
   background: rgba(8,16,28,.96);
   border: 1px solid rgba(120,180,255,.4);
-  border-radius: 8px;
+  border-radius:var(--r-1);
   padding: 14px 18px;
-  font-size: 13px; color: #cfe6ff;
+  font-size:var(--fs-3); color: #cfe6ff;
   cursor: pointer;
 }
 .bench table { border-collapse: collapse; margin-top: 8px; width: 100%; }
 .bench th, .bench td { padding: 3px 10px 3px 0; text-align: left; }
-.bench th { color: rgba(160,200,240,.6); font-weight: 400; font-size: 11px; }
+.bench th { color: rgba(160,200,240,.6); font-weight: 400; font-size:var(--fs-2); }
 .bench td:nth-child(2), .bench td:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
-.bench p { margin-top: 8px; color: rgba(160,200,240,.6); font-size: 11px; }
+.bench p { margin-top: 8px; color: rgba(160,200,240,.6); font-size:var(--fs-2); }
 .bench .cl { color: rgba(140,180,220,.45); }
+
+/* 押した手応え。基準：操作には必ず反応を返す */
+.hud button,.over button{transition:background var(--t),border-color var(--t),transform var(--t)}
+.hud button,.over button:active{transform:translateY(1px)}
+
+/* オーバーレイのボタンはタップ領域を確保する（基準：min-height 40px） */
+.over button{min-height:40px}
+
+/* 動きを減らす設定を尊重する */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;animation-iteration-count:1 !important}
+}

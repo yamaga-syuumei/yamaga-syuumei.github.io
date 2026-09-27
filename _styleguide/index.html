@@ -711,24 +711,24 @@
     <figcaption><b>作品ごとの実測</b><em>すべて実測値</em></figcaption>
     <div class="sg-stage">
       <table class="sg-table">
-        <thead><tr><th>作品</th><th>CSSルール</th><th>角丸</th><th>transition</th><th>font-size</th><th>CSS色</th><th>JS色</th><th>:root変数</th></tr></thead>
+        <thead><tr><th>作品</th><th>角丸</th><th>font-size</th><th>duration</th><th>CSS色</th><th>:root変数</th></tr></thead>
         <tbody>
-          <tr><td>coralreef</td><td>22</td><td>3</td><td>1</td><td>3</td><td>12</td><td>—</td><td>0</td></tr>
-          <tr><td>savanna</td><td>22</td><td>3</td><td>1</td><td>3</td><td>12</td><td>—</td><td>0</td></tr>
-          <tr><td>colorfusion</td><td>48</td><td>4</td><td>0</td><td>5</td><td>31</td><td>56</td><td>0</td></tr>
-          <tr><td>comet</td><td>68</td><td>4</td><td>2</td><td>10</td><td>28</td><td>102</td><td>6</td></tr>
-          <tr class="ok"><td><b>onestroke（改修済）</b></td><td>95</td><td>3</td><td>1</td><td>6</td><td>29</td><td>43</td><td>18</td></tr>
-          <tr><td>tank</td><td>144</td><td>9</td><td>3</td><td>14</td><td>34</td><td>49</td><td>15</td></tr>
-          <tr><td>alchemy</td><td>155</td><td>10</td><td>3</td><td>14</td><td>37</td><td>120</td><td>2</td></tr>
-          <tr><td>garage</td><td>442</td><td>13</td><td>8</td><td>18</td><td>114</td><td>75</td><td>15</td></tr>
-          <tr class="ok"><td><b>基準（Wordle）</b></td><td><b>45</b></td><td><b>1</b></td><td><b>1</b></td><td><b>3</b></td><td><b>約10</b></td><td>—</td><td>—</td></tr>
+          <tr class="ok"><td>coralreef</td><td>3 → <b>2</b></td><td>3 → <b>3</b></td><td>1種 → <b>--t</b></td><td>12</td><td>0 → <b>11</b></td></tr>
+          <tr class="ok"><td>savanna</td><td>3 → <b>2</b></td><td>3 → <b>3</b></td><td>1種 → <b>--t</b></td><td>12</td><td>0 → <b>11</b></td></tr>
+          <tr class="ok"><td>colorfusion</td><td>4 → <b>2</b></td><td>5 → <b>2</b></td><td><u>0種</u> → <b>--t</b></td><td>31</td><td>0 → <b>11</b></td></tr>
+          <tr class="ok"><td>comet</td><td>4 → <b>3</b></td><td>10 → <b>5</b></td><td>2種 → <b>--t</b></td><td>28</td><td>6 → <b>17</b></td></tr>
+          <tr class="ok"><td>onestroke</td><td>5 → <b>3</b></td><td>10 → <b>6</b></td><td><u>0種</u> → <b>--t</b></td><td>29</td><td>7 → <b>18</b></td></tr>
+          <tr class="ok"><td>tank</td><td>9 → <b>2</b></td><td>14 → <b>5</b></td><td>3種 → <b>--t</b></td><td>34</td><td>15 → <b>26</b></td></tr>
+          <tr class="ok"><td>alchemy</td><td>10 → <b>3</b></td><td>14 → <b>7</b></td><td>3種 → <b>--t</b></td><td>37</td><td>2 → <b>13</b></td></tr>
+          <tr class="ok"><td>garage</td><td>13 → <b>5</b></td><td>18 → <b>6</b></td><td>8種 → <b>--t</b></td><td><u>114</u></td><td>15 → <b>26</b></td></tr>
+          <tr><td><b>基準（Wordle）</b></td><td><b>1</b></td><td><b>3</b></td><td><b>1</b></td><td><b>約10</b></td><td>—</td></tr>
         </tbody>
       </table>
     </div>
     <div class="sg-std">
-      <div class="sg-now"><b>現状</b><span>破綻の向きが2つある。<u>colorfusion は transition が0種</u>（操作しても何も返らない）。onestroke は改修済み。<u>garage は角丸13種・色114</u>で値が制御を離れている。</span></div>
+      <div class="sg-now"><b>現状</b><span><b>8作品すべて改修済み</b>。角丸は最大13種→5種、font-size は最大18種→7種、duration は全作品 <b>--t（.16s ease-out）</b>の1種になった。<u>色（最大114）は未着手</u>。</span></div>
       <div class="sg-ref"><b>基準</b><span>基準は「1種類を全部に効かせる」。<b>0 も 8 も同じく基準外</b>。</span></div>
-      <div class="sg-now"><b>実証</b><span><b>onestroke だけ改修済み</b>。角丸 5→3、transition 0→1、font-size 10→6（うち5つは共通トークン）、:root 変数 7→18。押した手応えと reduced-motion 対応を追加。<u>残り7作品は未着手</u>。</span></div>
+      <div class="sg-now"><b>追加</b><span>transition が0種だった colorfusion と onestroke に<b>押した手応え</b>を足した。全作品でオーバーレイのボタンに <b>min-height 40px</b>、<b>prefers-reduced-motion</b> 対応を入れた（garage は既存の html.no-motion に合わせた）。</span></div>
     </div>
   </figure>
 </section>
@@ -999,16 +999,16 @@
       <table class="sg-table">
         <thead><tr><th>項目</th><th>現状</th><th>基準</th></tr></thead>
         <tbody>
-          <tr><td>prefers-reduced-motion 対応</td><td>8作品中 <b>1作品のみ</b>（garage）</td><td>演出のある作品は全部</td></tr>
+          <tr class="ok"><td>prefers-reduced-motion 対応</td><td><b>8作品すべて</b>（garage は既存の html.no-motion）</td><td>演出のある作品は全部</td></tr>
           <tr><td>色以外での状態表現</td><td>確認できた範囲では無し</td><td>Wordle は色＋ボーダー形状で二重に符号化</td></tr>
           <tr><td>色覚異常モード</td><td>なし</td><td>Wordle は配色の差し替えを標準装備</td></tr>
           <tr><td>HUD が操作を塞がない</td><td>1作品のみ（comet の pointer-events: none）</td><td>Doodle も同様の作り</td></tr>
-          <tr><td>タップ領域の下限</td><td>指定なし</td><td>Wordle は min-height 40px</td></tr>
+          <tr class="ok"><td>タップ領域の下限</td><td><b>オーバーレイのボタンに min-height 40px</b>（通常バーのボタンは未対応）</td><td>Wordle は min-height 40px</td></tr>
         </tbody>
       </table>
     </div>
     <div class="sg-std">
-      <div class="sg-ref"><b>基準</b><span>garage の <code>html.no-motion</code> は既に動いている実装。<b>他作品へ展開するだけ</b>で埋まる。</span></div>
+      <div class="sg-ref"><b>基準</b><span>残るのは<b>色以外での状態表現</b>と<b>色覚異常モード</b>、および HUD が操作を塞がない作り（comet 以外は未対応）。</span></div>
     </div>
   </figure>
 
