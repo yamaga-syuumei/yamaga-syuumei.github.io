@@ -3,10 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex">
-<title>サバンナの一日</title>
+<meta name="description" content="サバンナの朝から夜までを、90秒でくり返すピクセルアート。草を食む群れ、忍び寄るライオン、水場のゾウとワニ、見張るミーアキャット。眺めるだけのブラウザ作品です。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="サバンナの一日 | ヒノガタリ">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/savanna/">
+<meta property="og:description" content="サバンナの朝から夜までを、90秒でくり返すピクセルアート。草を食む群れ、忍び寄るライオン、水場のゾウとワニ、見張るミーアキャット。眺めるだけのブラウザ作品です。">
+<meta property="og:image" content="https://yamaga-syuumei.github.io/img/thumbnail-savanna.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="675">
+<meta name="twitter:image" content="https://yamaga-syuumei.github.io/img/thumbnail-savanna.png">
+<link rel="canonical" href="https://yamaga-syuumei.github.io/savanna/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>サバンナの一日 | ヒノガタリ</title>
 <style>
-html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none}
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+body{cursor:none}
+body.ui-on{cursor:default}
+:root{--fg:#e6edf5;--dim:#8a97a8;--line:#2a3a4e;--accent:#7fd4ff}
+.ui-btn{background:#101823;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font:13px/1.4 system-ui,sans-serif;cursor:pointer;text-decoration:none;white-space:nowrap}
+.ui-btn:hover{border-color:var(--accent);color:var(--accent)}
+.ui-btn-p{background:#16354d;border-color:#2f6f95}
+.ui-gear{position:fixed;top:12px;right:12px;padding:7px;display:flex;opacity:0;pointer-events:none;transition:opacity .4s}
+.ui-gear::before{content:"";width:20px;height:20px;background:currentColor;-webkit-mask:url(/img/icon-settings.png) center / contain no-repeat;mask:url(/img/icon-settings.png) center / contain no-repeat}
+body.ui-on .ui-gear{opacity:.85;pointer-events:auto}
+.ui-ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)}
+.ui-ov[hidden]{display:none}
+.ui-panel{box-sizing:border-box;width:min(420px,calc(100vw - 32px));background:rgba(10,16,26,.94);border:1px solid var(--line);border-radius:12px;padding:20px 22px;color:var(--fg);font:14px/1.6 system-ui,sans-serif}
+.ui-panel h2{margin:0 0 6px;font-size:17px}
+.ui-tag{margin:0 0 14px;color:var(--dim);font-size:13px}
+.ui-link{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.ui-link b{display:block;font-size:13px}
+.ui-link span{display:block;margin-top:2px;font-size:12px;color:var(--dim)}
+.ui-btns{display:flex;justify-content:center;margin-top:14px}
 body{display:flex;align-items:center;justify-content:center}
 canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 #dbg{position:fixed;left:8px;top:8px;font:12px/1.5 monospace;color:#8f8;background:rgba(0,0,0,.65);padding:6px 9px;white-space:pre;display:none;pointer-events:none}
@@ -15,6 +46,21 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 <body>
 <canvas id="c" width="320" height="180"></canvas>
 <div id="dbg"></div>
+<button class="ui-btn ui-gear" id="gear" title="オプション" aria-label="オプション"></button>
+<div class="ui-ov" id="opt" hidden>
+  <div class="ui-panel">
+    <h2>サバンナの一日</h2>
+    <p class="ui-tag">サバンナの朝から夜までを、90秒でくり返します。ライオンが忍び寄れば群れは逃げ、夜にはハイエナと蛍が現れます。眺めるだけの作品です。</p>
+    <div class="ui-link">
+      <div>
+        <b>ヒノガタリ</b>
+        <span>ほかのブラウザゲームと小説の置き場所です。</span>
+      </div>
+      <a class="ui-btn" href="../">開発者サイトへ</a>
+    </div>
+    <div class="ui-btns"><button class="ui-btn ui-btn-p" id="optClose">閉じる</button></div>
+  </div>
+</div>
 <script>
 'use strict';
 (() => {
@@ -28,7 +74,7 @@ const buf = new Uint32Array(img.data.buffer);
 function resize() {
   const dpr = window.devicePixelRatio || 1;
   const s = Math.min(innerWidth * dpr / W, innerHeight * dpr / H);
-  const k = s >= 1 ? Math.floor(s) : s;
+  const k = Math.floor(s) >= 1 && Math.floor(s) >= s * 0.85 ? Math.floor(s) : s;
   cv.style.width = (W * k / dpr) + 'px';
   cv.style.height = (H * k / dpr) + 'px';
 }
@@ -1231,6 +1277,24 @@ for (let i = 0; i < 180; i++) update(1 / 60);
 T = 0;
 render();
 requestAnimationFrame(frame);
+})();
+</script>
+<script>
+(() => {
+  const gear = document.getElementById('gear'), opt = document.getElementById('opt');
+  let hideT = 0;
+  const poke = () => {
+    document.body.classList.add('ui-on');
+    clearTimeout(hideT);
+    hideT = setTimeout(() => { if (opt.hidden) document.body.classList.remove('ui-on'); }, 2500);
+  };
+  const close = () => { opt.hidden = true; poke(); };
+  addEventListener('pointermove', poke);
+  addEventListener('pointerdown', poke);
+  gear.addEventListener('click', () => { opt.hidden = false; document.body.classList.add('ui-on'); });
+  document.getElementById('optClose').addEventListener('click', close);
+  opt.addEventListener('click', e => { if (e.target === opt) close(); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && !opt.hidden) close(); });
 })();
 </script>
 </body>
