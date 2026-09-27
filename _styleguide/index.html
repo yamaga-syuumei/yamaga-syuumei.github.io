@@ -717,7 +717,7 @@
           <tr><td>savanna</td><td>22</td><td>3</td><td>1</td><td>3</td><td>12</td><td>—</td><td>0</td></tr>
           <tr><td>colorfusion</td><td>48</td><td>4</td><td>0</td><td>5</td><td>31</td><td>56</td><td>0</td></tr>
           <tr><td>comet</td><td>68</td><td>4</td><td>2</td><td>10</td><td>28</td><td>102</td><td>6</td></tr>
-          <tr><td>onestroke</td><td>89</td><td>5</td><td>0</td><td>10</td><td>29</td><td>43</td><td>7</td></tr>
+          <tr class="ok"><td><b>onestroke（改修済）</b></td><td>95</td><td>3</td><td>1</td><td>6</td><td>29</td><td>43</td><td>18</td></tr>
           <tr><td>tank</td><td>144</td><td>9</td><td>3</td><td>14</td><td>34</td><td>49</td><td>15</td></tr>
           <tr><td>alchemy</td><td>155</td><td>10</td><td>3</td><td>14</td><td>37</td><td>120</td><td>2</td></tr>
           <tr><td>garage</td><td>442</td><td>13</td><td>8</td><td>18</td><td>114</td><td>75</td><td>15</td></tr>
@@ -726,8 +726,9 @@
       </table>
     </div>
     <div class="sg-std">
-      <div class="sg-now"><b>現状</b><span>破綻の向きが2つある。<u>colorfusion と onestroke は transition が0種</u>（操作しても何も返らない）。<u>garage は角丸13種・色114</u>で値が制御を離れている。</span></div>
+      <div class="sg-now"><b>現状</b><span>破綻の向きが2つある。<u>colorfusion は transition が0種</u>（操作しても何も返らない）。onestroke は改修済み。<u>garage は角丸13種・色114</u>で値が制御を離れている。</span></div>
       <div class="sg-ref"><b>基準</b><span>基準は「1種類を全部に効かせる」。<b>0 も 8 も同じく基準外</b>。</span></div>
+      <div class="sg-now"><b>実証</b><span><b>onestroke だけ改修済み</b>。角丸 5→3、transition 0→1、font-size 10→6（うち5つは共通トークン）、:root 変数 7→18。押した手応えと reduced-motion 対応を追加。<u>残り7作品は未着手</u>。</span></div>
     </div>
   </figure>
 </section>
