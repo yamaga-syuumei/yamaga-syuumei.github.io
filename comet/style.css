@@ -5,6 +5,23 @@
   --line:#22303f;
   --accent:#6fd0ff;
   --warm:#ffc65a;
+
+  /* 形・動き・文字サイズ。サイト側と同じ基準に合わせている。
+     値の一覧と、参照作品の実測値は website/_styleguide/index.html を見ること。
+     新しい値を足さず、ここから選ぶ。 */
+  --r-1:4px;        /* ボタン、小さい面 */
+  --r-2:14px;       /* 盤面、パネル */
+  --r-pill:999px;   /* 完全な丸端 */
+
+  --t:.16s ease-out;
+
+  --fs-1:10px;
+  --fs-2:12px;
+  --fs-3:14px;
+  --fs-4:15px;
+  --fs-5:18px;
+  --fs-6:24px;
+  --fs-7:30px;
 }
 
 *{box-sizing:border-box}
@@ -42,19 +59,19 @@ body{
 .cs-hud-demo .cs-left,.cs-hud-demo .cs-mid{visibility:hidden}
 
 .cs-left{display:flex;flex-direction:column;gap:5px;min-width:210px}
-.cs-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim)}
-.cs-row b{color:var(--fg);font-size:14px;letter-spacing:.04em}
+.cs-row{display:flex;align-items:center;gap:8px;font-size:var(--fs-2);color:var(--dim)}
+.cs-row b{color:var(--fg);font-size:var(--fs-3);letter-spacing:.04em}
 .cs-bar{
-  position:relative;height:7px;border-radius:99px;overflow:hidden;
+  position:relative;height:7px;border-radius:var(--r-pill);overflow:hidden;
   background:#0d1420;border:1px solid var(--line);flex:1;
 }
-.cs-bar i{position:absolute;inset:0 auto 0 0;display:block;transition:width .12s linear}
+.cs-bar i{position:absolute;inset:0 auto 0 0;display:block;transition:width var(--t)}
 #core{background:linear-gradient(90deg,#3b7bd6,#9fe6ff)}
 #spd{background:linear-gradient(90deg,#4aa8ff,#eaf7ff)}
 
 .cs-mid{flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:5px}
-.cs-mid .cs-wave{font-size:15px;letter-spacing:.10em}
-.cs-mid .cs-prog{font-size:12px;color:var(--dim)}
+.cs-mid .cs-wave{font-size:var(--fs-4);letter-spacing:.10em}
+.cs-mid .cs-prog{font-size:var(--fs-2);color:var(--dim)}
 #bosswrap{width:min(420px,46vw);display:flex}
 /* display を明示すると [hidden] の display:none を上書きしてしまう */
 #bosswrap[hidden]{display:none}
@@ -64,8 +81,8 @@ body{
 .cs-right{display:flex;gap:8px}
 .cs-btn{
   background:#101823;color:var(--fg);
-  border:1px solid var(--line);border-radius:8px;
-  padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;
+  border:1px solid var(--line);border-radius:var(--r-1);
+  padding:6px 12px;font:inherit;font-size:var(--fs-3);cursor:pointer;
 }
 .cs-btn:hover{border-color:var(--accent);color:var(--accent)}
 .cs-btn-p{background:#16354d;border-color:#2f6f95}
@@ -85,11 +102,11 @@ body{
   text-align:center;pointer-events:none;
 }
 .cs-banner b{
-  display:block;font-size:30px;letter-spacing:.12em;
+  display:block;font-size:var(--fs-7);letter-spacing:.12em;
   text-shadow:0 0 22px rgba(120,190,255,.55),0 2px 6px #000;
 }
 .cs-banner span{
-  display:block;margin-top:8px;font-size:14px;color:#bcd3ea;
+  display:block;margin-top:8px;font-size:var(--fs-3);color:#bcd3ea;
   text-shadow:0 2px 6px #000;
 }
 
@@ -104,18 +121,18 @@ body{
 .cs-panel{
   background:rgba(12,18,28,.94);
   border:1px solid var(--line);
-  border-radius:14px;
+  border-radius:var(--r-2);
   padding:26px 30px;
   text-align:center;
   max-width:min(640px,88vw);
   box-shadow:0 20px 60px rgba(0,0,0,.6);
 }
 .cs-panel h1{
-  margin:0 0 6px;font-size:30px;letter-spacing:.10em;
+  margin:0 0 6px;font-size:var(--fs-7);letter-spacing:.10em;
   text-shadow:0 0 26px rgba(120,190,255,.5);
 }
-.cs-panel h2{margin:0 0 14px;font-size:20px;letter-spacing:.06em}
-.cs-tag{margin:0 0 18px;color:var(--dim);font-size:14px;line-height:1.8}
+.cs-panel h2{margin:0 0 14px;font-size:var(--fs-5);letter-spacing:.06em}
+.cs-tag{margin:0 0 18px;color:var(--dim);font-size:var(--fs-3);line-height:1.8}
 .cs-tag em{color:var(--warm);font-style:normal}
 .cs-btns{display:flex;gap:10px;justify-content:center;margin-top:8px}
 
@@ -130,29 +147,29 @@ body{
   flex:1 1 150px;max-width:190px;
   display:flex;flex-direction:column;gap:7px;
   padding:16px 14px;
-  background:#101a26;border:1px solid var(--line);border-radius:12px;
+  background:#101a26;border:1px solid var(--line);border-radius:var(--r-2);
   color:var(--fg);font:inherit;text-align:left;cursor:pointer;
-  transition:border-color .12s,transform .12s,background .12s;
+  transition:border-color var(--t),transform var(--t),background var(--t);
 }
 .cs-card:hover{border-color:var(--accent);background:#15263a;transform:translateY(-3px)}
-.cs-card b{font-size:16px;letter-spacing:.06em}
-.cs-card span{font-size:12px;color:var(--dim);line-height:1.65}
+.cs-card b{font-size:var(--fs-5);letter-spacing:.06em}
+.cs-card span{font-size:var(--fs-2);color:var(--dim);line-height:1.65}
 
 
 .cs-note{
   position:absolute;left:0;right:0;bottom:8px;
-  text-align:center;font-size:11px;color:#4e5f75;pointer-events:none;
+  text-align:center;font-size:var(--fs-2);color:#4e5f75;pointer-events:none;
 }
 
 @media (max-width:720px){
   .cs-left{min-width:140px}
-  .cs-panel h1{font-size:22px}
-  .cs-banner b{font-size:21px}
+  .cs-panel h1{font-size:var(--fs-5)}
+  .cs-banner b{font-size:var(--fs-5)}
 }
 
 /* ---- 音量 ---- */
 .cs-vols{display:flex;flex-direction:column;gap:12px;margin:4px 0 16px}
-.cs-vol{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--dim)}
+.cs-vol{display:flex;align-items:center;gap:12px;font-size:var(--fs-3);color:var(--dim)}
 .cs-vol > span{width:56px;flex:none;white-space:nowrap;text-align:left}
 .cs-vol input{flex:1;accent-color:var(--accent);cursor:pointer}
 .cs-vol b{width:44px;text-align:right;color:var(--fg);font-variant-numeric:tabular-nums}
@@ -161,12 +178,24 @@ body{
   padding:12px 0;margin-bottom:12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
   text-align:left;
 }
-.cs-link b{display:block;font-size:13px}
-.cs-link span{display:block;margin-top:3px;font-size:12px;color:var(--dim)}
+.cs-link b{display:block;font-size:var(--fs-3)}
+.cs-link span{display:block;margin-top:3px;font-size:var(--fs-2);color:var(--dim)}
 .cs-link a.cs-btn{text-decoration:none;white-space:nowrap}
-.cs-ver{margin:14px 0 0;font-size:11px;color:#4e5f75;text-align:right}
-.cs-credits{font-size:12px;color:var(--dim);line-height:1.9;margin-bottom:6px}
+.cs-ver{margin:14px 0 0;font-size:var(--fs-2);color:#4e5f75;text-align:right}
+.cs-credits{font-size:var(--fs-2);color:var(--dim);line-height:1.9;margin-bottom:6px}
 .cs-credits a{color:var(--accent)}
 
-.cs-rec{margin:14px 0 0;font-size:12px;color:var(--dim);letter-spacing:.06em}
+.cs-rec{margin:14px 0 0;font-size:var(--fs-2);color:var(--dim);letter-spacing:.06em}
 .cs-rec[hidden]{display:none}
+
+/* 押した手応え。基準：操作には必ず反応を返す */
+.cs-btn{transition:background var(--t),border-color var(--t),transform var(--t)}
+.cs-btn:active{transform:translateY(1px)}
+
+/* オーバーレイのボタンはタップ領域を確保する（基準：min-height 40px） */
+.cs-ov .cs-btn{min-height:40px}
+
+/* 動きを減らす設定を尊重する */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;animation-iteration-count:1 !important}
+}

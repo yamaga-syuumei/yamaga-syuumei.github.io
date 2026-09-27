@@ -18,6 +18,23 @@
   --mob-2: #b45cd6;
   --serif: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
   --sans:  "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+
+  /* 形・動き・文字サイズ。サイト側と同じ基準に合わせている。
+     値の一覧と、参照作品の実測値は website/_styleguide/index.html を見ること。
+     新しい値を足さず、ここから選ぶ。 */
+  --r-1:4px;        /* ボタン、小さい面 */
+  --r-2:14px;       /* 盤面、パネル */
+  --r-pill:999px;   /* 完全な丸端 */
+
+  --t:.16s ease-out;
+
+  --fs-1:10px;
+  --fs-2:12px;
+  --fs-3:14px;
+  --fs-4:15px;
+  --fs-5:18px;
+  --fs-6:24px;
+  --fs-7:30px;
 }
 
 * { box-sizing: border-box; }
@@ -36,7 +53,7 @@ html { scrollbar-gutter: stable; }
 
 body {
   margin: 0; background: var(--bg); color: var(--ink);
-  font-family: var(--sans); font-size: 14px; line-height: 1.8;
+  font-family: var(--sans); font-size:var(--fs-3); line-height: 1.8;
   -webkit-font-smoothing: antialiased;
 }
 button { font-family: inherit; }
@@ -48,18 +65,18 @@ button { font-family: inherit; }
   border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 20;
 }
-.tk-title { font-family: var(--serif); font-size: 17px; letter-spacing: .06em; }
+.tk-title { font-family: var(--serif); font-size:var(--fs-5); letter-spacing: .06em; }
 .tk-title b {
-  font-family: var(--sans); font-size: 9.5px; font-weight: 800; letter-spacing: .1em;
-  background: var(--red); color: #fff; border-radius: 3px; padding: 2px 6px; margin-left: 9px;
+  font-family: var(--sans); font-size:var(--fs-1); font-weight: 800; letter-spacing: .1em;
+  background: var(--red); color: #fff; border-radius:var(--r-1); padding: 2px 6px; margin-left: 9px;
   position: relative; top: -2px;
 }
 .tk-headbtns { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .tk-icon {
-  width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+  width: 34px; height: 34px; border-radius:var(--r-1); cursor: pointer;
   background: var(--panel2); border: 1px solid var(--line); color: var(--ink-2);
   display: flex; align-items: center; justify-content: center;
-  transition: background .12s, color .12s, border-color .12s;
+  transition: background var(--t), color var(--t), border-color var(--t);
 }
 .tk-icon:hover { background: #2a333c; color: var(--ink); border-color: #46525d; }
 .tk-icon-gear::before {
@@ -77,44 +94,44 @@ button { font-family: inherit; }
 }
 .tk-modal-box {
   width: 100%; max-width: 560px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius:var(--r-2);
   padding: 16px 20px 22px;
 }
 .tk-modal-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   margin-bottom: 16px;
 }
-.tk-modal-title { font-family: var(--serif); font-size: 16px; letter-spacing: .06em; }
-.tk-sub { margin: 22px 0 6px; font-size: 12px; letter-spacing: .1em; color: var(--ink-2); }
+.tk-modal-title { font-family: var(--serif); font-size:var(--fs-5); letter-spacing: .06em; }
+.tk-sub { margin: 22px 0 6px; font-size:var(--fs-2); letter-spacing: .1em; color: var(--ink-2); }
 .tk-opt { display: grid; gap: 4px; }
 .tk-opt-row {
   display: flex; align-items: center; gap: 14px;
   padding: 10px 2px; border-bottom: 1px dotted #2a333c;
 }
-.tk-opt-k { flex: none; width: 76px; font-size: 13.5px; font-weight: 700; }
+.tk-opt-k { flex: none; width: 76px; font-size:var(--fs-3); font-weight: 700; }
 .tk-opt-row input[type="range"] { flex: 1; accent-color: var(--amber); height: 22px; cursor: pointer; }
-.tk-opt-row > b { flex: none; width: 34px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
-.tk-opt-note { margin: 2px 0 8px; font-size: 12px; color: #6f7c88; }
+.tk-opt-row > b { flex: none; width: 34px; text-align: right; font-variant-numeric: tabular-nums; font-size:var(--fs-3); }
+.tk-opt-note { margin: 2px 0 8px; font-size:var(--fs-2); color: #6f7c88; }
 .tk-opt-wide { justify-content: space-between; align-items: flex-start; }
-.tk-opt-wide b { display: block; font-size: 13.5px; }
+.tk-opt-wide b { display: block; font-size:var(--fs-3); }
 .tk-opt-wide .tk-opt-note { margin: 2px 0 0; }
 .tk-opt-wide a.tk-btn { text-decoration: none; }
 /* 確認はページの中で聞く。ブラウザの confirm はダイアログを止められると黙って失敗する */
 .tk-opt-confirm {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  background: #2a1414; border: 1px solid #5a2a20; border-radius: 8px;
+  background: #2a1414; border: 1px solid #5a2a20; border-radius:var(--r-1);
   padding: 10px 12px; margin: 10px 0 0;
 }
-.tk-opt-confirm em { font-style: normal; font-size: 13px; color: #ffb0a0; flex: 1; }
+.tk-opt-confirm em { font-style: normal; font-size:var(--fs-3); color: #ffb0a0; flex: 1; }
 .tk-btn-danger { background: var(--red); border-color: var(--red); color: #fff; font-weight: 800; }
-.tk-opt-ver { margin: 18px 0 0; font-size: 11.5px; color: #6f7c88; text-align: right; }
+.tk-opt-ver { margin: 18px 0 0; font-size:var(--fs-2); color: #6f7c88; text-align: right; }
 
 /* ---------- 地図に重ねる状態表示 ---------- */
 .tk-hud {
   position: absolute; top: 10px; right: 10px; width: 214px;
   background: rgba(5,7,10,.84); border: 1px solid var(--line);
-  border-radius: 9px; padding: 9px 11px 10px;
-  font-size: 11.5px; line-height: 1.5;
+  border-radius:var(--r-1); padding: 9px 11px 10px;
+  font-size:var(--fs-2); line-height: 1.5;
   pointer-events: none;   /* 地図の操作を邪魔しない */
 }
 .tk-hud-k { color: var(--ink-2); }
@@ -128,12 +145,12 @@ button { font-family: inherit; }
   border-top: 1px solid var(--line); display: grid; gap: 4px;
 }
 .tk-gear > div { display: grid; grid-template-columns: 9px auto 1fr auto; gap: 8px; align-items: center; }
-.tk-st { color: var(--ink-2); font-size: 10.5px; white-space: nowrap; }
+.tk-st { color: var(--ink-2); font-size:var(--fs-1); white-space: nowrap; }
 .tk-gear b {
-  font-weight: 600; font-size: 11px; text-align: right;
+  font-weight: 600; font-size:var(--fs-2); text-align: right;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.tk-sw { width: 9px; height: 9px; border-radius: 2px; background: #39424b; }
+.tk-sw { width: 9px; height: 9px; border-radius:var(--r-1); background: #39424b; }
 
 /* ---------- 画面：左にフィールド、右に表示エリア ---------- */
 .tk-main {
@@ -145,7 +162,7 @@ button { font-family: inherit; }
 #stage { max-width: 704px; }
 #stage canvas {
   display: block; width: 100% !important; height: auto !important;
-  background: #14181c; border: 1px solid var(--line); border-radius: 10px;
+  background: #14181c; border: 1px solid var(--line); border-radius:var(--r-1);
   touch-action: none;
   image-rendering: pixelated;          /* 拡大してもドットを保つ */
 }
@@ -154,14 +171,14 @@ button { font-family: inherit; }
 .tk-minimap {
   position: absolute; top: 10px; left: 10px;
   width: 92px; height: 69px;
-  border: 1px solid var(--line); border-radius: 6px;
+  border: 1px solid var(--line); border-radius:var(--r-1);
   background: rgba(5,7,10,.8); pointer-events: none;
 }
-.tk-help { color: var(--ink-2); font-size: 12px; margin: 10px 2px 0; }
+.tk-help { color: var(--ink-2); font-size:var(--fs-2); margin: 10px 2px 0; }
 .tk-help b { color: var(--ink); font-weight: 800; margin-right: 6px; }
 .tk-help b + b { margin-left: 18px; }
 /* 利用規約に沿った素材クレジット。目立たせる必要はないが、隠しはしない */
-.tk-credit { color: #5c6873; font-size: 10.5px; margin: 6px 2px 0; line-height: 1.7; }
+.tk-credit { color: #5c6873; font-size:var(--fs-1); margin: 6px 2px 0; line-height: 1.7; }
 .tk-credit a { color: inherit; }
 
 /* 右の表示エリア。中身は一度にひとつしか出ないので、ヘッダの下に貼り付けておく */
@@ -170,7 +187,7 @@ button { font-family: inherit; }
 .tk-toast {
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
   background: rgba(5,7,10,.9); border: 1px solid var(--line);
-  border-radius: 8px; padding: 7px 16px; font-size: 13px; white-space: nowrap;
+  border-radius:var(--r-1); padding: 7px 16px; font-size:var(--fs-3); white-space: nowrap;
 }
 
 /* ---------- 方向パッド（スマホ） ---------- */
@@ -183,8 +200,8 @@ button { font-family: inherit; }
   }
   .tk-pad button {
     background: rgba(23,28,33,.92); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 9px;
-    font-size: 15px; cursor: pointer;
+    border: 1px solid var(--line); border-radius:var(--r-1);
+    font-size:var(--fs-4); cursor: pointer;
   }
   .tk-pad [data-dir="up"]    { grid-area: 1 / 2; }
   .tk-pad [data-dir="left"]  { grid-area: 2 / 1; }
@@ -195,23 +212,23 @@ button { font-family: inherit; }
 /* ---------- パネル共通 ---------- */
 .tk-panel {
   background: var(--panel);
-  border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 16px;
+  border: 1px solid var(--line); border-radius:var(--r-2); padding: 18px 18px 16px;
 }
 .tk-panel h2 {
-  font-family: var(--serif); font-size: 19px; font-weight: 600;
+  font-family: var(--serif); font-size:var(--fs-5); font-weight: 600;
   margin: 0 0 10px; letter-spacing: .04em;
 }
-.tk-intro { color: var(--ink-2); font-size: 12.5px; margin: 0 0 16px; }
+.tk-intro { color: var(--ink-2); font-size:var(--fs-2); margin: 0 0 16px; }
 
 /* ---------- 待機中：達成状況と凡例 ---------- */
 .tk-goal {
   background: var(--panel2); border: 1px solid var(--line);
-  border-radius: 8px; padding: 9px 12px; margin-bottom: 14px;
+  border-radius:var(--r-1); padding: 9px 12px; margin-bottom: 14px;
 }
 .tk-goal-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.tk-goal-row span { font-size: 12.5px; font-weight: 700; }
-.tk-goal-row b { font-size: 15px; font-weight: 800; }
-.tk-goal em { display: block; font-style: normal; color: var(--ink-2); font-size: 11px; margin-top: 2px; }
+.tk-goal-row span { font-size:var(--fs-2); font-weight: 700; }
+.tk-goal-row b { font-size:var(--fs-4); font-weight: 800; }
+.tk-goal em { display: block; font-style: normal; color: var(--ink-2); font-size:var(--fs-2); margin-top: 2px; }
 .tk-goal.is-done { border-color: var(--amber); }
 .tk-goal.is-done b, .tk-goal.is-done em { color: var(--amber); }
 
@@ -219,27 +236,27 @@ button { font-family: inherit; }
 .tk-result { display: grid; gap: 6px; margin-bottom: 14px; }
 .tk-result > div {
   display: flex; justify-content: space-between; gap: 12px;
-  font-size: 12.5px; padding-bottom: 5px; border-bottom: 1px solid var(--line);
+  font-size:var(--fs-2); padding-bottom: 5px; border-bottom: 1px solid var(--line);
 }
 .tk-result > div:last-child { border-bottom: 0; padding-bottom: 0; }
 .tk-result span { color: var(--ink-2); }
 .tk-result b { font-weight: 700; text-align: right; }
 
 /* ---------- 凡例 ---------- */
-.tk-legend { display: grid; gap: 8px; font-size: 12.5px; }
+.tk-legend { display: grid; gap: 8px; font-size:var(--fs-2); }
 .tk-legend div { display: flex; align-items: center; gap: 10px; }
-.tk-legend em { color: var(--ink-2); font-style: normal; font-size: 11.5px; margin-left: auto; }
+.tk-legend em { color: var(--ink-2); font-style: normal; font-size:var(--fs-2); margin-left: auto; }
 /* 凡例の絵は実際のスプライトをそのまま描く */
 .tk-legend canvas {
   width: 32px; height: 32px; flex: none;
   image-rendering: pixelated;
-  background: #3b3324; border-radius: 4px;
+  background: #3b3324; border-radius:var(--r-1);
 }
 
 /* ---------- ログ（新しい行が上） ---------- */
 .tk-log {
-  background: #0b0e11; border: 1px solid var(--line); border-radius: 8px;
-  padding: 12px 14px; font-size: 13px; line-height: 1.95;
+  background: #0b0e11; border: 1px solid var(--line); border-radius:var(--r-1);
+  padding: 12px 14px; font-size:var(--fs-3); line-height: 1.95;
   max-height: 200px; overflow-y: auto; margin-bottom: 14px;
 }
 .tk-log p { margin: 0; }
@@ -255,9 +272,9 @@ button { font-family: inherit; }
 .tk-panel > *:last-child { margin-bottom: 0; }
 .tk-btn {
   background: var(--panel2); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 8px;
-  padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
-  transition: background .15s, border-color .15s, color .15s;
+  border: 1px solid var(--line); border-radius:var(--r-1);
+  padding: 8px 16px; font-size:var(--fs-3); font-weight: 700; cursor: pointer;
+  transition: background var(--t), border-color var(--t), color var(--t);
 }
 .tk-btn:hover:not(:disabled) { background: #2b343d; }
 .tk-btn:disabled { opacity: .4; cursor: default; }
@@ -268,22 +285,22 @@ button { font-family: inherit; }
 .tk-parts { display: grid; gap: 8px; margin-bottom: 14px; }
 .tk-part {
   display: grid; grid-template-columns: 1fr auto auto; gap: 5px 10px;
-  align-items: center; font-size: 13px;
+  align-items: center; font-size:var(--fs-3);
   background: var(--panel2); border: 1px solid var(--line);
-  border-radius: 8px; padding: 8px 11px;
+  border-radius:var(--r-1); padding: 8px 11px;
 }
 .tk-part.is-broken { opacity: .45; }
 .tk-part-name { grid-row: 1; grid-column: 1; font-weight: 700; }
-.tk-part-num  { grid-row: 1; grid-column: 2; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; }
+.tk-part-num  { grid-row: 1; grid-column: 2; font-size:var(--fs-2); color: var(--ink-2); white-space: nowrap; }
 .tk-part > .tk-btn { grid-row: 1 / span 2; grid-column: 3; padding: 7px 13px; }
 .tk-part > .tk-bar { grid-row: 2; grid-column: 1 / span 2; }
-.tk-bar { display: block; height: 8px; background: #0b0e11; border-radius: 4px; overflow: hidden; }
-.tk-bar i { display: block; height: 100%; background: var(--red); border-radius: 4px; transition: width .25s; }
+.tk-bar { display: block; height: 8px; background: #0b0e11; border-radius:var(--r-1); overflow: hidden; }
+.tk-bar i { display: block; height: 100%; background: var(--red); border-radius:var(--r-1); transition: width var(--t); }
 .tk-part.is-broken .tk-bar i { background: #4a555f; }
 
 .tk-selfbar {
   display: grid; grid-template-columns: 36px 1fr auto; gap: 10px;
-  align-items: center; font-size: 12px; color: var(--ink-2); margin-bottom: 14px;
+  align-items: center; font-size:var(--fs-2); color: var(--ink-2); margin-bottom: 14px;
 }
 .tk-selfbar .tk-bar i { background: var(--green); }
 
@@ -291,8 +308,8 @@ button { font-family: inherit; }
 .tk-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
 .tk-tab {
   background: transparent; color: var(--ink-2);
-  border: 1px solid var(--line); border-radius: 7px;
-  padding: 6px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--line); border-radius:var(--r-1);
+  padding: 6px 13px; font-size:var(--fs-2); font-weight: 700; cursor: pointer;
 }
 .tk-tab.is-on { background: var(--panel2); color: var(--ink); border-color: #46525d; }
 .tk-tabbody {
@@ -305,8 +322,8 @@ button { font-family: inherit; }
 }
 
 .tk-npc { border-left: 2px solid var(--line); padding: 2px 0 2px 12px; margin-bottom: 13px; }
-.tk-npc-who { font-size: 11.5px; color: var(--amber); font-weight: 700; }
-.tk-npc p { margin: 2px 0 0; font-size: 13px; }
+.tk-npc-who { font-size:var(--fs-2); color: var(--amber); font-weight: 700; }
+.tk-npc p { margin: 2px 0 0; font-size:var(--fs-3); }
 
 .tk-item {
   display: grid; grid-template-columns: 1fr auto; gap: 4px 10px;
@@ -314,15 +331,15 @@ button { font-family: inherit; }
 }
 .tk-item:last-child { border-bottom: 0; }
 .tk-item > span:first-child { grid-row: 1 / span 2; grid-column: 1; }
-.tk-item-price { grid-row: 1; grid-column: 2; font-size: 12.5px; color: var(--amber); font-weight: 800; white-space: nowrap; text-align: right; }
-.tk-item > .tk-btn { grid-row: 2; grid-column: 2; padding: 5px 12px; font-size: 12px; }
-.tk-item-name { font-size: 13px; font-weight: 700; }
-.tk-item-desc { font-size: 11.5px; color: var(--ink-2); }
+.tk-item-price { grid-row: 1; grid-column: 2; font-size:var(--fs-2); color: var(--amber); font-weight: 800; white-space: nowrap; text-align: right; }
+.tk-item > .tk-btn { grid-row: 2; grid-column: 2; padding: 5px 12px; font-size:var(--fs-2); }
+.tk-item-name { font-size:var(--fs-3); font-weight: 700; }
+.tk-item-desc { font-size:var(--fs-2); color: var(--ink-2); }
 /* 何がいくつからいくつになるのか、と、その装備が何をするのか */
 .tk-stat-row { display: block; margin-top: 2px; }
-.tk-stat-up { color: var(--ink); font-size: 11.5px; margin-right: 12px; white-space: nowrap; }
+.tk-stat-up { color: var(--ink); font-size:var(--fs-2); margin-right: 12px; white-space: nowrap; }
 .tk-stat-up b { color: var(--green); font-weight: 800; }
-.tk-about { display: block; margin-top: 2px; color: #6f7c88; font-size: 11px; line-height: 1.65; }
+.tk-about { display: block; margin-top: 2px; color: #6f7c88; font-size:var(--fs-2); line-height: 1.65; }
 
 /* ---------- 横に並べられない幅では、右の表示エリアを下に回す ---------- */
 @media (max-width: 980px) {
@@ -331,11 +348,23 @@ button { font-family: inherit; }
   #stage { max-width: none; }
 }
 @media (max-width: 780px) {
-  .tk-hud { width: 178px; top: 8px; right: 8px; padding: 7px 9px 8px; font-size: 10.5px; }
-  .tk-gear b { font-size: 10px; }
+  .tk-hud { width: 178px; top: 8px; right: 8px; padding: 7px 9px 8px; font-size:var(--fs-1); }
+  .tk-gear b { font-size:var(--fs-1); }
   .tk-head { gap: 10px; padding: 9px 14px; }
   .tk-opt-wide { flex-direction: column; gap: 8px; }
-  .tk-title { font-size: 15px; }
+  .tk-title { font-size:var(--fs-4); }
   .tk-main { padding: 12px 14px 30px; }
   .tk-panel { padding: 16px 15px 14px; }
+}
+
+/* 押した手応え。基準：操作には必ず反応を返す */
+.tk-btn{transition:background var(--t),border-color var(--t),transform var(--t)}
+.tk-btn:active{transform:translateY(1px)}
+
+/* オーバーレイのボタンはタップ領域を確保する（基準：min-height 40px） */
+.tk-modal .tk-btn{min-height:40px}
+
+/* 動きを減らす設定を尊重する */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;animation-iteration-count:1 !important}
 }

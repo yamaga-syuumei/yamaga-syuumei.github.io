@@ -22,25 +22,52 @@
 html,body{margin:0;height:100%;background:#000;overflow:hidden}
 body{cursor:none}
 body.ui-on{cursor:default}
+
+  /* 形・動き・文字サイズ。サイト側と同じ基準に合わせている。
+     値の一覧と、参照作品の実測値は website/_styleguide/index.html を見ること。
+     新しい値を足さず、ここから選ぶ。 */
+  --r-1:4px;        /* ボタン、小さい面 */
+  --r-2:14px;       /* 盤面、パネル */
+  --r-pill:999px;   /* 完全な丸端 */
+
+  --t:.16s ease-out;
+
+  --fs-1:10px;
+  --fs-2:12px;
+  --fs-3:14px;
+  --fs-4:15px;
+  --fs-5:18px;
+  --fs-6:24px;
+  --fs-7:30px;
 :root{--fg:#e6edf5;--dim:#8a97a8;--line:#2a3a4e;--accent:#7fd4ff}
-.ui-btn{background:#101823;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font:13px/1.4 system-ui,sans-serif;cursor:pointer;text-decoration:none;white-space:nowrap}
+.ui-btn{background:#101823;color:var(--fg);border:1px solid var(--line);border-radius:var(--r-1);padding:6px 12px;font:13px/1.4 system-ui,sans-serif;cursor:pointer;text-decoration:none;white-space:nowrap}
 .ui-btn:hover{border-color:var(--accent);color:var(--accent)}
 .ui-btn-p{background:#16354d;border-color:#2f6f95}
-.ui-gear{position:fixed;top:12px;right:12px;padding:7px;display:flex;opacity:0;pointer-events:none;transition:opacity .4s}
+.ui-gear{position:fixed;top:12px;right:12px;padding:7px;display:flex;opacity:0;pointer-events:none;transition:opacity var(--t)}
 .ui-gear::before{content:"";width:20px;height:20px;background:currentColor;-webkit-mask:url(/img/icon-settings.png) center / contain no-repeat;mask:url(/img/icon-settings.png) center / contain no-repeat}
 body.ui-on .ui-gear{opacity:.85;pointer-events:auto}
 .ui-ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)}
 .ui-ov[hidden]{display:none}
-.ui-panel{box-sizing:border-box;width:min(420px,calc(100vw - 32px));background:rgba(10,16,26,.94);border:1px solid var(--line);border-radius:12px;padding:20px 22px;color:var(--fg);font:14px/1.6 system-ui,sans-serif}
-.ui-panel h2{margin:0 0 6px;font-size:17px}
-.ui-tag{margin:0 0 14px;color:var(--dim);font-size:13px}
-.ui-link{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.ui-link b{display:block;font-size:13px}
-.ui-link span{display:block;margin-top:2px;font-size:12px;color:var(--dim)}
+.ui-panel{box-sizing:border-box;width:min(420px,calc(100vw - 32px));background:rgba(10,16,26,.94);border:1px solid var(--line);border-radius:var(--r-2);padding:20px 22px;color:var(--fg);font:14px/1.6 system-ui,sans-serif}
+.ui-panel h2{margin:0 0 6px;font-size:var(--fs-5)}
+.ui-tag{margin:0 0 14px;color:var(--dim);font-size:var(--fs-3)}
+.ui-link{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:var(--r-1);padding:10px 12px}
+.ui-link b{display:block;font-size:var(--fs-3)}
+.ui-link span{display:block;margin-top:2px;font-size:var(--fs-2);color:var(--dim)}
 .ui-btns{display:flex;justify-content:center;margin-top:14px}
 body{display:flex;align-items:center;justify-content:center}
 canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 #dbg{position:fixed;left:8px;top:8px;font:12px/1.5 monospace;color:#8f8;background:rgba(0,0,0,.65);padding:6px 9px;white-space:pre;display:none;pointer-events:none}
+
+/* 押した手応え。基準：操作には必ず反応を返す */
+.ui-btn{transition:background var(--t),border-color var(--t),transform var(--t)}
+.ui-btn:active{transform:translateY(1px)}
+.ui-btn{min-height:40px}
+
+/* 動きを減らす設定を尊重する */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;animation-iteration-count:1 !important}
+}
 </style>
 </head>
 <body>
