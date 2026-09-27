@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>見本表 | ヒノガタリ</title>
+
+<!-- サイト本体と同じCSSを読む。部品は本番とまったく同じ見た目で出る -->
+<link rel="stylesheet" href="../assets/style.css">
+
+<style>
+/* 見本表そのものの体裁。サイトのCSSと衝突しないよう sg- 接頭辞で閉じる */
+.sg-bar{position:sticky;top:0;z-index:50;background:#101418;color:#fff;padding:10px 16px;
+  font:13px/1.5 ui-monospace,Consolas,monospace;display:flex;gap:16px;flex-wrap:wrap;align-items:baseline}
+.sg-bar b{font-weight:700}
+.sg-bar span{color:#98a2b3}
+.sg-body{max-width:1100px;margin:0 auto;padding:0 16px 80px}
+.sg-note{background:#fff8e6;border:1px solid #e8d9a8;padding:12px 14px;margin:20px 0;
+  font:13px/1.7 ui-monospace,Consolas,monospace;color:#5a4a1f}
+.sg-sec{margin:44px 0 0;padding-top:20px;border-top:2px solid #101418}
+.sg-sec > h2{font:700 15px/1.4 ui-monospace,Consolas,monospace;letter-spacing:.08em;
+  margin:0 0 4px;color:#101418;text-transform:uppercase;border:0;padding:0}
+.sg-sec > p.sg-lead{font:13px/1.7 system-ui,sans-serif;color:#667081;margin:0 0 18px}
+.sg-item{margin:22px 0 0;border:1px dashed #cbd3dd}
+.sg-item > figcaption{font:12px/1.5 ui-monospace,Consolas,monospace;color:#5b6675;
+  background:#f4f6f9;border-bottom:1px dashed #cbd3dd;padding:6px 10px;display:flex;gap:12px;flex-wrap:wrap}
+.sg-item > figcaption b{color:#101418;font-weight:700}
+.sg-item > figcaption em{font-style:normal;color:#8a94a3}
+.sg-stage{padding:18px 16px;background:#fff}
+.sg-stage.on-gray{background:#f4f6f9}
+.sg-stage.flush{padding:0}
+.sg-swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.sg-sw{border:1px solid #dde3ea}
+.sg-sw i{display:block;height:54px}
+.sg-sw span{display:block;padding:6px 8px;font:12px/1.5 ui-monospace,Consolas,monospace;color:#414a56}
+.sg-sw span em{display:block;font-style:normal;color:#8a94a3}
+.sg-type p{margin:0 0 10px}
+
+/* 現状と基準の併記。基準は参照作品の実測値 */
+.sg-std{font:12px/1.7 ui-monospace,Consolas,monospace;border-top:1px dashed #cbd3dd}
+.sg-std > div{padding:7px 10px;display:flex;gap:10px;align-items:baseline}
+.sg-std > div > b{flex:0 0 34px;font-weight:700}
+.sg-now{background:#fff;color:#5b6675}
+.sg-now > b{color:#101418}
+.sg-ref{background:#f0f6ff;color:#2a4d77;border-top:1px solid #dbe8f7}
+.sg-ref > b{color:#1667d6}
+.sg-std u{text-decoration:none;color:#c0392b;font-weight:700}
+
+.sg-table{width:100%;border-collapse:collapse;font:12px/1.6 ui-monospace,Consolas,monospace;margin:0}
+.sg-table th,.sg-table td{border:1px solid #dde3ea;padding:7px 10px;text-align:left}
+.sg-table thead th{background:#101418;color:#fff;font-weight:700}
+.sg-table td:nth-child(2){color:#c0392b}
+.sg-table td:nth-child(3){color:#1667d6}
+.sg-table tr.ok td:nth-child(2){color:#2b7a4b}
+</style>
+</head>
+<body>
+
+<div class="sg-bar">
+  <b>見本表 / styleguide</b>
+  <span>website/_styleguide/index.html</span>
+  <span>CSS: ../assets/style.css</span>
+  <span>公開されません（_ 始まりは deploy 時に除去）</span>
+</div>
+
+<div class="sg-body">
+
+<div class="sg-note">
+第3版。工程2（不揃いの解消）を assets/style.css に反映済み。サイト本体の部品を並べ、
+各部品に<b>基準</b>を併記したもの。基準は参照作品の実測値で、赤字が<b>残っている差分</b>。<br>
+参照：<b>Wordle</b>（hello wordl / CSS全45ルールを実測）、<b>Magic Cat Academy</b>（Google Doodle 2016 / 読込実測）、<b>デジタル庁デザインシステム</b>（構成の分類）。
+</div>
+
+<div class="sg-note" style="background:#f4f6f9;border-color:#cbd3dd;color:#414a56">
+<b>工程2で解消したもの</b>：角丸 14種→3トークン（--r-1 / --r-2 / --r-pill）、transition 12通り→1トークン（--t .16s ease-out）、font-size 26種→8段階（--fs-1〜7 + --fs-display）。<br>
+<b>残っているもの</b>：ダークモード未対応、色44種、ラベル5種の役割重複（HTML側の変更が要る）、リスト系（.novel / .post-item）の面の扱い、ボタンの min-height、clamp() 2箇所。
+</div>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>00 全体の実測</h2>
+  <p class="sg-lead">assets/style.css 全体と、参照作品の突き合わせ。</p>
+  <figure class="sg-item">
+    <figcaption><b>総括</b><em>数値はすべて実測</em></figcaption>
+    <div class="sg-stage">
+      <table class="sg-table">
+        <thead><tr><th>項目</th><th>現状（assets/style.css）</th><th>基準（Wordle）</th></tr></thead>
+        <tbody>
+          <tr><td>CSSルール数</td><td>221</td><td>45</td></tr>
+          <tr class="ok"><td>角丸の種類</td><td>3トークン（--r-1 4px / --r-2 14px / --r-pill 999px）</td><td>1種（4px）</td></tr>
+          <tr class="ok"><td>transition</td><td>1トークン（--t .16s ease-out）</td><td>1種（background-color .3s ease-out）</td></tr>
+          <tr class="ok"><td>@keyframes</td><td>0（一致）</td><td>0</td></tr>
+          <tr><td>font-size の種類</td><td>8段階（--fs-1〜--fs-7 + --fs-display）＋ clamp 2箇所</td><td>3段階（16 / 20 / 28px）</td></tr>
+          <tr><td>色の種類</td><td>44</td><td>約10</td></tr>
+          <tr><td>色覚異常への対応</td><td>なし</td><td>あり（配色を差し替えるモード）</td></tr>
+          <tr><td>ダークモード</td><td>なし</td><td>あり（ライト/ダーク両対応）</td></tr>
+          <tr class="ok"><td>書体</td><td>システムフォント（一致）</td><td>システムフォント</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sg-std">
+      <div class="sg-ref"><b>基準</b><span>Wordle は<b>足して質を出していない</b>。角丸1種・トランジション1種・状態色3種に絞りきることで成立している。45ルールで1本のゲームが動く。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>工程3（ゲーム部品）向けの基準</b><em>Magic Cat Academy / Google Doodle 2016</em></figcaption>
+    <div class="sg-stage">
+      <table class="sg-table">
+        <thead><tr><th>項目</th><th>実測値</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td>canvas 解像度</td><td>640×360 固定（CSSで465pxに縮小表示）</td><td>内部解像度を固定し、表示はCSSで伸縮</td></tr>
+          <tr><td>初期ロード</td><td>4ファイル / 207KB</td><td>本編アセットは後読み。初期表示を最速に</td></tr>
+          <tr><td>最大のファイル</td><td>音声 83KB（全体の40%）</td><td>容量の最大枠を音に割いている</td></tr>
+          <tr><td>画像</td><td>スプライトシート</td><td>個別画像を並べない</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>01 Tokens / 色</h2>
+  <p class="sg-lead">assets/style.css の :root で定義されている値。</p>
+
+  <figure class="sg-item">
+    <figcaption><b>地</b><em>--bg / --bg-2 / --bg-3 / --card</em></figcaption>
+    <div class="sg-stage">
+      <div class="sg-swatches">
+        <div class="sg-sw"><i style="background:var(--bg)"></i><span>--bg<em>#ffffff</em></span></div>
+        <div class="sg-sw"><i style="background:var(--bg-2)"></i><span>--bg-2<em>#f4f6f9</em></span></div>
+        <div class="sg-sw"><i style="background:var(--bg-3)"></i><span>--bg-3<em>#e9edf3</em></span></div>
+        <div class="sg-sw"><i style="background:var(--card)"></i><span>--card<em>#ffffff</em></span></div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>地は4トークン。ただし <u>--bg と --card が同じ #ffffff</u> で、値としては3種。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は地2色（ライト #EEEEEE / ダーク #404040）。<u>ダークの定義が無い</u>のが差分。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>文字</b><em>--ink / --ink-2 / --ink-3</em></figcaption>
+    <div class="sg-stage">
+      <div class="sg-swatches">
+        <div class="sg-sw"><i style="background:var(--ink)"></i><span>--ink<em>#101418</em></span></div>
+        <div class="sg-sw"><i style="background:var(--ink-2)"></i><span>--ink-2<em>#414a56</em></span></div>
+        <div class="sg-sw"><i style="background:var(--ink-3)"></i><span>--ink-3<em>#667081</em></span></div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>3段階（本文 / 補助 / ラベル）。用途がコメントで明記されている。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は文字2色（通常 / 反転 #ffffff）。3段階は用途が分かれているので維持で問題なし。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>罫</b><em>--rule / --rule-2</em></figcaption>
+    <div class="sg-stage">
+      <div class="sg-swatches">
+        <div class="sg-sw"><i style="background:var(--rule)"></i><span>--rule<em>#dde3ea</em></span></div>
+        <div class="sg-sw"><i style="background:var(--rule-2)"></i><span>--rule-2<em>#eef1f5</em></span></div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>2段階。区切り用。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle はボーダーを<b>状態の表現</b>に使う（solid / dotted / 透明）。区切り用の罫は持たない。役割が違うので比較対象外。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>差し色</b><em>朱=ゲーム / 青=小説 / 琥珀=日付・番号</em></figcaption>
+    <div class="sg-stage">
+      <div class="sg-swatches">
+        <div class="sg-sw"><i style="background:var(--red)"></i><span>--red<em>#e03919</em></span></div>
+        <div class="sg-sw"><i style="background:var(--red-dark)"></i><span>--red-dark<em>#b52a0f</em></span></div>
+        <div class="sg-sw"><i style="background:var(--red-soft)"></i><span>--red-soft<em>#ffece8</em></span></div>
+        <div class="sg-sw"><i style="background:var(--blue)"></i><span>--blue<em>#1667d6</em></span></div>
+        <div class="sg-sw"><i style="background:var(--blue-dark)"></i><span>--blue-dark<em>#0f4da3</em></span></div>
+        <div class="sg-sw"><i style="background:var(--blue-soft)"></i><span>--blue-soft<em>#e8f0fe</em></span></div>
+        <div class="sg-sw"><i style="background:var(--amber)"></i><span>--amber<em>#b26a00</em></span></div>
+        <div class="sg-sw"><i style="background:var(--amber-soft)"></i><span>--amber-soft<em>#fff3dd</em></span></div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>8トークン（朱3 / 青3 / 琥珀2）。意味づけ（ゲーム / 小説 / 日付）が明示されていて、軸としては明快。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は状態色3種（正解 #57AC78 / 位置違い #E9C601 / 不在 #A2A2A2）に加えて、<u>色覚異常モードで2色を差し替える</u>（オレンジ #F5793A / 青 #85C0F9）。この差し替えが現状には無い。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>影</b><em>--sh-1 / --sh-2</em></figcaption>
+    <div class="sg-stage on-gray">
+      <div class="sg-swatches">
+        <div class="sg-sw" style="border:0;background:#fff;box-shadow:var(--sh-1)"><i></i><span>--sh-1<em>通常のカード</em></span></div>
+        <div class="sg-sw" style="border:0;background:#fff;box-shadow:var(--sh-2)"><i></i><span>--sh-2<em>浮かせる面</em></span></div>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>2段階。それぞれ2枚の影を重ねている。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は影を<b>1つも使わない</b>。面の分離はボーダーと余白だけで行っている。2段階は多くないが、影で解決している箇所が余白で済むかは要検討。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>02 Tokens / 書体</h2>
+  <figure class="sg-item">
+    <figcaption><b>--sans</b><em>Hiragino Kaku Gothic ProN / Yu Gothic / Meiryo / system-ui</em></figcaption>
+    <div class="sg-stage sg-type">
+      <p style="font-family:var(--sans);font-size:28px;color:var(--ink)">ヒノガタリ / フリーゲームと無料WEB小説</p>
+      <p style="font-family:var(--sans);font-size:16px;color:var(--ink-2)">ブラウザでそのまま遊べるフリーゲーム。ダウンロードも会員登録も要りません。</p>
+      <p style="font-family:var(--sans);font-size:13px;color:var(--ink-3)">補助テキスト。ラベルや注釈に使う。</p>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>システムフォント。font-size は <b>8段階のトークン</b>（--fs-1〜7 + --fs-display）に集約済み。0.5px刻みは解消。残るのは <u>clamp() 2箇所</u>（レスポンシブ見出し）。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は<b>3段階（16 / 20 / 28px）</b>。書体の選択は同じシステムフォントなので、差は<b>段階の数だけ</b>。ここが最大の差分。</span></div>
+    </div>
+  </figure>
+  <figure class="sg-item">
+    <figcaption><b>--serif</b><em>Hiragino Mincho ProN / Yu Mincho / MS PMincho</em></figcaption>
+    <div class="sg-stage sg-type">
+      <p style="font-family:var(--serif);font-size:28px;color:var(--ink)">異世界らぶらぶハーレム日記</p>
+      <p style="font-family:var(--serif);font-size:16px;color:var(--ink-2)">家の隙間のお茶会 / 童話・短編</p>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>小説に明朝を当てて、ゲームと書体で分けている。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は1ファミリのみ。ただし小説とゲームの区別は<b>意味のある分離</b>なので、2ファミリは維持でよい。サイズ段階だけ共通化する。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>03 Header / Footer</h2>
+  <p class="sg-lead">全ページ共通。</p>
+
+  <figure class="sg-item">
+    <figcaption><b>header</b><em>.logo / .logo-name / .logo-circle / .head-right / .head-x / .nav-r18</em><em>index / blog / news / r18</em></figcaption>
+    <div class="sg-stage flush">
+      <header>
+        <div class="wrap">
+          <a href="#" class="logo">
+            <span class="logo-name">ヒノガタリ</span>
+            <span class="logo-circle">山賀秀明</span>
+          </a>
+          <div class="head-right">
+            <nav>
+              <a href="#">お知らせ</a>
+              <a href="#">ブラウザゲーム</a>
+              <a href="#">ゲーム</a>
+              <a href="#">小説</a>
+              <a href="#">ブログ</a>
+              <a href="#">このサイトについて</a>
+              <span class="nav-sep"></span>
+              <a class="nav-r18" href="#">ゲーム<b>R18</b></a>
+              <a class="nav-r18" href="#">小説<b>R18</b></a>
+            </nav>
+            <a class="head-x" href="#" aria-label="X">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </a>
+          </div>
+        </div>
+      </header>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>ナビのリンクに transition あり。サイト全体で <b>--t（.16s ease-out）1種</b>に統一済み。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は <b>.3s ease-out 1種類のみ</b>を全体に効かせている。duration を1〜2種に寄せる。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>footer</b><em>.foot-name</em></figcaption>
+    <div class="sg-stage flush">
+      <footer>
+        <div class="wrap">
+          <span class="foot-name">ヒノガタリ</span>
+        </div>
+      </footer>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>名義のみ。濃い色でページを締める設計（CSSにコメントあり）。</span></div>
+      <div class="sg-ref"><b>基準</b><span>該当なし（Wordleにフッターは無い）。意図が明記されているので維持。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>04 Section head</h2>
+  <p class="sg-lead">テーマ色で3種類。--theme を差し替えて使い分けている。</p>
+
+  <figure class="sg-item">
+    <figcaption><b>.theme-red</b><em>.sec-head / .sec-num / .sec-ja / .sec-rule / .sec-note</em><em>ゲーム系セクション</em></figcaption>
+    <div class="sg-stage flush"><div class="wrap theme-red" style="padding:18px 16px">
+      <div class="sec-head">
+        <span class="sec-num">02</span>
+        <h2>Browser Games</h2>
+        <span class="sec-ja">ブラウザゲーム</span>
+        <span class="sec-rule"></span>
+      </div>
+      <p class="sec-note">ブラウザでそのまま遊べるフリーゲーム。ダウンロードも会員登録も要りません。</p>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>1つの見出しに要素が5つ（番号 / 英字 / 和文 / 罫 / 注釈）。</span></div>
+      <div class="sg-ref"><b>基準</b><span>デジタル庁の分類では、これは<b>コンポーネント</b>にあたる。色をテーマで差し替える設計はサイト固有の判断として妥当。<u>3テーマ×3トークン=9色</u>が差し色8トークンの内訳を占めている点だけ、色数の観点で要確認。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>.theme-indigo</b><em>+ .sec-count</em><em>小説セクション</em></figcaption>
+    <div class="sg-stage flush"><div class="wrap theme-indigo" style="padding:18px 16px">
+      <div class="sec-head">
+        <span class="sec-num">04</span>
+        <h2>Novels</h2>
+        <span class="sec-ja">小説</span>
+        <span class="sec-rule"></span>
+        <span class="sec-count">全17作品</span>
+      </div>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>.sec-count が付く版。要素が6つになる。</span></div>
+      <div class="sg-ref"><b>基準</b><span>デジタル庁はコンポーネントごとに<b>「どの要素が必須か」</b>を明記している。現状は任意要素の有無が暗黙。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>.theme-amber</b><em>お知らせ / ブログ / このサイトについて</em></figcaption>
+    <div class="sg-stage flush"><div class="wrap theme-amber" style="padding:18px 16px">
+      <div class="sec-head">
+        <span class="sec-num">01</span>
+        <h2>News</h2>
+        <span class="sec-ja">お知らせ</span>
+        <span class="sec-rule"></span>
+      </div>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>琥珀は3セクションで共有（お知らせ / ブログ / About）。</span></div>
+      <div class="sg-ref"><b>基準</b><span>1テーマを複数用途で使い回している。色数を絞る観点では良い方向。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>05 News</h2>
+  <figure class="sg-item">
+    <figcaption><b>.news.news-compact</b><em>.news-item / .news-date / .news-body / .news-tag</em><em>index.html（トップは1行に切り詰め）</em></figcaption>
+    <div class="sg-stage flush"><div class="wrap theme-amber" style="padding:18px 16px">
+      <div class="news news-compact">
+        <div class="news-item">
+          <span class="news-date">2026.09.27</span>
+          <span class="news-body"><span class="news-tag">作品</span>新作「サバンナの一日」を公開しました。ライオンや群れが暮らすサバンナを眺める作品です。</span>
+        </div>
+        <div class="news-item">
+          <span class="news-date">2026.09.24</span>
+          <span class="news-body"><span class="news-tag">ゲーム</span>新作「錬金工場と魔法のお店」を公開しました。掘って錬成して売る、送り道が交差できない工場ゲームです。</span>
+        </div>
+      </div>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>.news-tag の角丸は <b>--r-1</b>。日付は琥珀。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle の角丸は<b>4px 1種類</b>。この部品だけ見れば一致している。他のラベルも --r-1 に統一済み（11番を参照）。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>.news</b><em>切り詰めなし</em><em>news.html</em></figcaption>
+    <div class="sg-stage flush"><div class="wrap theme-amber" style="padding:18px 16px">
+      <div class="news">
+        <div class="news-item">
+          <span class="news-date">2026.09.21</span>
+          <span class="news-body"><span class="news-tag">ゲーム</span>新作「コリジョン・シューティングスター」を公開しました。彗星で隕石を砕くアクションです。</span>
+        </div>
+      </div>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>同じ部品の variant。クラス1つで切り替わる作りになっている。</span></div>
+      <div class="sg-ref"><b>基準</b><span>variant をクラスで切り替える構造はデザインシステム的に正しい。この作りを他の部品にも広げたい。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>06 Card / ブラウザゲーム</h2>
+  <figure class="sg-item">
+    <figcaption><b>.card.wg-more.has-thumb</b><em>.card-thumb / .card-body / .card-head / .card-title / .badge / .card-desc</em><em>index.html</em></figcaption>
+    <div class="sg-stage on-gray flush"><div class="wrap theme-red" style="padding:18px 16px">
+      <div class="wg-more-grid">
+        <a class="card wg-more has-thumb" href="#">
+          <img class="card-thumb" src="../img/thumbnail-savanna.png" alt="サバンナの一日" width="1200" height="675">
+          <div class="card-body">
+            <div class="card-head">
+              <span class="card-title">サバンナの一日</span>
+              <span class="badge">眺める作品</span>
+            </div>
+            <div class="card-desc">サバンナの朝から夜までを90秒でくり返すピクセルアート。ライオンが忍び寄れば群れが逃げ、水場ではゾウが水を浴び、夜にはハイエナが現れます。</div>
+          </div>
+        </a>
+        <a class="card wg-more has-thumb" href="#">
+          <img class="card-thumb" src="../img/thumbnail-alchemy.png" alt="錬金工場と魔法のお店" width="1200" height="675">
+          <div class="card-body">
+            <div class="card-head">
+              <span class="card-title">錬金工場と魔法のお店</span>
+              <span class="badge">パズル</span>
+            </div>
+            <div class="card-desc">掘って錬成して売る、送り道が交差できない工場ゲーム。</div>
+          </div>
+        </a>
+      </div>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>カード <b>--r-2</b> の中にバッジ <b>--r-1</b>。面とラベルで役割を分けた2値に整理済み。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は全体で <b>4px 1種類</b>。入れ子でも同じ値を使う。角丸は「大きさで階層を出す」より「1つに統一する」ほうが揃って見える。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>07 Work / 頒布作品</h2>
+  <figure class="sg-item">
+    <figcaption><b>.work.has-thumb</b><em>.work-thumb / .work-body / .work-title / .work-meta / .links / .store</em><em>index.html / r18.html</em></figcaption>
+    <div class="sg-stage flush"><div class="wrap theme-red" style="padding:18px 16px">
+      <div class="works">
+        <article class="work has-thumb">
+          <img class="work-thumb" src="../img/yakusoku-kouhaihen.jpg" alt="約束を守って褒められるシリーズ 後輩編" width="560" height="420">
+          <div class="work-body">
+            <h3 class="work-title">約束を守って褒められるシリーズ 後輩編</h3>
+            <p class="work-meta">アドベンチャー／全年齢</p>
+            <div class="links">
+              <a class="store" href="#">DLsite</a>
+              <a class="store" href="#">FANZA</a>
+            </div>
+          </div>
+        </article>
+        <a class="work locked" href="#">
+          <h3 class="work-title">成人向けゲーム <span class="pickup" data-r18>R-18</span></h3>
+          <p class="work-meta">VR・脱出ゲーム・音声作品など 6作品</p>
+          <p class="locked-cta">年齢確認へ進む →</p>
+        </a>
+      </div>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>カード <b>--r-2</b> / ストアボタン <b>--r-1</b> / ピックアップ <b>--r-1</b>。3値から2値に整理済み。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は 4px のみ。さらに <u>.work.locked</u> は「押せる」ことをテキスト（→）だけで示している。Wordle は<b>ボーダー形状</b>でも状態を伝えていて、色やテキストへの依存を避けている。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>08 Novel / 番号付きリスト</h2>
+  <figure class="sg-item">
+    <figcaption><b>.novel-list</b><em>.novel / .novel-num / .novel-title / .pickup / .novel-meta / .novel-links / .store</em><em>index.html / r18.html</em></figcaption>
+    <div class="sg-stage flush"><div class="wrap theme-indigo" style="padding:18px 16px">
+      <div class="novel-list">
+        <div class="novel">
+          <span class="novel-num">01</span>
+          <h3 class="novel-title">異世界らぶらぶハーレム日記 <span class="pickup">代表作</span></h3>
+          <p class="novel-meta">ハイファンタジー／全92話・完結／R15</p>
+          <span class="novel-links"><a class="store" href="#">なろう</a></span>
+        </div>
+        <div class="novel">
+          <span class="novel-num">02</span>
+          <h3 class="novel-title">家の隙間のお茶会 <span class="pickup">新作</span></h3>
+          <p class="novel-meta">童話／短編</p>
+          <span class="novel-links">
+            <a class="store" href="#">なろう</a>
+            <a class="store" href="#">カクヨム</a>
+          </span>
+        </div>
+      </div>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>.novel 自体は<u>角丸なし</u>のまま。中のストアとピックアップは --r-1。<u>面の扱いがカード系と違う点は未解消</u>。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は面を持つ要素すべてに同じ 4px を当てている。「リストだから角丸なし / カードだから14px」という使い分けは、揃って見えない原因になる。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>09 Blog</h2>
+  <figure class="sg-item">
+    <figcaption><b>.post-list</b><em>.post-item / .post-date</em><em>index.html / blog.html</em></figcaption>
+    <div class="sg-stage flush"><div class="wrap theme-amber" style="padding:18px 16px">
+      <div class="post-list">
+        <a class="post-item" href="#">
+          <div class="post-date">2026.09.27</div>
+          <h3>サンゴ礁とサバンナの一日を、眺めるだけの作品にした</h3>
+        </a>
+        <a class="post-item" href="#">
+          <div class="post-date">2026.09.07</div>
+          <h3>ガレージのゲームを作り直した話</h3>
+        </a>
+      </div>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>.post-item も<u>角丸なし</u>のまま。<u>リスト系に面を与えるかは未決定</u>。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle は 4px 1種。ここも統一対象。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>10 Buttons / Links</h2>
+  <figure class="sg-item">
+    <figcaption><b>.btn</b><em>.btn-primary / .btn-secondary</em><em>r18.html の年齢確認のみ</em></figcaption>
+    <div class="sg-stage">
+      <div class="gate-actions" style="margin:0">
+        <button type="button" class="btn btn-primary">18歳以上です（進む）</button>
+        <a class="btn btn-secondary" href="#">18歳未満です（全年齢ページへ戻る）</a>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>角丸 <b>--r-1</b>。<u>サイト全体で r18.html の1箇所にしか使われていない</u>。<u>min-height は未指定</u>。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle のボタン（オンスクリーンキーボード）は角丸4px・<b>min-height 40px</b>でタップ領域を確保。現状は高さの下限指定が無い。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>.store</b><em>各ストアへの導線</em><em>index / r18</em></figcaption>
+    <div class="sg-stage">
+      <div class="links">
+        <a class="store" href="#">DLsite</a>
+        <a class="store" href="#">FANZA</a>
+        <a class="store" href="#">なろう</a>
+        <a class="store" href="#">カクヨム</a>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>角丸 <b>--r-1</b>。.btn と<b>同じ値</b>になった。</span></div>
+      <div class="sg-ref"><b>基準</b><span>押せるものは同じ形にする。Wordle はボタン形状が1種類しかない。</span></div>
+    </div>
+  </figure>
+
+  <figure class="sg-item">
+    <figcaption><b>.index-links</b><em>.index-link</em><em>各セクション末尾</em></figcaption>
+    <div class="sg-stage flush"><div class="wrap theme-red" style="padding:18px 16px">
+      <div class="index-links">
+        <a class="index-link" href="#">お知らせ一覧へ</a>
+      </div>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>押せる要素の<b>3種類目</b>（.btn / .store / .index-link）。</span></div>
+      <div class="sg-ref"><b>基準</b><span>デジタル庁は押せる要素を「ボタン」と「リンク」に分け、<b>どちらを使うかの判断基準</b>をガイドラインに書いている。現状は3種類あるが使い分けの基準が無い。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>11 ラベル類</h2>
+  <p class="sg-lead">似た役割のものが5種類ある。この見本表でいちばん差が出た箇所。</p>
+  <figure class="sg-item">
+    <figcaption><b>.tag</b> / <b>.badge</b> / <b>.pickup</b> / <b>.news-tag</b> / <b>.gate-mark</b></figcaption>
+    <div class="sg-stage">
+      <p style="margin:0 0 12px"><span class="tags"><span class="tag">ゲーム開発</span><span class="tag">VR</span><span class="tag">Live2D</span></span></p>
+      <p style="margin:0 0 12px"><span class="badge">眺める作品</span> <span class="badge">パズル</span></p>
+      <p style="margin:0 0 12px"><span class="pickup">代表作</span> <span class="pickup">新作</span> <span class="pickup" data-r18>R-18</span></p>
+      <p style="margin:0 0 12px"><span class="news-tag">作品</span> <span class="news-tag">ゲーム</span></p>
+      <p style="margin:0"><span class="gate-mark">R-18</span></p>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>5種類。角丸は<b>すべて --r-1</b>（.gate-mark のみ --r-pill）に統一済み。<u>役割の重複（分類 / 強調）は未解消</u>。HTML側のクラス変更が要る。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle のラベル相当は<b>状態3種</b>だけで、角丸は全部 4px。さらに色に加えて<b>ボーダー形状（solid / dotted / 透明）で二重に符号化</b>している。5種類を「分類（中立）」「強調（注目）」「警告（R-18）」の3役に整理し、角丸を1値に寄せるのが差分の潰し方。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>12 Profile</h2>
+  <figure class="sg-item">
+    <figcaption><b>.profile</b><em>.profile-head / .profile-name / .profile-bio / .tags / .profile-links / .pl-key / .about-text / .about-note</em><em>index.html</em></figcaption>
+    <div class="sg-stage flush"><div class="wrap theme-amber" style="padding:18px 16px">
+      <div class="about-text">
+        <p>個人サークル「ヒノガタリ」として、フリーゲームとWEB小説を作っています。</p>
+        <p class="about-note">当サイトからDLsiteの作品ページへのリンクには、アフィリエイトリンクを使用しています。リンク先は自分の作品ページで、価格や購入条件が変わることはありません。</p>
+      </div>
+      <div class="profile">
+        <div class="profile-head">
+          <h3 class="profile-name">山賀秀明<small>yamaga syuumei</small></h3>
+        </div>
+        <div class="profile-bio">
+          <p>ゲームと小説を作っています。</p>
+          <div class="tags">
+            <span class="tag">ゲーム開発</span>
+            <span class="tag">VR</span>
+            <span class="tag">アドベンチャー</span>
+            <span class="tag">脱出ゲーム</span>
+            <span class="tag">Live2D</span>
+            <span class="tag">小説</span>
+            <span class="tag">生成AI活用</span>
+          </div>
+        </div>
+        <ul class="profile-links">
+          <li><span class="pl-key">X</span><a href="#">@SyuumeiYamaga</a></li>
+          <li><span class="pl-key">DLsite</span><a href="#">ヒノガタリ</a></li>
+          <li><span class="pl-key">小説家になろう</span><a href="#">山賀秀明</a></li>
+          <li><span class="pl-key">カクヨム</span><a href="#">山賀秀明</a></li>
+        </ul>
+      </div>
+    </div></div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>.pl-key はラベルの<b>6種類目</b>にあたる（キー名の表示）。.tag は --r-1。</span></div>
+      <div class="sg-ref"><b>基準</b><span>11番のラベル整理に合わせて、.pl-key も分類ラベルへ寄せられる。</span></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ========================================================== -->
+<section class="sg-sec">
+  <h2>13 年齢確認ゲート</h2>
+  <figure class="sg-item">
+    <figcaption><b>.gate-box</b><em>.gate-mark / .gate-actions / .gate-note</em><em>r18.html</em></figcaption>
+    <div class="sg-stage on-gray">
+      <div class="gate-box" style="margin:0 auto">
+        <span class="gate-mark">R-18</span>
+        <h1>年齢確認</h1>
+        <p>このページには、成人向け（18歳以上を対象とした）作品へのリンクが含まれます。</p>
+        <p>18歳未満（高校生以下）の方の閲覧は固くお断りいたします。</p>
+        <div class="gate-actions">
+          <button type="button" class="btn btn-primary">18歳以上です（進む）</button>
+          <a class="btn btn-secondary" href="#">18歳未満です（全年齢ページへ戻る）</a>
+        </div>
+        <p class="gate-note">※ 確認結果はご利用のブラウザにのみ保存されます。</p>
+      </div>
+    </div>
+    <div class="sg-std">
+      <div class="sg-now"><b>現状</b><span>箱 <b>--r-2</b> / ボタン <b>--r-1</b> / マーク <b>--r-pill</b>。値はすべてトークン内に収まった。</span></div>
+      <div class="sg-ref"><b>基準</b><span>Wordle のモーダル相当も 4px。<u>ここは意思決定を求める画面</u>なので、デジタル庁の分類では<b>ガイドライン（アクセシビリティ）</b>が最も効く箇所。ボタンのタップ領域と、色以外での区別が要る。</span></div>
+    </div>
+  </figure>
+</section>
+
+</div>
+</body>
+</html>
