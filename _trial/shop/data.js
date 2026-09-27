@@ -301,7 +301,9 @@ window.SHOP_DATA = {
   achievements: [
     { id: 'ac_sale1',   name: '最初の一つ',       cond: { type: 'sold', n: 1 },
       text: '何かが売れた。店が始まった。' },
-    { id: 'ac_craft10', name: '工房の主',         cond: { type: 'craft', n: 10 },
+    { id: 'ac_req1',    name: '常連の頼み',       cond: { type: 'request', n: 1 },
+      text: '頼まれた品を、頼まれたとおりに渡した。' },
+    { id: 'ac_craft10', name: '工房の主',        cond: { type: 'craft', n: 10 },
       text: '10個作った。手が覚えてきた。' },
     { id: 'ac_boss1',   name: '賞金首を一体',     cond: { type: 'bossKill', n: 1 },
       text: '自分の店の商品が、賞金首を倒した。' },
@@ -312,6 +314,35 @@ window.SHOP_DATA = {
     { id: 'ac_inn',     name: '寝床の主',         cond: { type: 'facility', key: 'inn', level: 2 },
       text: '宿屋を広げた。泊まれる者が増えた。' }
   ],
+
+  /* ---------- 頼みごと ----------
+     ハンターは帰還のたびに、潜った結果から「次に欲しい物」を1つ頼む。
+     頼まれた品が棚にあれば最優先で買い、tip（価格に対する割合）をお礼に置いていく。
+     頼みは次に発つ日まで。間に合わなければ、頼みは消えて次の帰還でまた出る */
+  request: { tip: 0.2, consumables: 3 },
+
+  /* ---------- ハンターの台詞・品の物語 ----------
+     {x} は差し込み。hunters[].talk に同じキーを書くと、その組だけ差し替わる */
+  talk: {
+    first:   '手ぶらじゃ荒野は歩けねえ。{slot}をひとつ頼む',
+    broke:   '{item}が壊れちまった。代わりの{slot}を置いといてくれ',
+    pushed:  '{floor}層の{enemy}に押し返された。もっといい{slot}が要る',
+    dry:     '薬が切れて引き返した。消耗品を多めに頼む',
+    boss:    '{boss}には歯が立たなかった。{slot}次第でなんとかなる',
+    next:    '次は{dungeon}に行きたい。{slot}が良ければ届く',
+    supply:  '今の装備に文句はない。消耗品だけ切らさないでくれ',
+    fuel:    '戦車の腹が減ってる。燃料か砲弾を頼む',
+    thanks:  '頼んでた{item}、ありがたく使わせてもらう',
+    short:   '棚の{item}、欲しかったが手が出なかった',
+    missing: '頼んでた{req}は、まだ棚に無かったな。行ってくる'
+  },
+  story: {
+    kills:   '{item}で{n}体を倒した',
+    finish:  '{boss}にとどめを刺したのは、この店の{item}だった',
+    saved:   '{floors}層で{item}を飲んで持ち直した',
+    guarded: '{item}が{n}回の攻撃を受け止めた',
+    broke:   '{item}が壊れた。{made}に作り、{sold}に渡した品。{deeds}'
+  },
 
   /* ---------- 初期状態 ---------- */
   start: {

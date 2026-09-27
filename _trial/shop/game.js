@@ -66,7 +66,7 @@
       dex: { mat: {}, prod: {}, hunter: {}, dungeon: {} },
       events: {},
       ach: {},
-      counters: { sold: 0, craft: 0, bossKill: 0, soldItem: {}, boughtMat: {} },
+      counters: { sold: 0, craft: 0, bossKill: 0, request: 0, soldItem: {}, boughtMat: {} },
       matLog: {},               // 素材id → 仕入れの出所の待ち行列（来歴のもと）
       chronicle: {},            // 商品id → 売れた品が辿った道（図鑑で読む）
       opt: { autoLog: false },  // 管理室の設定
@@ -79,16 +79,7 @@
       st.matLog[k] = [];
       for (var i = 0; i < st.mats[k]; i++) st.matLog[k].push({ start: true });
     });
-    D.hunters.forEach(function (h) {
-      st.hunters[h.id] = {
-        id: h.id, gold: 300, intimacy: 0,
-        equip: { weapon: null, armor: null, tank: null, cannon: null, subgun: null, engine: null },
-        dur: {},                // 枠 → 残りの耐久。0になると壊れて外れる
-        bag: {},                // 持ち込む消耗品
-        place: 'away',          // away / town / dungeon
-        dungeon: null, back: 0
-      };
-    });
+    D.hunters.forEach(function (h) { st.hunters[h.id] = newHunter(h.id); });
     return st;
   }
 
@@ -112,13 +103,32 @@
      居ないものだけ「away（まだ来ていない）」で補う。既存の進行は壊さない */
   function fillNewHunters(st) {
     D.hunters.forEach(function (h) {
-      if (st.hunters[h.id]) return;
-      st.hunters[h.id] = {
-        id: h.id, gold: 300, intimacy: 0,
-        equip: { weapon: null, armor: null, tank: null, cannon: null, subgun: null, engine: null },
-        dur: {}, bag: {}, place: 'away', dungeon: null, back: 0
-      };
+      if (!st.hunters[h.id]) { st.hunters[h.id] = newHunter(h.id); return; }
+      var hs = st.hunters[h.id];
+      if (!hs.gear) hs.gear = {};
+      if (!hs.pack) {
+        hs.pack = [];
+        Object.keys(hs.bag || {}).forEach(function (k) {
+          for (var i = 0; i < hs.bag[k]; i++) hs.pack.push({ uid: 0, id: k, history: [] });
+        });
+      }
+      delete hs.bag;
+      if (hs.request === undefined) hs.request = null;
     });
+    st.counters.request = st.counters.request || 0;
+  }
+
+  function newHunter(id) {
+    return {
+      id: id, gold: 300, intimacy: 0,
+      equip: { weapon: null, armor: null, tank: null, cannon: null, subgun: null, engine: null },
+      gear: {},               // 枠 → 店で買った現物（来歴と戦歴を持つ）
+      dur: {},                // 枠 → 残りの耐久。0になると壊れて外れる
+      pack: [],               // 持ち込む消耗品（現物）
+      request: null,          // 頼みごと
+      place: 'away',          // away / town / dungeon
+      dungeon: null, back: 0
+    };
   }
 
   /* ==========================================================
@@ -178,7 +188,7 @@
   }
 
   function newItem(prodId, history) {
-    var it = { uid: uidSeq++, id: prodId, history: history || [] };
+    var it = { uid: uidSeq++, id: prodId, history: history || [], made: S.day };
     S.stock.push(it);
     S.dex.prod[prodId] = true;
     return it;
@@ -252,87 +262,121 @@
   }
 
   /* 消耗品の持ち込み。棚で買ったものが、そのまま生死を分ける */
-  function bagCount(h) {
-    var n = 0;
-    Object.keys(h.bag || {}).forEach(function (k) { n += h.bag[k]; });
-    return n;
+  function bagCount(h) { return (h.pack || []).length; }
+
+  /* ---------- 文面 ---------- */
+  var SLOT_NAMES = { weapon: '武器', armor: '防具', tank: '戦車', cannon: '主砲', subgun: '副砲', engine: '機関' };
+
+  function fill(tpl, v) {
+    return String(tpl || '').replace(/\{(\w+)\}/g, function (_, k) { return v[k] != null ? v[k] : ''; });
   }
-  function useOnePotion(h) {
-    var keys = Object.keys(h.bag || {}).filter(function (k) { return h.bag[k] > 0; });
-    if (!keys.length) return null;
-    var k = keys[0];
-    h.bag[k]--;
-    if (!h.bag[k]) delete h.bag[k];
-    return PROD[k] ? PROD[k].name : k;
+  function say(hid, key, v) {
+    var own = HUN[hid].talk || {};
+    return fill(own[key] || D.talk[key], v || {});
+  }
+  function story(key, v) { return fill(D.story[key], v || {}); }
+  function dayText(d) { return d != null ? d + '日目' : 'いつか'; }
+
+  /* 品が積み上げてきた働き。武器は倒した数、防具は受け止めた数で語る */
+  function deeds(it) {
+    var slot = PROD[it.id] && PROD[it.id].slot;
+    var t = slot === 'armor' || slot === 'tank' || slot === 'engine'
+      ? '通算' + (it.blocks || 0) + '回の攻撃を受け止めた'
+      : '通算' + (it.kills || 0) + '体を倒した';
+    return t + (it.boss ? '（' + it.boss.join('、') + 'を仕留めた）' : '');
   }
 
-  /* ダンジョンを1回もぐる。戻り値に到達層・討伐・ログが入る */
+  /* 品の一生が終わったら図鑑に残す（直近5件） */
+  function endLife(it, lastLine) {
+    var lines = (it.history || []).slice();
+    lines.push(lastLine);
+    var ch = S.chronicle[it.id] = S.chronicle[it.id] || [];
+    ch.unshift(lines);
+    if (ch.length > 5) ch.length = 5;
+  }
+
+  /* ダンジョンを1回もぐる。戻り値に到達層・討伐・ログ・店の品の活躍が入る */
   function runDungeon(h, dun) {
     var C = D.combat;
     var st = hunterStats(h);
     var hp = st.maxHp;
     var log = [];
-    var reached = 0, bossDown = false;
+    var reached = 0, bossDown = false, bossFail = false;
     var entered = 0;                     // 足を踏み入れた層の数。装備の摩耗はこれで決まる
+    var weapon = h.gear.weapon, armor = h.gear.armor;
+    var kills = 0, hits = 0, used = [], retreat = null, finish = null;
 
     log.push('強さ ' + st.atk + ' ／ 守り ' + st.guard + ' ／ 体力 ' + hp +
              '　持ち込み ' + bagCount(h) + '個');
+
+    function drink(where) {
+      var it = h.pack.shift();
+      hp = Math.min(st.maxHp, hp + Math.round(st.maxHp * C.healRate));
+      used.push({ it: it, where: where });
+      endLife(it, S.day + '日目、' + dun.name + 'の' + where + 'で' + HUN[h.id].name + 'を立ち直らせた');
+      log.push(where + '：' + PROD[it.id].name + 'を使った（体力 ' + hp + '）');
+    }
+
+    function fight(e, where, limit) {
+      var eHp = e.hp, t = 0;
+      while (eHp > 0 && hp > 0 && t < limit) {
+        t++;
+        eHp -= damage(st.atk, 0);
+        if (eHp <= 0) break;
+        hp -= damage(e.atk, st.guard);
+        hits++;
+        if (hp > 0 && hp < st.maxHp * C.healAt && bagCount(h)) drink(where);
+      }
+      return eHp <= 0 && hp > 0;
+    }
 
     for (var f = 1; f <= dun.floors; f++) {
       entered++;
       var base = pick(dun.enemies);
       var scale = 1 + (f - 1) * C.floorScale;
-      var e = {
-        name: base.name,
-        hp: Math.round(base.hp * scale),
-        atk: Math.round(base.atk * scale)
-      };
-      var eHp = e.hp, turns = 0;
-
-      while (eHp > 0 && hp > 0 && turns < 40) {
-        turns++;
-        eHp -= damage(st.atk, 0);
-        if (eHp <= 0) break;
-        hp -= damage(e.atk, st.guard);
-        // 消耗品で立て直す
-        if (hp > 0 && hp < st.maxHp * C.healAt && bagCount(h)) {
-          var used = useOnePotion(h);
-          var heal = Math.round(st.maxHp * C.healRate);
-          hp = Math.min(st.maxHp, hp + heal);
-          log.push(f + '層：' + used + 'を使った（体力 ' + hp + '）');
-        }
-      }
-
-      if (hp <= 0) {
+      var e = { name: base.name, hp: Math.round(base.hp * scale), atk: Math.round(base.atk * scale) };
+      if (!fight(e, f + '層', 40)) {
+        retreat = { floor: f, enemy: e.name, dry: used.length > 0 && !bagCount(h) };
         log.push(f + '層：' + e.name + 'に押し返された。ここで撤退');
         break;
       }
+      kills++;
       reached = f;
       log.push(f + '層：' + e.name + 'を倒した（体力 ' + hp + '）');
     }
 
     // 最下層まで行けたら賞金首
     if (reached >= dun.floors && !S.bossDown[dun.id]) {
-      var b = dun.boss, bHp = b.hp, t = 0;
+      var b = dun.boss;
       log.push('最下層：' + b.name + 'と対峙した');
-      while (bHp > 0 && hp > 0 && t < 200) {
-        t++;
-        bHp -= damage(st.atk, 0);
-        if (bHp <= 0) break;
-        hp -= damage(b.atk, st.guard);
-        if (hp > 0 && hp < st.maxHp * C.healAt && bagCount(h)) {
-          var u2 = useOnePotion(h);
-          hp = Math.min(st.maxHp, hp + Math.round(st.maxHp * C.healRate));
-          log.push('　' + u2 + 'を使った（体力 ' + hp + '）');
-        }
-      }
       entered += 2;                      // 賞金首との戦いは装備を余計に痛める
-      if (bHp <= 0) {
+      if (fight(b, '最下層', 200)) {
         bossDown = true;
+        kills++;
+        if (weapon) { weapon.boss = (weapon.boss || []).concat([b.name]); finish = weapon; }
         log.push(b.name + 'を仕留めた（体力 ' + hp + '）');
       } else {
+        bossFail = true;
         log.push(b.name + 'に敵わず撤退した');
       }
+    }
+
+    /* ---- 店の品の活躍 ---- */
+    var mine = [];
+    if (finish) mine.push({ big: true, text: story('finish', { boss: dun.boss.name, item: PROD[finish.id].name }) });
+    if (weapon && kills) {
+      weapon.kills = (weapon.kills || 0) + kills;
+      if (!finish) mine.push({ text: story('kills', { item: PROD[weapon.id].name, n: kills }) });
+    }
+    if (armor && hits) {
+      armor.blocks = (armor.blocks || 0) + hits;
+      mine.push({ text: story('guarded', { item: PROD[armor.id].name, n: hits }) });
+    }
+    if (used.length) {
+      mine.push({ text: story('saved', {
+        item: PROD[used[0].it.id].name + (used.length > 1 ? 'など' + used.length + '個' : ''),
+        floors: used.map(function (u) { return u.where.replace('層', ''); }).join('・')
+      }) });
     }
 
     /* ---- 装備の摩耗。0になったものは壊れて外れる ---- */
@@ -343,20 +387,115 @@
       if (!pid || !PROD[pid]) return;
       var left = (h.dur[slot] == null ? (PROD[pid].dur || 999) : h.dur[slot]) - entered;
       if (left <= 0) {
-        broken.push(PROD[pid].name);
+        broken.push({ slot: slot, name: PROD[pid].name });
+        var g = h.gear[slot];
+        if (g) {
+          mine.push({ text: story('broke', {
+            item: PROD[pid].name, made: dayText(g.made), sold: dayText(g.soldDay), deeds: deeds(g)
+          }) });
+          endLife(g, S.day + '日目、' + dun.name + 'で壊れた。' + deeds(g));
+        }
         h.equip[slot] = null;
+        delete h.gear[slot];
         delete h.dur[slot];
       } else {
         h.dur[slot] = left;
         log.push('摩耗：' + PROD[pid].name + '（残り ' + left + '）');
       }
     });
-    broken.forEach(function (nm) { log.push('**' + nm + 'が壊れた**'); });
+    broken.forEach(function (bk) { log.push('**' + bk.name + 'が壊れた**'); });
 
     return {
-      reached: reached, floors: dun.floors, bossDown: bossDown,
-      log: log, hp: hp, broken: broken
+      reached: reached, floors: dun.floors, bossDown: bossDown, bossFail: bossFail,
+      log: log, hp: hp, broken: broken, retreat: retreat, mine: mine,
+      finish: finish ? PROD[finish.id].name : null
     };
+  }
+
+  /* ==========================================================
+     頼みごと
+     帰還のたびに、潜った結果から「次に欲しい物」を1つ頼む。
+     頼みは次に発つ日まで有効
+     ========================================================== */
+  function curPow(h, slot) {
+    var pid = h.equip[slot];
+    return pid && PROD[pid] ? (PROD[pid].power || 0) : 0;
+  }
+  /* 今より強い物が、設計図として世界に存在するか */
+  function slotHasBetter(h, slot) {
+    var c = curPow(h, slot);
+    return D.blueprints.some(function (b) { return b.product.slot === slot && (b.product.power || 0) > c; });
+  }
+  /* 今いちばん弱い枠。戦車持ちなら砲・機関も候補 */
+  function weakSlot(h) {
+    var cand = ['weapon', 'armor'];
+    if (hasTank(h)) cand = cand.concat(['cannon', 'subgun', 'engine']);
+    cand = cand.filter(function (s) { return slotHasBetter(h, s); });
+    if (!cand.length) return null;
+    cand.sort(function (a, b) { return curPow(h, a) - curPow(h, b); });
+    return cand[0];
+  }
+  function reqFor(h, slot, key, v) {
+    v = v || {};
+    if (slot && slotHasBetter(h, slot)) {
+      v.slot = SLOT_NAMES[slot];
+      return { slot: slot, say: say(h.id, key, v) };
+    }
+    return consReq(h);
+  }
+  function consReq(h, key) {
+    if (hasTank(h) && !key) return { fuel: true, say: say(h.id, 'fuel') };
+    return { cons: true, need: D.request.consumables, say: say(h.id, key || 'supply') };
+  }
+
+  function makeRequest(h, res, dun) {
+    var r = pickRequest(h, res, dun);
+    if (h.lastReq && h.lastReq === r.say && r.cons) {
+      var alt = reqFor(h, weakSlot(h), 'pushed', res.retreat ? { floor: res.retreat.floor, enemy: res.retreat.enemy } : {});
+      if (!alt.cons && res.retreat) r = alt;
+    }
+    h.lastReq = r.say;
+    return r;
+  }
+  function pickRequest(h, res, dun) {
+    if (res.broken.length) return reqFor(h, res.broken[0].slot, 'broke', { item: res.broken[0].name });
+    if (res.retreat) {
+      if (res.retreat.dry) return consReq(h, 'dry');
+      return reqFor(h, weakSlot(h), 'pushed', { floor: res.retreat.floor, enemy: res.retreat.enemy });
+    }
+    if (res.bossFail) return reqFor(h, weakSlot(h), 'boss', { boss: dun.boss.name });
+    var pw = hunterPower(h);
+    var nx = D.dungeons.filter(function (d) { return d.reqPower > pw; })[0];
+    if (nx) return reqFor(h, weakSlot(h), 'next', { dungeon: nx.name });
+    return consReq(h);
+  }
+  function firstRequest(h) {
+    if (!h.equip.weapon) return reqFor(h, 'weapon', 'first');
+    return consReq(h);
+  }
+
+  function isTankPart(p) { return p.slot === 'cannon' || p.slot === 'subgun' || p.slot === 'engine'; }
+  function reqMatch(req, h, p) {
+    if (!req || !p) return false;
+    if (req.cons) return p.kind === 'consumable';
+    if (req.fuel) return p.kind === 'fuel';
+    if (p.slot !== req.slot || (p.power || 0) <= curPow(h, req.slot)) return false;
+    return !isTankPart(p) || hasTank(h);
+  }
+  function reqLabel(req, h) {
+    if (!req) return '';
+    if (req.cons) return '消耗品 ×' + req.need;
+    if (req.fuel) return '燃料・砲弾';
+    var cur = h.equip[req.slot];
+    return SLOT_NAMES[req.slot] + (cur ? '（今の' + PROD[cur].name + 'より強いもの）' : '（今は持っていない）');
+  }
+  /* 町にいて頼みを持っている組 */
+  function openRequests() {
+    return D.hunters.map(function (hd) { return S.hunters[hd.id]; })
+      .filter(function (h) { return h.place === 'town' && h.request; });
+  }
+  function requestersOf(pid) {
+    return openRequests().filter(function (h) { return reqMatch(h.request, h, PROD[pid]); });
   }
 
   /* 商人は「無限在庫・数量指定」なので、日替わりで抽選する必要がない。
@@ -395,6 +534,7 @@
       case 'intimacy':  return S.hunters[c.id] && S.hunters[c.id].intimacy >= c.n;
       case 'bossDown':  return !!S.bossDown[c.id];
       case 'facility':  return S.fac[c.key] >= c.level;
+      case 'request':   return (S.counters.request || 0) >= c.n;
     }
     return false;
   }
@@ -430,14 +570,23 @@
      1日を進める
      ========================================================== */
   function nextDay() {
-    var R = { day: S.day, sales: [], reports: [], inn: 0, buys: [], unlocks: [] };
+    var R = { day: S.day, sales: [], cards: [], inn: 0, tips: 0, buys: [], unlocks: [], boss: [] };
+
+    /* 報告はハンターごとの1枚にまとめる */
+    var cardOf = {};
+    function card(id) {
+      if (!cardOf[id]) {
+        cardOf[id] = { hunter: id, lines: [], mine: [], talk: [], battle: null, req: null };
+        R.cards.push(cardOf[id]);
+      }
+      return cardOf[id];
+    }
 
     /* --- 1. 帰還 --- */
     D.hunters.forEach(function (hd) {
       var h = S.hunters[hd.id];
       if (h.place !== 'dungeon' || h.back > S.day) return;
       var dun = DUN[h.dungeon];
-      var power = hunterPower(h);
       h.place = 'town';
       h.dungeon = null;
       h.justBack = true;      // 帰った日は宿に泊まる。翌日まで店で買い物ができる
@@ -445,20 +594,20 @@
 
       /* 裏で実際に潜らせる。到達層も討伐も、この戦闘の結果 */
       var res = runDungeon(h, dun);
+      var c = card(hd.id);
+      c.battle = res.log;
+      c.mine = res.mine;
 
-      var line = hd.name + 'が' + dun.name + 'から戻った。' +
-        res.reached + ' / ' + res.floors + '層まで進んだ。';
+      var line = dun.name + 'から戻った。' + res.reached + ' / ' + res.floors + '層まで進んだ。';
       if (res.bossDown) {
         S.bossDown[dun.id] = true;
         S.counters.bossKill++;
         h.gold += dun.boss.reward;
         line += '**' + dun.boss.name + 'を仕留めた。**賞金 ' + gold(dun.boss.reward) + ' を受け取っている。';
+        R.boss.push({ hunter: hd.id, boss: dun.boss.name, dungeon: dun.name,
+          item: res.finish });
       } else if (!S.bossDown[dun.id] && res.reached < res.floors) {
         line += dun.boss.name + 'のいる最下層には届かなかった。';
-      }
-      // 壊れた装備は、そのまま次の売り物の需要になる
-      if (res.broken.length) {
-        line += '**' + res.broken.join('と') + 'が壊れた。**買い替えが要る。';
       }
 
       // 持ち帰り。深く進んだぶんだけ多い（層ごとに1つ、討伐でさらに追加）
@@ -484,7 +633,11 @@
       });
 
       h.gold += hd.income + dun.level * 90;
-      R.reports.push({ text: line, hunter: hd.id, power: power, battle: res.log });
+      c.lines.push(line);
+
+      h.request = makeRequest(h, res, dun);
+      c.talk.push(h.request.say);
+      c.req = h.request;
     });
 
     /* --- 2. 客が来る ---
@@ -500,44 +653,38 @@
       if (h.place === 'town') { comers.push(hd.id); return; }
       if (h.place === 'away' && active < fac('saloon').hunters && comers.length < innCapacity()) {
         h.place = 'town';
+        h.justBack = true;    // 初めて来た日も一晩泊まる。頼みに応える間を作る
         active++;
         comers.push(hd.id);
+        h.request = firstRequest(h);
+        var c = card(hd.id);
+        c.lines.push('初めて店に来た。');
+        c.talk.push(h.request.say);
+        c.req = h.request;
       }
     });
     comers = comers.slice(0, innCapacity());
     comers.forEach(function (id) { S.dex.hunter[id] = true; });
 
     /* --- 3. ハンターが棚から買う ---
-       棚は「種類」の枠。並んでいる種類ごとに、在庫がある限り売れる。
-       何から見るかは組ごとの優先順（hd.buys）で決まる */
+       頼んだ物を真っ先に探す。そのあと組ごとの優先順（hd.buys）で見ていく */
     comers.forEach(function (id) {
       var h = S.hunters[id], hd = HUN[id];
       var order = hd.buys || ['consumable', 'equip', 'tank'];
+
+      if (h.request) buyRequested(h, R, card(id));
 
       order.forEach(function (want) {
         S.shelf.forEach(function (pid) {
           var p = PROD[pid];
           var it = stockOne(pid);
           if (!p || !it || h.gold < p.price) return;
-          if (buyGroup(p) !== want) return;
-
-          if (p.kind === 'consumable') {
-            h.bag = h.bag || {};
-            h.bag[p.id] = (h.bag[p.id] || 0) + 1;   // 持ち込んでダンジョンで使う
-            sell(it, id, R);
-          } else if (p.kind !== 'fuel') {
-            // 装備・戦車・戦車部品。今より良いものだけ買う
-            var cur = h.equip[p.slot];
-            var curPow = cur && PROD[cur] ? PROD[cur].power : -1;
-            var needTank = (p.slot === 'cannon' || p.slot === 'subgun' || p.slot === 'engine');
-            if (needTank && !hasTank(h)) return;     // 戦車がないと部品は要らない
-            if ((p.power || 0) > curPow) {
-              h.equip[p.slot] = p.id;
-              h.dur = h.dur || {};
-              h.dur[p.slot] = p.dur || 999;          // 買った時点で耐久が満タンになる
-              sell(it, id, R);
-            }
+          if (buyGroup(p) !== want || p.kind === 'fuel') return;
+          if (p.kind !== 'consumable') {
+            if (isTankPart(p) && !hasTank(h)) return;         // 戦車がないと部品は要らない
+            if ((p.power || 0) <= (h.equip[p.slot] ? curPow(h, p.slot) : -1)) return;   // 今より良いものだけ
           }
+          sell(it, id, R);
         });
       });
     });
@@ -582,29 +729,40 @@
 
     /* --- 6. 出発 ---
        帰ってきたその日は発たない。1日店にいるので、
-       持ち帰った素材を買い取って何か作り、翌日それを売る余地が生まれる */
+       頼まれた物を作って棚に置き、翌日それを渡す余地が生まれる */
     comers.forEach(function (id) {
       var h = S.hunters[id], hd = HUN[id];
       var power = hunterPower(h);
+      var c = card(id);
+      c.power = power;
       if (h.justBack) {
         h.justBack = false;
-        R.reports.push({ text: hd.name + 'は今夜は宿に泊まる。明日また荒野へ出るらしい。', hunter: id, power: power });
+        c.lines.push('今夜は宿に泊まる。明日また荒野へ出るらしい。');
         return;
       }
       var can = D.dungeons.filter(function (d) { return power >= d.reqPower; });
       if (!can.length) {
-        R.reports.push({ text: hd.name + 'はまだ荒野に出られない。装備が足りていない。', hunter: id, power: power });
+        c.lines.push('まだ荒野に出られない。装備が足りていない。');
         return;
+      }
+      if (h.request) {
+        if (!h.request.got) c.talk.push(say(id, 'missing', { req: reqLabel(h.request, h) }));
+        h.request = null;
       }
       var dun = can[can.length - 1];
       var days = Math.max(1, dun.days - Math.floor((power - dun.reqPower) / 25) - (S.bossDown[dun.id] ? 1 : 0));
       h.place = 'dungeon';
       h.dungeon = dun.id;
       h.back = S.day + days;
-      R.reports.push({
-        text: hd.name + 'は' + dun.name + '（Lv' + dun.level + '）へ発った。戻りは' + days + '日後。',
-        hunter: id, power: power
-      });
+      c.lines.push(dun.name + '（Lv' + dun.level + '）へ発った。戻りは' + days + '日後。' +
+        '持ち物：' + gearText(h));
+    });
+    R.cards.forEach(function (c) { if (c.power == null) c.power = hunterPower(S.hunters[c.hunter]); });
+    R.away = D.hunters.filter(function (hd) {
+      return S.hunters[hd.id].place === 'dungeon' && !cardOf[hd.id];
+    }).map(function (hd) {
+      var h = S.hunters[hd.id];
+      return { hunter: hd.id, dungeon: h.dungeon, back: h.back };
     });
 
     /* --- 7. 日付を進めて解放判定 --- */
@@ -625,28 +783,89 @@
     return R;
   }
 
-  /* 1個売る */
+  /* 持っている店の品を短く並べる */
+  function gearText(h) {
+    var parts = [];
+    Object.keys(h.equip).forEach(function (slot) {
+      if (h.equip[slot] && PROD[h.equip[slot]]) parts.push(PROD[h.equip[slot]].name);
+    });
+    if (bagCount(h)) parts.push('消耗品' + bagCount(h) + '個');
+    return parts.length ? parts.join('、') : '手ぶら';
+  }
+
+  /* 頼んだ物を棚から探して買う。強い物から見る */
+  function buyRequested(h, R, c) {
+    var req = h.request;
+    var cands = S.shelf.filter(function (pid) {
+      return stockCount(pid) > 0 && reqMatch(req, h, PROD[pid]);
+    }).sort(function (a, b) { return (PROD[b].power || 0) - (PROD[a].power || 0); });
+    if (!cands.length) return;
+
+    var bought = [], short = null;
+    if (req.cons || req.fuel) {
+      var want = req.need || 1;
+      cands.forEach(function (pid) {
+        while (want > 0 && stockCount(pid) > 0) {
+          if (h.gold < PROD[pid].price) { short = short || pid; break; }
+          bought.push(PROD[pid]);
+          sell(stockOne(pid), h.id, R);
+          want--;
+        }
+      });
+      if (want > 0 && bought.length) { req.need = want; req.got = true; }   // 足りない分は頼みとして残る
+      else if (bought.length) req.done = true;
+    } else {
+      for (var i = 0; i < cands.length; i++) {
+        var p = PROD[cands[i]];
+        if (h.gold < p.price) { short = short || cands[i]; continue; }
+        bought.push(p);
+        sell(stockOne(cands[i]), h.id, R);
+        req.done = true;
+        break;
+      }
+    }
+
+    if (req.done) {
+      var tip = Math.round(bought.reduce(function (a, p) { return a + p.price; }, 0) * D.request.tip);
+      tip = Math.min(tip, Math.max(0, h.gold));
+      h.gold -= tip;
+      S.gold += tip; S.earned += tip; R.tips += tip;
+      h.intimacy += tip;
+      S.counters.request++;
+      c.talk.push(say(h.id, 'thanks', { item: bought[0].name }) + (tip ? '（お礼 ' + gold(tip) + '）' : ''));
+      c.thanked = true;
+      h.request = null;
+    } else if (short) {
+      c.talk.push(say(h.id, 'short', { item: PROD[short].name }));
+    }
+  }
+
+  /* 1個売る。ハンターに渡った品は捨てずに持たせ、使われ方を追いかける */
   function sell(it, hunterId, R) {
     var p = PROD[it.id];
     S.gold += p.price;
     S.earned += p.price;
     S.counters.sold++;
     S.counters.soldItem[p.id] = (S.counters.soldItem[p.id] || 0) + 1;
-    if (hunterId) {
-      S.hunters[hunterId].gold -= p.price;
-      S.hunters[hunterId].intimacy += p.price;
-    }
     R.sales.push({ id: p.id, name: p.name, price: p.price, to: hunterId ? HUN[hunterId].name : 'モブ' });
-
-    /* 売れた時点で来歴が完結する。図鑑で読めるように残しておく */
-    var story = (it.history || []).slice();
-    story.push(S.day + '日目、' + (hunterId ? HUN[hunterId].name : '名も知らぬ客') + 'の手に渡った');
-    var ch = S.chronicle[p.id] = S.chronicle[p.id] || [];
-    ch.unshift(story);
-    if (ch.length > 5) ch.length = 5;      // 直近5件だけ残す
-
     removeItem(it.uid);
     if (S.shelfSince[p.id] != null) S.shelfSince[p.id] = S.day;   // 売れた日を「最後に動いた日」として更新
+
+    it.history = (it.history || []).concat([S.day + '日目、' + (hunterId ? HUN[hunterId].name : '名も知らぬ客') + 'の手に渡った']);
+    it.soldDay = S.day;
+    if (!hunterId) { endLife(it, 'その先は分からない'); return; }
+
+    var h = S.hunters[hunterId];
+    h.gold -= p.price;
+    h.intimacy += p.price;
+    if (p.kind === 'consumable') { h.pack.push(it); return; }
+    if (p.kind === 'fuel') { endLife(it, '戦車の腹に収まった'); return; }
+
+    var old = h.gear[p.slot];
+    if (old) endLife(old, S.day + '日目、新しい' + p.name + 'に替えられた。' + deeds(old));
+    h.equip[p.slot] = p.id;
+    h.gear[p.slot] = it;
+    h.dur[p.slot] = p.dur || 999;          // 買った時点で耐久が満タンになる
   }
 
   /* ==========================================================
@@ -701,11 +920,7 @@
     });
 
     /* 分解された品の来歴も、そこで終わったものとして残す */
-    var story = (it.history || []).slice();
-    story.push(S.day + '日目、売れないまま分解された');
-    var ch = S.chronicle[prodId] = S.chronicle[prodId] || [];
-    ch.unshift(story);
-    if (ch.length > 5) ch.length = 5;
+    endLife(it, S.day + '日目、売れないまま分解された');
 
     removeItem(it.uid);
     if (!stockCount(prodId)) takeOffShelf(prodId);   // 最後の1個なら棚からも下げる
@@ -916,6 +1131,7 @@
       var tag = el('div', 'sp-tag', h.label);
       tag.style.left = pct(h.x + 2, SCENE.W); tag.style.top = pct(h.y + 2, SCENE.H);
       if (h.place === 'office' && S.pending.length) tag.appendChild(el('i', 'sp-dot'));
+      if ((h.place === 'workshop' || h.place === 'inn') && openRequests().length) tag.appendChild(el('i', 'sp-dot'));
       elStage.appendChild(tag);
     });
   }
@@ -1012,6 +1228,11 @@
         } else {
           cell.appendChild(el('span', 'sp-slot-count is-zero', '在庫切れ'));
         }
+        var waiting = requestersOf(pid);
+        if (waiting.length) {
+          cell.appendChild(el('span', 'sp-wait', waiting.map(function (w) { return HUN[w.id].name; }).join('・') + 'が待つ'));
+          cell.classList.add('is-wanted');
+        }
         // 何日も売れていない種類は、置き場所を間違えているということ
         var since = S.shelfSince[pid] != null ? S.shelfSince[pid] : S.day;
         var stale = S.day - since;
@@ -1040,8 +1261,12 @@
       var onShelf = S.shelf.indexOf(pid) >= 0;
       var right = onShelf
         ? el('span', 'sp-tag', '陳列中')
-        : btn('棚に出す', function () { toast(putOnShelf(pid)); render(); }, 'sp-btn-s');
-      s2.appendChild(itemRow(p, right, grouped[pid]));
+        : btn('棚に出す', function () { toast(putOnShelf(pid)); render(); }, 'sp-btn-s' + (requestersOf(pid).length ? ' is-main' : ''));
+      var row = itemRow(p, right, grouped[pid]);
+      if (!onShelf && requestersOf(pid).length) {
+        row.querySelector('.sp-row-mid').appendChild(el('div', 'sp-wait', requestersOf(pid).map(function (w) { return HUN[w.id].name; }).join('・') + 'が頼んでいる品'));
+      }
+      s2.appendChild(row);
     });
 
     var s3 = section('素材');
@@ -1058,11 +1283,24 @@
   /* ---------- 工房（作る） ---------- */
   function viewWorkshop() {
     var lv = fac('workshop').craft;
-    section('工房', '作れる設計図レベル：' + lv + '　（工房を上げると増える）');
+    var reqs = openRequests();
+    if (reqs.length) {
+      var sr = section('頼まれごと', '明日の朝、棚にあれば真っ先に買っていく');
+      reqs.forEach(function (h) {
+        var c = el('div', 'sp-card');
+        c.appendChild(el('b', null, HUN[h.id].name));
+        c.appendChild(el('p', 'sp-say', '「' + h.request.say + '」'));
+        c.appendChild(reqTag(h));
+        sr.appendChild(c);
+      });
+    }
+    section('設計図', '作れる設計図レベル：' + lv + '　（工房を上げると増える）');
     S.bps.forEach(function (id) {
       var b = BP[id], p = b.product;
       var can = lv >= b.level && b.cost.every(function (c) { return matCount(c.id) >= c.n; });
       var box = el('div', 'sp-card' + (can ? '' : ' is-off'));
+      var who = requestersOf(p.id);
+      if (who.length) box.classList.add('is-wanted');
       box.appendChild(itemRow(p, btn('作る', function () {
         toast(craft(id)); render();
       }, 'sp-btn-s' + (can ? ' is-main' : ''))));
@@ -1074,6 +1312,7 @@
           MAT[c.id].name + ' ' + matCount(c.id) + '/' + c.n));
       });
       box.appendChild(cost);
+      if (who.length) box.appendChild(el('div', 'sp-wait', who.map(function (w) { return HUN[w.id].name; }).join('・') + 'の頼みに応えられる'));
       elMain.appendChild(box);
     });
 
@@ -1211,6 +1450,19 @@
     });
   }
 
+  /* その商品の現物のうち、今ハンターが身につけている物 */
+  function itemsInUse(pid) {
+    var out = [];
+    D.hunters.forEach(function (hd) {
+      var h = S.hunters[hd.id];
+      Object.keys(h.gear || {}).forEach(function (slot) {
+        var it = h.gear[slot];
+        if (it && it.id === pid) out.push({ who: hd.id, it: it });
+      });
+    });
+    return out;
+  }
+
   /* 図鑑の1項目。開くと、その項目にぶら下がる出来事と来歴が出る */
   function dexEntry(key, known, name, icon, desc, on, target, extra) {
     var wrap = el('div');
@@ -1224,7 +1476,8 @@
 
     var evs = D.events.filter(function (e) { return e.on === on && e.target === target; });
     var chron = (on === 'item' && S.chronicle[target]) ? S.chronicle[target] : [];
-    var hasMore = known && (evs.length || chron.length);
+    var inUse = on === 'item' ? itemsInUse(target) : [];
+    var hasMore = known && (evs.length || chron.length || inUse.length);
     if (hasMore) {
       var got = evs.filter(function (e) { return S.events[e.id]; }).length;
       row.appendChild(el('span', 'sp-more', (openDex === key ? '▼ ' : '▶ ') +
@@ -1244,6 +1497,16 @@
         if (S.events[e.id]) c.appendChild(el('p', null, e.text));
         box.appendChild(c);
       });
+      if (inUse.length) {
+        box.appendChild(el('div', 'sp-chron-h', '今も使われている'));
+        inUse.forEach(function (u) {
+          var c = el('div', 'sp-chron');
+          (u.it.history || []).forEach(function (lineText) { c.appendChild(el('p', null, lineText)); });
+          c.appendChild(el('p', null, '今は' + HUN[u.who].name + 'の手にある。' +
+            (u.it.kills || u.it.blocks ? deeds(u.it) : 'まだ出番を待っている')));
+          box.appendChild(c);
+        });
+      }
       if (chron.length) {
         box.appendChild(el('div', 'sp-chron-h', 'この品が辿った道'));
         chron.forEach(function (story) {
@@ -1388,10 +1651,16 @@
         var max = PROD[pid].dur || 0;
         var left = st2.dur && st2.dur[pair[0]] != null ? st2.dur[pair[0]] : max;
         var low = max && left <= max * 0.34;
+        var g = st2.gear && st2.gear[pair[0]];
+        var rec = g && g.kills ? '・' + g.kills + '体' : '';
         eq.appendChild(el('span', 'sp-tag' + (low ? ' is-lack' : ''),
-          pair[1] + '：' + PROD[pid].name + (max ? '（残り ' + left + '）' : '')));
+          pair[1] + '：' + PROD[pid].name + (max ? '（残り ' + left + rec + '）' : '')));
       });
       card.appendChild(eq);
+      if (st2.place === 'town' && st2.request) {
+        card.appendChild(el('p', 'sp-say', '「' + st2.request.say + '」'));
+        card.appendChild(reqTag(st2));
+      }
       elMain.appendChild(card);
     });
     if (!any) s1.appendChild(el('p', 'sp-note', 'ハンターはいない'));
@@ -1464,10 +1733,39 @@
 
     box.appendChild(el('h2', null, R.day + '日目の結果'));
 
+    // 賞金首。この店の品で仕留めたなら、それを一番上に
+    (R.boss || []).forEach(function (b) {
+      var c = el('div', 'sp-bossdown');
+      c.appendChild(el('span', 'sp-unlock-k', '賞金首討伐'));
+      c.appendChild(el('b', null, HUN[b.hunter].name + 'が' + b.boss + 'を仕留めた'));
+      if (b.item) c.appendChild(el('p', null, 'とどめは、この店の' + b.item + 'だった。'));
+      box.appendChild(c);
+    });
+
+    // ハンターの報告。1組1枚
+    if (R.cards && R.cards.length) {
+      var s2 = el('div', 'sp-rsec');
+      s2.appendChild(el('h3', null, 'ハンター'));
+      R.cards.forEach(function (c) { s2.appendChild(hunterCard(c)); });
+      box.appendChild(s2);
+    }
+    if (R.away && R.away.length) {
+      var sa = el('div', 'sp-rsec');
+      sa.appendChild(el('h3', null, '荒野に出ている'));
+      R.away.forEach(function (a) {
+        var h = S.hunters[a.hunter];
+        var line = el('div', 'sp-line');
+        line.appendChild(el('span', null, HUN[a.hunter].name + '　' + DUN[a.dungeon].name + '　持ち物：' + gearText(h)));
+        line.appendChild(el('b', null, a.back + '日目に戻る'));
+        sa.appendChild(line);
+      });
+      box.appendChild(sa);
+    }
+
     // 売上
     var total = R.sales.reduce(function (a, s) { return a + s.price; }, 0);
     var sec = el('div', 'sp-rsec');
-    sec.appendChild(el('h3', null, '売上　' + gold(total + R.inn)));
+    sec.appendChild(el('h3', null, '売上　' + gold(total + R.inn + (R.tips || 0))));
     if (R.sales.length) {
       var counted = {};
       R.sales.forEach(function (s) {
@@ -1484,45 +1782,19 @@
     } else {
       sec.appendChild(el('p', 'sp-note', '何も売れなかった。棚に何か置いておく'));
     }
+    if (R.tips) {
+      var tl = el('div', 'sp-line');
+      tl.appendChild(el('span', null, '頼みごとのお礼'));
+      tl.appendChild(el('b', null, gold(R.tips)));
+      sec.appendChild(tl);
+    }
     if (R.inn) {
-      (R.rooms || []).forEach(function (rm) {
-        var rl = el('div', 'sp-line');
-        rl.appendChild(el('span', null, rm.room + '（' + rm.who + '）'));
-        rl.appendChild(el('b', null, gold(rm.rate)));
-        sec.appendChild(rl);
-      });
       var l = el('div', 'sp-line');
-      l.appendChild(el('span', null, '宿泊料 合計'));
+      l.appendChild(el('span', null, '宿泊料（' + (R.rooms || []).length + '部屋）'));
       l.appendChild(el('b', null, gold(R.inn)));
       sec.appendChild(l);
     }
     box.appendChild(sec);
-
-    // ハンターの報告
-    if (R.reports.length) {
-      var s2 = el('div', 'sp-rsec');
-      s2.appendChild(el('h3', null, 'ハンターの報告'));
-      R.reports.forEach(function (r) {
-        var p = el('p', 'sp-report');
-        p.innerHTML = escapeHtml(r.text).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-        p.appendChild(el('span', 'sp-power', '強さ ' + r.power));
-        s2.appendChild(p);
-
-        /* 戦闘の中身は畳んでおく。見たい人だけ開く */
-        if (!r.battle || !r.battle.length) return;
-        var open = !!(S.opt && S.opt.autoLog);
-        var detail = el('div', 'sp-battle');
-        r.battle.forEach(function (lineText) { detail.appendChild(el('div', null, lineText)); });
-        detail.hidden = !open;
-        var tg = btn(open ? '戦闘の詳細を閉じる' : '戦闘の詳細を見る', function () {
-          detail.hidden = !detail.hidden;
-          tg.textContent = detail.hidden ? '戦闘の詳細を見る' : '戦闘の詳細を閉じる';
-        }, 'sp-btn-s sp-battle-toggle');
-        s2.appendChild(tg);
-        s2.appendChild(detail);
-      });
-      box.appendChild(s2);
-    }
 
     // 買取
     var s3 = el('div', 'sp-rsec sp-buys');
@@ -1551,6 +1823,76 @@
 
     elOverlay.appendChild(box);
     refreshOverlayBuys();
+  }
+
+  /* 結果画面のハンター1組ぶん：何があったか → 店の品の活躍 → 本人の言葉 */
+  function hunterCard(c) {
+    var h = S.hunters[c.hunter];
+    var box = el('div', 'sp-hcard');
+    var head = el('div', 'sp-fac-head');
+    head.appendChild(el('b', null, HUN[c.hunter].name));
+    head.appendChild(el('span', 'sp-lv', '強さ ' + c.power));
+    box.appendChild(head);
+
+    c.lines.forEach(function (t) {
+      var p = el('p', 'sp-report');
+      p.innerHTML = escapeHtml(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+      box.appendChild(p);
+    });
+
+    if (c.mine && c.mine.length) {
+      var m = el('div', 'sp-mine');
+      m.appendChild(el('div', 'sp-mine-h', 'この店の品'));
+      c.mine.forEach(function (x) { m.appendChild(el('p', x.big ? 'is-big' : null, x.text)); });
+      box.appendChild(m);
+    }
+
+    c.talk.forEach(function (t) { box.appendChild(el('p', 'sp-say', '「' + t + '」')); });
+
+    if (c.req && h.request === c.req) box.appendChild(reqTag(h));
+
+    /* 戦闘の中身は畳んでおく。見たい人だけ開く */
+    if (c.battle && c.battle.length) {
+      var open = !!(S.opt && S.opt.autoLog);
+      var detail = el('div', 'sp-battle');
+      c.battle.forEach(function (lineText) { detail.appendChild(el('div', null, lineText)); });
+      detail.hidden = !open;
+      var tg = btn(open ? '戦闘の詳細を閉じる' : '戦闘の詳細を見る', function () {
+        detail.hidden = !detail.hidden;
+        tg.textContent = detail.hidden ? '戦闘の詳細を見る' : '戦闘の詳細を閉じる';
+      }, 'sp-btn-s sp-battle-toggle');
+      box.appendChild(tg);
+      box.appendChild(detail);
+    }
+    return box;
+  }
+
+  /* 頼みの札。何を置けば応えられるかまで書く */
+  function reqTag(h) {
+    var t = el('div', 'sp-req');
+    t.appendChild(el('span', 'sp-req-k', '頼み'));
+    t.appendChild(el('b', null, reqLabel(h.request, h)));
+    t.appendChild(el('span', 'sp-req-hint', reqHint(h)));
+    return t;
+  }
+
+  /* 応える手立て：棚にある／在庫がある／作れる／商人にある／まだ無い */
+  function reqHint(h) {
+    var req = h.request;
+    var match = D.blueprints.filter(function (b) { return reqMatch(req, h, b.product); });
+    var onShelf = match.filter(function (b) {
+      return S.shelf.indexOf(b.product.id) >= 0 && stockCount(b.product.id) > 0;
+    });
+    if (onShelf.length) return '棚に' + onShelf[0].product.name + 'がある。明日買っていく';
+    var held = match.filter(function (b) { return stockCount(b.product.id) > 0; });
+    if (held.length) return '在庫の' + held[0].product.name + 'を棚に出せば渡せる';
+    var own = match.filter(function (b) { return S.bps.indexOf(b.id) >= 0; });
+    if (own.length) return '工房で' + own[0].product.name + 'を作れば応えられる';
+    var shop = match.filter(function (b) { return merchantBlueprints().indexOf(b) >= 0; });
+    if (shop.length) return '商人が' + shop[0].name + 'を売っている';
+    var later = match.filter(function (b) { return !b.rare; })[0];
+    if (later) return '工房をLv' + later.level + 'に広げると、商人が' + later.name + 'を出す';
+    return 'まだ応えられる設計図がない';
   }
 
   function refreshOverlayBuys() {
