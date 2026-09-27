@@ -40,9 +40,19 @@
 .sg-sw span em{display:block;font-style:normal;color:#8a94a3}
 .sg-type p{margin:0 0 10px}
 
+/* 各作品の body 相当。games.css は body を落としているので、ここで当てる */
+.g-tank,.g-garage,.g-alchemy{color:var(--ink)}
+.g-comet,.g-onestroke{color:var(--fg)}
+.g-colorfusion{color:#dfe6ef}
+.g-tank{font-size:14px}
+.g-garage{font-size:15px}
+.g-alchemy{font:14px/1.5 system-ui,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif}
+.g-comet,.g-onestroke{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif}
+
 /* ゲーム部品の展示。position:fixed のオーバーレイを枠内に収める */
 .sg-game{position:relative;min-height:230px;overflow:hidden;background:var(--bg)}
 .sg-game .tk-modal,.sg-game .al-ov,.sg-game .ss-modal,.sg-game .cf-modal{position:absolute}
+.sg-game.short{min-height:130px}
 .sg-flat{padding:18px 16px;background:var(--bg);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .sg-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
 .sg-grid2 > div{border-right:1px dashed #cbd3dd;border-bottom:1px dashed #cbd3dd;min-width:0}
@@ -794,7 +804,7 @@
   <figure class="sg-item">
     <figcaption><b>tank</b><em>.tk-hud / .tk-hud-hp / .tk-hud-k / .tk-bar / .tk-gear</em><em>右上に固定、パネルとして置く</em></figcaption>
     <div class="sg-stage flush">
-      <div class="g-tank sg-game">
+      <div class="g-tank sg-game short">
         <div class="tk-hud">
           <div class="tk-hud-hp">
             <span class="tk-hud-k">HP</span>
@@ -821,11 +831,19 @@
   <figure class="sg-item">
     <figcaption><b>comet</b><em>.cs-hud</em><em>上端いっぱい、pointer-events: none</em></figcaption>
     <div class="sg-stage flush">
-      <div class="g-comet sg-game">
+      <div class="g-comet sg-game short">
         <div class="cs-hud">
-          <div class="cs-left"><span>SCORE</span><b>12,400</b></div>
-          <div class="cs-mid"><span class="cs-bar"><i style="width:45%"></i></span></div>
-          <div class="cs-right"><span>TIME</span><b>38.2</b></div>
+            <div class="cs-left">
+              <div class="cs-row"><b>Lv 4</b><span class="cs-bar"><i id="core" style="width:62%"></i></span><span>18.4</span></div>
+              <div class="cs-row"><span>速さ</span><span class="cs-bar"><i id="spd" style="width:45%"></i></span></div>
+            </div>
+            <div class="cs-mid">
+              <div class="cs-wave">宙域 3</div>
+              <div class="cs-prog">6 / 10</div>
+            </div>
+            <div class="cs-right">
+              <button class="cs-btn cs-icon cs-icon-gear" aria-label="オプション"></button>
+            </div>
         </div>
       </div>
     </div>
