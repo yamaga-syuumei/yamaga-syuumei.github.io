@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>呪文詠唱（試作）</title>
+<link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
+<link rel="stylesheet" href="style.css?v=a155930d">
+</head>
+<body>
+
+<div class="sp-frame">
+
+  <header class="sp-bar">
+    <div class="sp-head">
+      <i id="chapter">第一章</i>
+      <b id="stageName">一の試し</b>
+    </div>
+
+    <div class="sp-mp">
+      <i>魔力</i>
+      <b id="mpNow">0</b><u id="mpMax">/ 0</u>
+      <div class="sp-mpbar"><div class="sp-mpfill" id="mpFill"></div></div>
+    </div>
+
+    <div class="sp-btns">
+      <button class="sp-btn" id="btnWord">師匠の言葉</button>
+      <button class="sp-btn sp-btn-i" id="btnHelp" title="遊び方" aria-label="遊び方">?</button>
+      <button class="sp-btn sp-btn-i" id="btnOpt" title="設定" aria-label="設定">⚙</button>
+    </div>
+  </header>
+
+  <div class="sp-main">
+
+    <div class="sp-field">
+      <canvas id="cv"></canvas>
+      <div class="sp-result" id="result" hidden>
+        <b id="resultHead"></b>
+        <span id="resultNote"></span>
+        <div class="sp-ovbtns">
+          <button class="sp-btn sp-btn-p" id="btnNext">次の試しへ</button>
+          <button class="sp-btn" id="btnRetry">書き直す</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sp-side">
+
+      <!-- 呪文。行番号の列と textarea を重ねず横に並べる -->
+      <div class="sp-ed">
+        <div class="sp-lines" id="lines"></div>
+        <textarea id="code" spellcheck="false" autocomplete="off" autocapitalize="off"
+          placeholder="ここに呪文を書く"></textarea>
+        <div class="sp-comp" id="comp" hidden></div>
+      </div>
+
+      <div class="sp-runrow">
+        <button class="sp-btn sp-btn-p" id="btnRun">詠唱する</button>
+        <button class="sp-btn" id="btnStop" hidden>中断</button>
+        <label class="sp-fast"><input type="checkbox" id="fast"> 早送り</label>
+        <span class="sp-cost" id="cost"></span>
+      </div>
+
+      <div class="sp-cmds" id="cmds"></div>
+
+      <div class="sp-log" id="log"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 師匠の言葉 -->
+<div class="sp-ov" id="word" hidden>
+  <div class="sp-panel">
+    <div class="sp-ovhead" id="wordHead">一の試し</div>
+    <div class="sp-ovbody" id="wordBody"></div>
+    <div class="sp-ovbtns"><button class="sp-btn sp-btn-p" id="btnWordClose">はじめる</button></div>
+  </div>
+</div>
+
+<!-- 遊び方 -->
+<div class="sp-ov" id="help" hidden>
+  <div class="sp-panel sp-wide">
+    <div class="sp-ovhead">遊び方</div>
+    <div class="sp-ovbody">
+
+      <section>
+        <h4>魔法は手順で書く</h4>
+        <p>1行に1つの命令を書き、上から順に実行されます。命令は3種類です。</p>
+        <ul>
+          <li><b>入力</b>（draw）…魔力を注いで<b>魔素</b>を取り出し、手元に積みます。</li>
+          <li><b>変換</b>（amp・pierce・split）…手元の<b>一番上</b>の魔素を書き換えます。</li>
+          <li><b>出力</b>（cast・scan）…一番上の魔素を的に放ちます。放つと手元から消えます。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>魔力は有限</h4>
+        <p>命令にはそれぞれコストがあり、上の魔力を使います。尽きるとそこで詠唱が途切れます。
+          大きく引くほど高いので、少なく引いて増幅する方が安く済みます。</p>
+      </section>
+
+      <section>
+        <h4>相手を見る</h4>
+        <ul>
+          <li><b>防壁</b>…ダメージからその数だけ引かれます。貫通を付けた魔素は素通りします。</li>
+          <li><b>弱点</b>…その属性の魔素なら2倍。</li>
+          <li>伏せられているときは <b>scan</b> で開きます。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>操作</h4>
+        <ul>
+          <li>下の<b>命令の札</b>を押すと、その行に書き込まれます。マウスを乗せると説明が出ます。</li>
+          <li>書いている途中で <b>Tab</b> を押すと候補が入ります。</li>
+          <li><b>Ctrl + Enter</b> で詠唱。倒せなくても書き直してすぐやり直せます。</li>
+        </ul>
+      </section>
+
+    </div>
+    <div class="sp-ovbtns"><button class="sp-btn" id="btnHelpClose">閉じる</button></div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="sp-ov" id="opt" hidden>
+  <div class="sp-panel">
+    <div class="sp-ovhead">設定</div>
+    <div class="sp-ovbody">
+      <p class="sp-dim">試作版です。進みぐあいはこのブラウザに保存されます。</p>
+      <div class="sp-ovbtns">
+        <button class="sp-btn" id="btnReset">最初からやり直す</button>
+      </div>
+    </div>
+    <div class="sp-ovbtns"><button class="sp-btn" id="btnOptClose">閉じる</button></div>
+  </div>
+</div>
+
+<!-- 章の終わり -->
+<div class="sp-ov" id="fin" hidden>
+  <div class="sp-panel">
+    <div class="sp-ovhead">第一章　了</div>
+    <div class="sp-ovbody" id="finBody"></div>
+    <div class="sp-ovbtns"><button class="sp-btn sp-btn-p" id="btnFinClose">閉じる</button></div>
+  </div>
+</div>
+
+<div class="sp-tip" id="tip" hidden></div>
+
+<script src="data.js?v=959c2ae0"></script>
+<script src="art.js?v=b3010663"></script>
+<script src="game.js?v=3eb5ae95"></script>
+</body>
+</html>
