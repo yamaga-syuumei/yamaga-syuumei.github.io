@@ -21,10 +21,10 @@ window.SHOP_DATA = {
       name: '酒場', icon: 'saloon',
       desc: '来る客の数が増える',
       levels: [
-        { cost: 0,     hunters: 1, mobs: [2, 4] },
-        { cost: 600,   hunters: 2, mobs: [3, 6] },
-        { cost: 1800,  hunters: 3, mobs: [4, 8] },
-        { cost: 5000,  hunters: 4, mobs: [6, 12] }
+        { cost: 0,     hunters: 3, mobs: [2, 4] },
+        { cost: 600,   hunters: 4, mobs: [3, 6] },
+        { cost: 1800,  hunters: 5, mobs: [4, 8] },
+        { cost: 5000,  hunters: 6, mobs: [6, 12] }
       ]
     },
     shop: {
@@ -55,7 +55,7 @@ window.SHOP_DATA = {
          素材を買えず作れず売れない、という一方通行に落ちる */
       desc: '滞在できる組数・部屋の質が上がる',
       levels: [
-        { cost: 0,     rooms: { poor: 1 } },
+        { cost: 0,     rooms: { poor: 2 } },
         { cost: 500,   rooms: { poor: 2, normal: 1 } },
         { cost: 1600,  rooms: { poor: 2, normal: 2, fine: 1 } },
         { cost: 4500,  rooms: { poor: 2, normal: 2, fine: 2, suite: 1 } }
@@ -257,8 +257,7 @@ window.SHOP_DATA = {
       intro: '本人は戦えない。持ち帰るものの目利きだけは、この街で一番。',
       basePower: 6, income: 520, buys: ['tank', 'equip', 'consumable'] },
 
-    /* 酒場・宿屋を最大まで広げると同時に4組・7部屋まで受け入れられるようになるが、
-       組の数そのものが3組では頭打ちになる。投資が空振りしないよう組数を増やしてある */
+    /* 序盤は酒場Lv1で3組。酒場を広げるごとに1組ずつ増え、最大で全組が出入りする */
     { id: 'h4', name: '凄腕の賞金稼ぎ', icon: 'hunter',
       intro: '腕は立つが、財布の紐はもっと堅い。いい装備を見れば迷わず買う。',
       basePower: 22, income: 380, buys: ['equip', 'tank', 'consumable'] },

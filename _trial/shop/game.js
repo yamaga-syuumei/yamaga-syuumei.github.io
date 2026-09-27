@@ -413,6 +413,138 @@
   }
 
   /* ==========================================================
+     見込み
+     出発前に、今の装備と持ち込みで何度か試しに潜らせてみる（状態は変えない）。
+     ハンターはこの見込みで行き先を選び、店はこの見込みを見て品を揃える
+     ========================================================== */
+  var SIM_RUNS = 30;
+
+  function simulate(h, dun) {
+    var C = D.combat, st = hunterStats(h);
+    var full = 0, boss = 0, sum = 0;
+    var bossAlive = !S.bossDown[dun.id];
+    for (var r = 0; r < SIM_RUNS; r++) {
+      var hp = st.maxHp, pots = bagCount(h), reached = 0;
+      var fight = function (e, limit) {
+        var eHp = e.hp, t = 0;
+        while (eHp > 0 && hp > 0 && t < limit) {
+          t++;
+          eHp -= damage(st.atk, 0);
+          if (eHp <= 0) break;
+          hp -= damage(e.atk, st.guard);
+          if (hp > 0 && hp < st.maxHp * C.healAt && pots) {
+            pots--;
+            hp = Math.min(st.maxHp, hp + Math.round(st.maxHp * C.healRate));
+          }
+        }
+        return eHp <= 0 && hp > 0;
+      };
+      for (var f = 1; f <= dun.floors; f++) {
+        var base = pick(dun.enemies), scale = 1 + (f - 1) * C.floorScale;
+        if (!fight({ hp: Math.round(base.hp * scale), atk: Math.round(base.atk * scale) }, 40)) break;
+        reached = f;
+      }
+      sum += reached;
+      if (reached >= dun.floors) {
+        full++;
+        if (bossAlive && fight(dun.boss, 200)) boss++;
+      }
+    }
+    return {
+      dungeon: dun.id, full: full / SIM_RUNS, boss: bossAlive ? boss / SIM_RUNS : null,
+      avg: Math.round(sum / SIM_RUNS * 10) / 10
+    };
+  }
+
+  /* 行き先選び。最下層まで五分以上で届く中で一番深い所へ行く。
+     そこの賞金首がもういなければ、一段深くへ腕試しに行く。
+     どこも届かないなら、一番深くまで進めそうな所で腕を磨く */
+  function chooseDungeon(h) {
+    return seeded(function () { return chooseDungeon_(h); });
+  }
+  /* 見込みは同じ状態なら同じ結果になるよう、乱数を固定して回す */
+  function seeded(fn) {
+    var orig = Math.random, a = 20260927;
+    Math.random = function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+    try { return fn(); } finally { Math.random = orig; }
+  }
+  function chooseDungeon_(h) {
+    var power = hunterPower(h);
+    var can = D.dungeons.filter(function (d) { return power >= d.reqPower; });
+    if (!can.length) return null;
+    var sims = can.map(function (d) { return simulate(h, d); });
+    var ok = sims.filter(function (s) { return s.full >= 0.5; });
+    if (ok.length) {
+      var target = ok[ok.length - 1];
+      /* 賞金首のいない所に通っても腕は上がらない。1層でも進めるなら一段深くへ腕試しに行く */
+      if (S.bossDown[target.dungeon]) {
+        var deeper = sims.slice(sims.indexOf(target) + 1).filter(function (s) { return s.avg >= 1; })[0];
+        if (deeper) return deeper;
+      }
+      return target;
+    }
+    return sims.slice().sort(function (a, b) {
+      return b.avg / DUN[b.dungeon].floors - a.avg / DUN[a.dungeon].floors;
+    })[0];
+  }
+
+  /* 頼みに応えたら見込みがどう変わるか。応えられる品の中で一番強い物を持たせて試す */
+  function whatIf(h) {
+    var req = h.request;
+    if (!req || req.fuel) return null;
+    var keepEq = {}, keepPack = h.pack, fc;
+    Object.keys(h.equip).forEach(function (k) { keepEq[k] = h.equip[k]; });
+    if (req.cons) {
+      h.pack = h.pack.concat(new Array(req.need).fill({ id: 'potion' }));
+    } else {
+      var reach = D.blueprints.filter(function (b) {
+        return reqMatch(req, h, b.product) &&
+          (S.bps.indexOf(b.id) >= 0 || merchantBlueprints().indexOf(b) >= 0);
+      }).sort(function (a, b) { return b.product.power - a.product.power; })[0];
+      if (!reach) return null;
+      h.equip[req.slot] = reach.product.id;
+    }
+    try { fc = chooseDungeon(h); } finally { h.equip = keepEq; h.pack = keepPack; }
+    return fc;
+  }
+
+  /* 準備中に出す見込みの行。今のまま／頼みに応えたら */
+  function forecastLines(h) {
+    var box = el('div', 'sp-fc');
+    var now = chooseDungeon(h);
+    box.appendChild(fcLine('明日の見込み', now));
+    var alt = whatIf(h);
+    if (alt && (!now || alt.dungeon !== now.dungeon || forecastText(alt) !== forecastText(now))) {
+      box.appendChild(fcLine('頼みに応えれば', alt, true));
+    }
+    return box;
+  }
+  function fcLine(label, fc, good) {
+    var row = el('div', 'sp-fc-row' + (good ? ' is-good' : ''));
+    row.appendChild(el('span', 'sp-k', label));
+    row.appendChild(el('span', null, fc ? DUN[fc.dungeon].name + '　' + forecastText(fc) : '荒野に出られない'));
+    return row;
+  }
+
+  function forecastText(fc) {
+    var dun = DUN[fc.dungeon], t;
+    if (fc.full >= 0.8) t = '最下層まで行けそう';
+    else if (fc.full >= 0.4) t = '最下層は五分五分';
+    else t = fc.avg < 1 ? '1層目から厳しい' : Math.max(1, Math.round(fc.avg)) + '層あたりで引き返しそう';
+    if (fc.boss != null && fc.full >= 0.4) {
+      if (fc.boss >= 0.6) t += '。' + dun.boss.name + 'を仕留められそう';
+      else if (fc.boss >= 0.2) t += '。' + dun.boss.name + 'は分の悪い賭け';
+      else t += '。' + dun.boss.name + 'には歯が立たなそう';
+    }
+    return t;
+  }
+
+  /* ==========================================================
      頼みごと
      帰還のたびに、潜った結果から「次に欲しい物」を1つ頼む。
      頼みは次に発つ日まで有効
@@ -464,8 +596,7 @@
       return reqFor(h, weakSlot(h), 'pushed', { floor: res.retreat.floor, enemy: res.retreat.enemy });
     }
     if (res.bossFail) return reqFor(h, weakSlot(h), 'boss', { boss: dun.boss.name });
-    var pw = hunterPower(h);
-    var nx = D.dungeons.filter(function (d) { return d.reqPower > pw; })[0];
+    var nx = D.dungeons.filter(function (d) { return d.level > dun.level; })[0];
     if (nx) return reqFor(h, weakSlot(h), 'next', { dungeon: nx.name });
     return consReq(h);
   }
@@ -647,23 +778,24 @@
       return S.hunters[hd.id].place !== 'away';
     }).length;
 
-    var comers = [];
+    var comers = [], arrived = false;
     D.hunters.forEach(function (hd) {
       var h = S.hunters[hd.id];
       if (h.place === 'town') { comers.push(hd.id); return; }
-      if (h.place === 'away' && active < fac('saloon').hunters && comers.length < innCapacity()) {
+      /* 新顔は1日に1組まで。1組ずつ顔と名前を覚えられるように */
+      if (h.place === 'away' && !arrived && active < fac('saloon').hunters && comers.length < innCapacity()) {
+        arrived = true;
         h.place = 'town';
         h.justBack = true;    // 初めて来た日も一晩泊まる。頼みに応える間を作る
         active++;
         comers.push(hd.id);
         h.request = firstRequest(h);
         var c = card(hd.id);
-        c.lines.push('初めて店に来た。');
+        c.lines.push('初めて店に来た。' + (hd.intro || ''));
         c.talk.push(h.request.say);
         c.req = h.request;
       }
     });
-    comers = comers.slice(0, innCapacity());
     comers.forEach(function (id) { S.dex.hunter[id] = true; });
 
     /* --- 3. ハンターが棚から買う ---
@@ -704,7 +836,7 @@
     var ri = 0;
     R.rooms = [];
     comers.forEach(function (id) {
-      if (ri >= rooms.length) return;
+      if (ri >= rooms.length) { card(id).lines.push('部屋が空いておらず、通りで夜を明かした。'); return; }
       var g = rooms[ri++];
       R.inn += g.rate;
       S.hunters[id].intimacy += g.rate;
@@ -740,8 +872,8 @@
         c.lines.push('今夜は宿に泊まる。明日また荒野へ出るらしい。');
         return;
       }
-      var can = D.dungeons.filter(function (d) { return power >= d.reqPower; });
-      if (!can.length) {
+      var fc = chooseDungeon(h);
+      if (!fc) {
         c.lines.push('まだ荒野に出られない。装備が足りていない。');
         return;
       }
@@ -749,20 +881,22 @@
         if (!h.request.got) c.talk.push(say(id, 'missing', { req: reqLabel(h.request, h) }));
         h.request = null;
       }
-      var dun = can[can.length - 1];
+      var dun = DUN[fc.dungeon];
+      h.forecast = forecastText(fc);
       var days = Math.max(1, dun.days - Math.floor((power - dun.reqPower) / 25) - (S.bossDown[dun.id] ? 1 : 0));
       h.place = 'dungeon';
       h.dungeon = dun.id;
       h.back = S.day + days;
       c.lines.push(dun.name + '（Lv' + dun.level + '）へ発った。戻りは' + days + '日後。' +
         '持ち物：' + gearText(h));
+      c.lines.push('見込み：' + h.forecast);
     });
     R.cards.forEach(function (c) { if (c.power == null) c.power = hunterPower(S.hunters[c.hunter]); });
     R.away = D.hunters.filter(function (hd) {
       return S.hunters[hd.id].place === 'dungeon' && !cardOf[hd.id];
     }).map(function (hd) {
       var h = S.hunters[hd.id];
-      return { hunter: hd.id, dungeon: h.dungeon, back: h.back };
+      return { hunter: hd.id, dungeon: h.dungeon, back: h.back, forecast: h.forecast };
     });
 
     /* --- 7. 日付を進めて解放判定 --- */
@@ -1660,6 +1794,10 @@
       if (st2.place === 'town' && st2.request) {
         card.appendChild(el('p', 'sp-say', '「' + st2.request.say + '」'));
         card.appendChild(reqTag(st2));
+      } else if (st2.place === 'town') {
+        card.appendChild(forecastLines(st2));
+      } else if (st2.place === 'dungeon' && st2.forecast) {
+        card.appendChild(el('div', 'sp-fac-next', '出発時の見込み：' + st2.forecast));
       }
       elMain.appendChild(card);
     });
@@ -1755,7 +1893,8 @@
       R.away.forEach(function (a) {
         var h = S.hunters[a.hunter];
         var line = el('div', 'sp-line');
-        line.appendChild(el('span', null, HUN[a.hunter].name + '　' + DUN[a.dungeon].name + '　持ち物：' + gearText(h)));
+        line.appendChild(el('span', null, HUN[a.hunter].name + '　' + DUN[a.dungeon].name +
+          (a.forecast ? '（見込み：' + a.forecast + '）' : '')));
         line.appendChild(el('b', null, a.back + '日目に戻る'));
         sa.appendChild(line);
       });
@@ -1873,13 +2012,15 @@
     t.appendChild(el('span', 'sp-req-k', '頼み'));
     t.appendChild(el('b', null, reqLabel(h.request, h)));
     t.appendChild(el('span', 'sp-req-hint', reqHint(h)));
+    t.appendChild(forecastLines(h));
     return t;
   }
 
   /* 応える手立て：棚にある／在庫がある／作れる／商人にある／まだ無い */
   function reqHint(h) {
     var req = h.request;
-    var match = D.blueprints.filter(function (b) { return reqMatch(req, h, b.product); });
+    var match = D.blueprints.filter(function (b) { return reqMatch(req, h, b.product); })
+      .sort(function (a, b) { return (b.product.power || 0) - (a.product.power || 0); });
     var onShelf = match.filter(function (b) {
       return S.shelf.indexOf(b.product.id) >= 0 && stockCount(b.product.id) > 0;
     });

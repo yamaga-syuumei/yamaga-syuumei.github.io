@@ -334,3 +334,9 @@ img { image-rendering: pixelated; }
 .sp-bossdown .sp-unlock-k { background: var(--red); color: #fff; }
 .sp-bossdown b { font-size: 14px; }
 .sp-bossdown p { margin: 4px 0 0; font-size: 12.5px; color: var(--amber); font-weight: 700; }
+
+/* ---------- 見込み ---------- */
+.sp-fc { flex-basis: 100%; margin-top: 4px; }
+.sp-fc-row { display: flex; gap: 8px; font-size: 11px; color: var(--ink-2); line-height: 1.6; }
+.sp-fc-row .sp-k { flex: none; }
+.sp-fc-row.is-good { color: var(--green); }
