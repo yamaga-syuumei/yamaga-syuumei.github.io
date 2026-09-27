@@ -408,7 +408,9 @@
     return {
       reached: reached, floors: dun.floors, bossDown: bossDown, bossFail: bossFail,
       log: log, hp: hp, broken: broken, retreat: retreat, mine: mine,
-      finish: finish ? PROD[finish.id].name : null
+      finish: finish ? PROD[finish.id].name : null,
+      used: used.length, usedName: used.length ? PROD[used[0].it.id].name : null,
+      weaponName: weapon ? PROD[weapon.id].name : null
     };
   }
 
@@ -529,6 +531,27 @@
     row.appendChild(el('span', 'sp-k', label));
     row.appendChild(el('span', null, fc ? DUN[fc.dungeon].name + '　' + forecastText(fc) : '荒野に出られない'));
     return row;
+  }
+
+  /* 帰還の答え合わせ。出発時の見込みと実際を比べる */
+  function judge(fc, res) {
+    if (!fc) return null;
+    var full = res.reached >= res.floors, v;
+    if (res.bossDown && fc.boss != null && fc.boss < 0.35) v = { kind: 'up', text: '見込みを覆して、賞金首を仕留めた' };
+    else if (full && fc.full < 0.4) v = { kind: 'up', text: '予想以上。最下層まで届いた' };
+    else if (!full && res.reached >= Math.round(fc.avg) + 2) v = { kind: 'up', text: '予想より' + (res.reached - Math.round(fc.avg)) + '層深く進んだ' };
+    else if (!full && fc.full >= 0.8) v = { kind: 'down', text: '予想外。' + (res.reached + 1) + '層で押し返された' };
+    else if (res.bossFail && fc.boss >= 0.6) v = { kind: 'down', text: '仕留めきれなかった。見込みより手強かった' };
+    else return { kind: 'even', text: '見込みどおり' };
+    if (v.kind === 'up') {
+      if (res.used) v.why = '決め手は、持ち込んだ' + res.usedName + (res.used > 1 ? 'など' + res.used + '個' : '');
+      else if (res.weaponName) v.why = '決め手は、この店の' + res.weaponName;
+    } else if (res.retreat && res.retreat.dry) {
+      v.why = '薬が尽きたのが響いた';
+    } else if (!res.used) {
+      v.why = '薬をひとつも持っていなかった';
+    }
+    return v;
   }
 
   function forecastText(fc) {
@@ -728,6 +751,8 @@
       var c = card(hd.id);
       c.battle = res.log;
       c.mine = res.mine;
+      c.verdict = judge(h.fc, res);
+      h.fc = null;
 
       var line = dun.name + 'から戻った。' + res.reached + ' / ' + res.floors + '層まで進んだ。';
       if (res.bossDown) {
@@ -883,6 +908,7 @@
       }
       var dun = DUN[fc.dungeon];
       h.forecast = forecastText(fc);
+      h.fc = { full: fc.full, boss: fc.boss, avg: fc.avg };
       var days = Math.max(1, dun.days - Math.floor((power - dun.reqPower) / 25) - (S.bossDown[dun.id] ? 1 : 0));
       h.place = 'dungeon';
       h.dungeon = dun.id;
@@ -1182,9 +1208,15 @@
     b.addEventListener('click', fn);
     return b;
   }
+  var playing = false;
   function advanceDay() {
+    if (playing) return;
+    playing = true;
+    closeWindow();
     var R = nextDay();
-    showResult(R);
+    renderHud();
+    drawScene();
+    playMorning(R, function () { playing = false; showResult(R); });
   }
 
   function toast(msg) {
@@ -1707,6 +1739,17 @@
     label.appendChild(cb);
     label.appendChild(el('span', null, '戦闘の詳細ログを最初から開いておく'));
     card.appendChild(label);
+
+    var label2 = el('label', 'sp-opt');
+    var cb2 = document.createElement('input');
+    cb2.type = 'checkbox';
+    cb2.checked = !S.opt.noMorning;
+    cb2.addEventListener('change', function () {
+      S.opt.noMorning = !cb2.checked; save();
+    });
+    label2.appendChild(cb2);
+    label2.appendChild(el('span', null, '寝たあと、その日の営業の場面を見せる'));
+    card.appendChild(label2);
     elMain.appendChild(card);
 
     elMain.appendChild(el('p', 'sp-note', '音はまだ入れていないので、音量の設定は置いていない。'));
@@ -1877,6 +1920,8 @@
       c.appendChild(el('span', 'sp-unlock-k', '賞金首討伐'));
       c.appendChild(el('b', null, HUN[b.hunter].name + 'が' + b.boss + 'を仕留めた'));
       if (b.item) c.appendChild(el('p', null, 'とどめは、この店の' + b.item + 'だった。'));
+      var cd = (R.cards || []).filter(function (x) { return x.hunter === b.hunter; })[0];
+      if (cd && cd.verdict && cd.verdict.kind === 'up') c.appendChild(el('p', 'sp-upset', '分の悪い賭けだった。見込みを覆した。'));
       box.appendChild(c);
     });
 
@@ -1973,6 +2018,13 @@
     head.appendChild(el('span', 'sp-lv', '強さ ' + c.power));
     box.appendChild(head);
 
+    if (c.verdict) {
+      var vd = el('div', 'sp-verdict is-' + c.verdict.kind);
+      vd.appendChild(el('b', null, c.verdict.text));
+      if (c.verdict.why) vd.appendChild(el('span', null, c.verdict.why));
+      box.appendChild(vd);
+    }
+
     c.lines.forEach(function (t) {
       var p = el('p', 'sp-report');
       p.innerHTML = escapeHtml(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
@@ -2048,6 +2100,176 @@
     s3.appendChild(el('p', 'sp-note', '買うものを選ぶ。買わなかった分は流れる'));
     renderPending(s3);
     renderHud();
+  }
+
+  /* ==========================================================
+     営業の場面
+     寝たあと、その日の営業を絵の上で見せてから結果を出す。
+     帰ってきた組・新顔・モブが通りから店に入り、棚から買って出ていく。
+     押せば飛ばせる
+     ========================================================== */
+  var WALK_SPEED = 190;     // 1倍座標で1秒あたりの歩く距離
+  var MORNING_MAX = 7;      // これより長くなるなら全体を早回しにする
+
+  function playMorning(R, done) {
+    if (document.hidden || (S.opt && S.opt.noMorning)) { done(); return; }   // 見ている人がいなければ飛ばす
+    var SP = SCENE.SPOTS, W = SCENE.W, Y = SP.streetY;
+    var bg = document.createElement('canvas');
+    bg.width = W; bg.height = SCENE.H;
+    bg.getContext('2d').drawImage(elCv, 0, 0);
+    var g = elCv.getContext('2d');
+    g.imageSmoothingEnabled = false;
+
+    var layer = el('div', 'sp-morning');
+    layer.appendChild(el('div', 'sp-morning-title', R.day + '日目の営業'));
+    layer.appendChild(el('div', 'sp-morning-skip', '押すと飛ばす'));
+    elStage.appendChild(layer);
+
+    function P(x, y) { return { x: x, y: y }; }
+    function rackSpot() { return P(SP.racks.x0 + rnd(SP.racks.x1 - SP.racks.x0), SP.racks.y + rnd(5)); }
+    var inShop = [P(SP.shopDoor.x, Y), SP.shopDoor, SP.shopAisle, SP.shopFloor];
+    var outShop = [SP.shopFloor, SP.shopAisle, SP.shopDoor, P(SP.shopDoor.x, Y)];
+    var fromBar = [SP.barIn, SP.barDoor, P(SP.barDoor.x, Y)];
+    var toBar = [P(SP.barDoor.x, Y), SP.barDoor, SP.barIn];
+
+    /* 役者：道のり（pts）と、着いた地点で出す一言（at[i]） */
+    var actors = [];
+    function actor(kind, t0, pts, at) {
+      var times = [0], wait = 0;
+      for (var i = 1; i < pts.length; i++) {
+        var dx = pts[i].x - pts[i - 1].x, dy = pts[i].y - pts[i - 1].y;
+        times.push(times[i - 1] + (pts[i - 1].wait || 0) + Math.sqrt(dx * dx + dy * dy) / WALK_SPEED);
+      }
+      actors.push({ kind: kind, t0: t0, pts: pts, times: times, at: at || {}, fired: {},
+        end: t0 + times[times.length - 1] + (pts[pts.length - 1].wait || 0) });
+    }
+    function stop(p, sec) { return { x: p.x, y: p.y, wait: sec }; }
+
+    var salesTo = {};
+    R.sales.forEach(function (s) { (salesTo[s.to] = salesTo[s.to] || []).push(s); });
+
+    /* ハンター：来た道 → 棚 → 発つか、宿へ戻る */
+    var t = 0.5;
+    (R.cards || []).forEach(function (c) {
+      var name = HUN[c.hunter].name;
+      var buys = salesTo[name] || [];
+      var returned = !!c.battle, isNew = /^初めて/.test(c.lines[0] || '');
+      var leaves = c.lines.some(function (l) { return /へ発った/.test(l); });
+      var dest = leaves && S.hunters[c.hunter].place === 'dungeon' ? DUN[S.hunters[c.hunter].dungeon].name : null;
+
+      var head = [], at = {};
+      if (returned || isNew) {
+        head = [P(-12, Y)];
+        at[0] = [[returned ? name + ' 帰還' : '新顔：' + name, 'is-name is-long']];
+        if (c.verdict && c.verdict.kind !== 'even') at[0].push([c.verdict.text, c.verdict.kind === 'up' ? 'is-good is-long' : 'is-bad is-long']);
+      } else {
+        head = fromBar.slice();
+        at[0] = [[name, 'is-name']];
+      }
+      var pts = head.concat(inShop);
+      var shopAt = pts.length;
+      var spot = rackSpot();
+      pts.push(stop(spot, 0.5 + buys.length * 0.35));
+      at[shopAt] = buys.map(function (s) { return ['+' + gold(s.price) + '　' + s.name, 'is-gold'];});
+      if (c.thanked) at[shopAt].push(['頼みに応えた', 'is-good is-long']);
+      pts.push(SP.shopFloor);
+      pts = pts.concat(outShop.slice(1));
+      if (dest) {
+        at[pts.length - 1] = [['→ ' + dest, 'is-name is-long']];
+        pts.push(P(-12, Y));
+      } else {
+        pts = pts.concat(toBar);
+      }
+      actor('hunter', t, pts, at);
+      t += 0.55;
+    });
+
+    /* モブ：通りから入って消耗品を買い、右へ抜ける */
+    var mobSales = salesTo['モブ'] || [];
+    var mobN = Math.min(6, mobSales.length);
+    var tm = 0.8;
+    for (var m = 0; m < mobN; m++) {
+      var mine = m < mobN - 1 ? [mobSales[m]] : mobSales.slice(m);
+      var sum = mine.reduce(function (a, s) { return a + s.price; }, 0);
+      var sx = 160 + rnd(160);
+      var pts = [P(sx, Y)].concat(inShop);
+      var at = {};
+      at[pts.length] = [['+' + gold(sum) + '　' + mine[0].name + (mine.length > 1 ? ' ×' + mine.length : ''), 'is-gold']];
+      pts.push(stop(rackSpot(), 0.45));
+      pts.push(SP.shopFloor);
+      pts = pts.concat(outShop.slice(1));
+      pts.push(P(W + 12, Y));
+      actor(['mobA', 'mobB', 'mobC'][m % 3], tm, pts, at);
+      tm += 0.4;
+    }
+
+    var total = actors.reduce(function (a, x) { return Math.max(a, x.end); }, 1.2) + 0.5;
+    var rate = total > MORNING_MAX ? total / MORNING_MAX : 1;
+
+    function where(a, tt) {
+      var lt = tt - a.t0;
+      if (lt < 0 || tt > a.end) return null;
+      for (var i = 1; i < a.pts.length; i++) {
+        var p0 = a.pts[i - 1], p1 = a.pts[i];
+        var leave = a.times[i - 1] + (p0.wait || 0);
+        if (lt < leave) return { x: p0.x, y: p0.y, i: i - 1 };
+        if (lt < a.times[i]) {
+          var k = (lt - leave) / (a.times[i] - leave);
+          return { x: p0.x + (p1.x - p0.x) * k, y: p0.y + (p1.y - p0.y) * k, i: i - 1 };
+        }
+      }
+      var last = a.pts[a.pts.length - 1];
+      return { x: last.x, y: last.y, i: a.pts.length - 1 };
+    }
+
+    function floatText(x, y, text, cls, delay) {
+      var f = el('div', 'sp-float ' + (cls || ''), text);
+      f.style.left = (x / W * 100) + '%';
+      f.style.top = (y / SCENE.H * 100) + '%';
+      f.style.animationDelay = (delay || 0) + 's';
+      layer.appendChild(f);
+      setTimeout(function () { f.remove(); }, 3200 + (delay || 0) * 1000);
+    }
+
+    var start = null, raf = 0, finished = false;
+    function frame(now) {
+      if (finished) return;
+      if (start == null) start = now;
+      var tt = (now - start) / 1000 * rate;
+      g.drawImage(bg, 0, 0);
+      actors.slice().sort(function (a, b) {
+        var pa = where(a, tt), pb = where(b, tt);
+        return (pa ? pa.y : 0) - (pb ? pb.y : 0);
+      }).forEach(function (a) {
+        var p = where(a, tt);
+        if (!p) return;
+        SCENE.walker(g, a.kind, p.x, p.y);
+        for (var i = 0; i <= p.i; i++) {
+          if (a.fired[i] || !a.at[i]) continue;
+          a.fired[i] = true;
+          a.at[i].forEach(function (x, n) { floatText(p.x, p.y - 16 - n * 9, x[0], x[1], n * 0.25); });
+        }
+      });
+      if (tt < 0.8) {                      // 夜明け
+        g.fillStyle = 'rgba(5,7,10,' + (0.75 * (1 - tt / 0.8)) + ')';
+        g.fillRect(0, 0, W, SCENE.H);
+      }
+      if (tt >= total) { finish(); return; }
+      raf = requestAnimationFrame(frame);
+    }
+    function finish() {
+      if (finished) return;
+      finished = true;
+      cancelAnimationFrame(raf);
+      document.removeEventListener('visibilitychange', onHide);
+      layer.remove();
+      drawScene();
+      done();
+    }
+    function onHide() { if (document.hidden) finish(); }
+    layer.addEventListener('click', finish);
+    document.addEventListener('visibilitychange', onHide);
+    raf = requestAnimationFrame(frame);
   }
 
   function escapeHtml(s) {

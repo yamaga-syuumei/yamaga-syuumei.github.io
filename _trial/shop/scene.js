@@ -445,5 +445,15 @@ window.SCENE = (function () {
     return hit;
   }
 
-  return { draw: draw, W: W, H: H };
+  /* 動く人だけを描く（朝の場面で使う）。x, y は足元 */
+  function walker(g, kind, x, y) { person(g, kind, Math.round(x) - 8, Math.round(y) - 14); }
+
+  /* 動線の要所（1倍座標）。店舗の扉は通りの左、酒場の扉はその右 */
+  var SPOTS = {
+    streetY: 262, shopDoor: { x: 58, y: 240 }, shopAisle: { x: 132, y: 226 },
+    shopFloor: { x: 132, y: 190 }, racks: { x0: 16, x1: 148, y: 186 },
+    barDoor: { x: 248, y: 240 }, barIn: { x: 248, y: 196 }
+  };
+
+  return { draw: draw, walker: walker, SPOTS: SPOTS, W: W, H: H };
 })();

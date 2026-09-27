@@ -340,3 +340,46 @@ img { image-rendering: pixelated; }
 .sp-fc-row { display: flex; gap: 8px; font-size: 11px; color: var(--ink-2); line-height: 1.6; }
 .sp-fc-row .sp-k { flex: none; }
 .sp-fc-row.is-good { color: var(--green); }
+
+/* ---------- 答え合わせ ---------- */
+.sp-verdict {
+  display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline;
+  margin: 5px 0 2px; padding: 3px 8px; border-left: 3px solid var(--line2);
+  background: #0b0e11; font-size: 12px;
+}
+.sp-verdict span { font-size: 11px; color: var(--ink-2); }
+.sp-verdict.is-up { border-left-color: var(--green); }
+.sp-verdict.is-up b { color: var(--green); }
+.sp-verdict.is-down { border-left-color: var(--red); }
+.sp-verdict.is-down b { color: var(--red); }
+.sp-verdict.is-even b { color: var(--ink-2); font-weight: 700; }
+.sp-bossdown .sp-upset { color: var(--green); }
+
+/* ---------- 営業の場面 ---------- */
+.sp-morning { position: absolute; inset: 0; z-index: 10; cursor: pointer; overflow: hidden; }
+.sp-morning-title {
+  position: absolute; left: 50%; top: 8px; transform: translateX(-50%);
+  background: rgba(5, 7, 10, .85); border: 1px solid var(--amber); color: var(--amber);
+  font-size: 12px; font-weight: 800; letter-spacing: .08em; padding: 2px 12px;
+}
+.sp-morning-skip {
+  position: absolute; right: 6px; bottom: 6px;
+  font-size: 10px; color: var(--ink-3); background: rgba(5, 7, 10, .8); padding: 0 6px;
+}
+.sp-float {
+  position: absolute; transform: translate(-50%, -100%); white-space: nowrap; pointer-events: none;
+  font-size: 10.5px; font-weight: 800; padding: 0 4px; background: rgba(5, 7, 10, .8);
+  opacity: 0; animation: sp-rise 1.6s ease-out forwards;
+}
+.sp-float.is-long { animation-duration: 2.6s; }
+.sp-float.is-name { color: var(--ink); border: 1px solid var(--line2); }
+.sp-float.is-gold { color: var(--amber); }
+.sp-float.is-good { color: var(--green); }
+.sp-float.is-bad { color: var(--red); }
+@keyframes sp-rise {
+  0% { opacity: 0; margin-top: 4px; }
+  12% { opacity: 1; margin-top: 0; }
+  75% { opacity: 1; }
+  100% { opacity: 0; margin-top: -14px; }
+}
+.sp-opt + .sp-opt { margin-top: 8px; }
