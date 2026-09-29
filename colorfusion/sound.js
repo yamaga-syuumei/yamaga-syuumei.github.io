@@ -13,6 +13,11 @@
 
    ブラウザは利用者が触るより前に音を鳴らすことを禁じているので、
    最初のクリックかタップまで再生を試みない。
+
+   プレイ中の曲は music.js（CFMUS）がその場で合成する。
+   play / play2 / danger の場面を頼まれたら mp3 ではなく合成の曲へ回し、
+   合成の曲が鳴っている間は、融合などの効果音も曲の和音に合わせて合成する。
+   Web Audio が使えないときは、ここに書いた mp3 がそのまま代わりに鳴る。
    ========================================================== */
 window.CFSFX = (function () {
   'use strict';
@@ -27,18 +32,23 @@ window.CFSFX = (function () {
     stage:  'sfx/決定11.mp3',   // 段が変わった
     lap:    'sfx/決定15.mp3',   // 次の周に入った
     start:  'sfx/正解9.mp3',    // ランの開始
-    over:   'sfx/電源オン.mp3'   // 光が尽きた
+    over:   'sfx/電源オン.mp3',  // 光が尽きた
+    milestone: 'sfx/決定16.mp3' // 連鎖の節目（10・20・30…）
   };
 
   /* 空のキーを指定されたときは、いま鳴っている曲をそのまま流し続ける。
      だから title と play だけ入れて、残りを空のままにしても成立する。 */
   var BGM_FILES = {
     title:  'bgm/Future_3.mp3',     // タイトルとデモ
-    play:   'bgm/Future_2.mp3',     // プレイ中
-    play2:  'bgm/trance2.mp3',      // 2周目以降。空なら play のまま
-    danger: 'bgm/Drumnbass_03.mp3', // 光が残りわずか。空ならプレイ中の曲のまま
+    play:   'bgm/Future_2.mp3',     // プレイ中（合成の曲が使えないときだけ）
+    play2:  'bgm/trance2.mp3',      // 2周目以降。空なら play のまま（同上）
+    danger: 'bgm/Drumnbass_03.mp3', // 光が残りわずか。空ならプレイ中の曲のまま（同上）
     over:   'bgm/LoFi_01.mp3'       // 結果画面。空ならプレイ中の曲のまま
   };
+
+  /* 合成の曲で鳴らす場面 */
+  var SYNTH_SCENES = { play: 1, play2: 1, danger: 1 };
+  var MUS = window.CFMUS && window.CFMUS.ok() ? window.CFMUS : null;
 
   /* ---------- 素材の出どころ ----------
      もらったらここに足す。設定パネルにそのまま出る。
@@ -68,6 +78,7 @@ window.CFSFX = (function () {
   function save() {
     try { localStorage.setItem('cf_vol', JSON.stringify(vol)); } catch (e) {}
   }
+  if (MUS) { MUS.setVol('se', vol.se); MUS.setVol('bgm', vol.bgm); }
 
   function clamp(v) { return Math.max(0, Math.min(1, v)); }
 
@@ -85,6 +96,8 @@ window.CFSFX = (function () {
      （連鎖が伸びるほど高くする、といった使い方を想定） */
   function se(name, opts) {
     if (!unlocked || vol.se <= 0) return;
+    /* 合成の曲が鳴っている間は、曲の和音に合わせて合成する */
+    if (MUS && MUS.playing() && MUS.has(name)) { MUS.sfx(name, opts); return; }
     var url = SFX_FILES[name];
     if (!url) return;                 // 素材が未設定なら黙って何もしない
     if (!pools[name]) pools[name] = makePool(url);
@@ -120,7 +133,16 @@ window.CFSFX = (function () {
   function bgm(name) {
     if (!unlocked) { wantBgm = name; return; }
     if (name === curBgm) return;
+    if (MUS && name && SYNTH_SCENES[name]) {
+      var was = curBgm ? bgmEls[curBgm] : null;
+      if (was) fade(was, 0, 500, true);
+      curBgm = name;
+      MUS.start();
+      MUS.danger(name === 'danger');
+      return;
+    }
     if (name && !BGM_FILES[name]) return;      // 素材が無い → いまの曲を続ける
+    if (MUS) MUS.stop();
     var prev = curBgm ? bgmEls[curBgm] : null;
     if (prev) fade(prev, 0, 500, true);
     curBgm = name;
@@ -143,6 +165,7 @@ window.CFSFX = (function () {
 
   /* 最初の操作で解錠する。ここまでは一切鳴らさない */
   function unlock() {
+    if (MUS) MUS.boot();
     if (unlocked) return;
     unlocked = true;
     if (wantBgm !== null) { var w = wantBgm; wantBgm = null; curBgm = null; bgm(w); }
@@ -150,6 +173,7 @@ window.CFSFX = (function () {
 
   function setVol(kind, v) {
     vol[kind] = clamp(v);
+    if (MUS) MUS.setVol(kind, vol[kind]);
     if (kind === 'bgm' && curBgm && bgmEls[curBgm]) bgmEls[curBgm].volume = vol.bgm;
     save();
   }
