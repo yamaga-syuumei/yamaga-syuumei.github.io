@@ -45,6 +45,18 @@
                               setVol: function () {}, vol: function () { return { se: 0, bgm: 0 }; },
                               credits: function () { return []; }, ready: function () { return false; } };
 
+  /* プレイ中の曲。盛り上がりと拍を読み書きする。無くても落ちないようにしておく */
+  var MUS = window.CFMUS && window.CFMUS.ok() ? window.CFMUS : null;
+
+  /* 動きの強さ（0〜1）。揺れ・一瞬の止め・拍の脈動・閃光にかける。
+     端末に「動きを減らす」指定があれば、はじめは 0 にしておく */
+  var motion = 1;
+  try {
+    var mv = localStorage.getItem('cf_motion');
+    if (mv !== null) motion = Math.max(0, Math.min(1, parseFloat(mv) || 0));
+    else if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) motion = 0;
+  } catch (e) { motion = 1; }
+
   var VW = 1000, VH = 1000;
   var CX = VW / 2, CY = VH / 2;
   var CORE_R = 46;
@@ -267,6 +279,9 @@
   var chain = { n: 0, t: -99, pop: 0, end: 0, endN: 0 };
   var stage = 0, lap = 0, scoreBase = 0, flash = 0;
   var banner = { s: '', life: 0 };   // 段が変わったときの一言
+  /* 画面の揺れ（画面の px）と、一瞬の止め（秒）。大きい融合と連鎖の節目で使う */
+  var shake = 0, hitStop = 0, shakeCss = '';
+  var beat = 0;                       // 拍の脈動 0〜1。曲のキックに合わせて光らせる
 
   try { high = parseFloat(localStorage.getItem('cf_high')) || 0; } catch (e) { high = 0; }
 
@@ -285,6 +300,7 @@
     texts.length = 0;
     chain.n = 0; chain.t = -99; chain.pop = 0; chain.end = 0; chain.endN = 0;
     stage = 0; lap = 0; scoreBase = 0; flash = 0; banner.life = 0;
+    shake = 0; hitStop = 0;
     setPalette(0);
     if (P.stages) applyStage(STAGES[0]);
     state = 'play';
@@ -536,6 +552,7 @@
       stage++;
       applyStage(STAGES[stage]);
       if (STAGES[stage].say) { announce(STAGES[stage].say); SFX.se('stage'); }
+      if (MUS && state === 'play') MUS.drop(false);
     }
     if (stage === STAGES.length - 1 && f >= STAGES[stage].at + LAP_EXTRA) {
       lap++;
@@ -547,6 +564,7 @@
       announce((lap + 1) + '周目');
       SFX.se('lap');
       SFX.bgm('play2');           // 素材が無ければ play のまま
+      if (MUS && state === 'play') MUS.drop(true);
       flash = 0.85;
     }
   }
@@ -662,7 +680,10 @@
     if (tNow - chain.t > P.combo) chain.n = 0;
     /* 近すぎる融合は数えない。ただし連鎖は切らない。
        切ると、崩れに巻き込まれた瞬間に連鎖が終わることになって理不尽になる */
-    if (tNow - chain.t >= P.comboMin) { chain.n++; chain.pop = 1; }
+    if (tNow - chain.t >= P.comboMin) {
+      chain.n++; chain.pop = 1;
+      if (isMilestone(chain.n)) milestone(chain.n, a.x, a.y);
+    }
     chain.t = tNow;
 
     stat.fuse++;
@@ -710,8 +731,35 @@
         });
       }
     }
-    /* 連鎖が伸びるほど高くする。同じ音でも積み上がって聞こえる */
-    SFX.se('fuse', { rate: 1 + Math.min(0.9, (chain.n - 1) * 0.045) });
+    /* 連鎖が伸びるほど高くする。合成の曲が鳴っていれば和音の上を1音ずつ上がる */
+    SFX.se('fuse', { rate: 1 + Math.min(0.9, (chain.n - 1) * 0.045), chain: chain.n, size: a.size });
+    /* 大きい塊ができたら画面を揺らし、一瞬だけ止めて重さを出す */
+    if (a.size >= 8) jolt(Math.min(9, 3 + a.size * 0.35), a.size >= 16 ? 0.05 : 0.03);
+  }
+
+  /* 連鎖の節目。10・20・30・50・75・100、そこからは50ごと */
+  function isMilestone(n) {
+    return n === 10 || n === 20 || n === 30 || n === 50 || n === 75 || (n >= 100 && n % 50 === 0);
+  }
+
+  function milestone(n, x, y) {
+    SFX.se('milestone', { chain: n });
+    if (state !== 'play') return;
+    jolt(14, 0.08);
+    flash = Math.max(flash, 0.3 * motion);
+    /* 融合した場所から輪を3重に広げる。下の層に描くので光の尾を引く */
+    for (var i = 0; i < 3; i++) {
+      parts.push({ x: x, y: y, vx: 0, vy: 0, life: 0.5 + i * 0.18, max: 0.5 + i * 0.18,
+                   w: 60 + i * 70 + Math.min(120, n * 2), ring: 1 });
+    }
+    burst(x, y, 12, n);
+  }
+
+  /* 揺れと止め。タイトルの裏のデモでは揺らさない（タイトル文字まで揺れる） */
+  function jolt(px, stop) {
+    if (state !== 'play' || motion <= 0) return;
+    shake = Math.max(shake, px);
+    hitStop = Math.max(hitStop, stop);
   }
 
   /* 縁を越えたものが砕ける。
@@ -839,7 +887,7 @@
         floatText(s.x, s.y,
           (mult > 1.05 ? 'x' + (Math.round(mult * 10) / 10) + ' ' : '') + '+' + Math.round(gain),
           COLORS[s.ci].hue);
-        SFX.se('absorb', { gain: Math.min(1, 0.5 + gain * 0.012) });
+        SFX.se('absorb', { gain: Math.min(1, 0.5 + gain * 0.012), amount: gain });
       }
     }
 
@@ -892,12 +940,13 @@
     chain.pop = Math.max(0, chain.pop - dt * 3.2);
     if (chain.n > 0 && tNow - chain.t > P.combo) {
       if (chain.n >= 2) { chain.end = 0.9; chain.endN = chain.n; }
-      if (chain.n >= 3) SFX.se('chain');
+      if (chain.n >= 3) SFX.se('chain', { chain: chain.n });
       chain.n = 0;
     }
     chain.end = Math.max(0, chain.end - dt);
 
     progress();
+    if (state === 'play') musicTick();
     if (banner.life > 0) banner.life = Math.max(0, banner.life - dt);
     if (flash > 0) flash = Math.max(0, flash - dt * 1.2);
 
@@ -940,6 +989,18 @@
     var mass = 0;
     for (var z = 0; z < shapes.length; z++) mass += shapes[z].size;
     stat.mass = mass;
+  }
+
+  /* 曲の盛り上がり。段が進むほど楽器が重なり、連鎖の最中はさらに上乗せする。
+     テンポは段と周で上がり、調は周ごとに2半音ずつ上がる */
+  function musicTick() {
+    if (!MUS || !MUS.playing()) return;
+    var base = Math.min(7, 1 + stage * 0.75) + Math.min(lap, 2);
+    var surge = Math.min(2, Math.max(0, chain.n - 1) * 0.25);
+    MUS.setLevel(Math.min(9, base + surge));
+    MUS.setTempo(120 + stage * 2 + Math.min(lap, 4) * 4);
+    MUS.setKey(Math.min(lap, 3) * 2);
+    MUS.tick();
   }
 
   /* ---------- 先読み ---------- */
@@ -1177,8 +1238,8 @@
     var lv = P.lightMax > 0 ? core.light / P.lightMax : 0;      // 0..1
     var low = lv < 0.25 ? (1 - lv / 0.25) : 0;                  // 残り少ないほど1に近い
     var flick = low > 0 ? (0.75 + Math.sin(core.t * (8 + low * 14)) * 0.25 * low) : 1;
-    var bright = (0.25 + lv * 0.75) * flick;
-    var r = CORE_R * (0.62 + lv * 0.38) * (1 + Math.sin(core.t * 1.7) * 0.03 + core.pulse * 0.18);
+    var bright = Math.min(1.2, (0.25 + lv * 0.75) * flick + beat * 0.2);
+    var r = CORE_R * (0.62 + lv * 0.38) * (1 + Math.sin(core.t * 1.7) * 0.03 + core.pulse * 0.18 + beat * 0.07);
     var g = ctx2.createRadialGradient(CX, CY, r * 0.2, CX, CY, r * 2.4);
     g.addColorStop(0, 'rgba(255,255,255,' + ((0.25 + core.pulse * 0.4) * bright + 0.08) + ')');
     g.addColorStop(0.35, 'rgba(120,230,255,' + (0.4 * bright) + ')');
@@ -1276,6 +1337,7 @@
 
   function render() {
     var _t0 = performance.now();
+    beat = (MUS && MUS.playing() && state === 'play') ? MUS.pulse().kick * motion : 0;
     /* 下の層：消さずに黒を薄く重ねる。動いたものが尾を引く */
     /* 下の層は消さずに黒を薄く重ねる。動いたものが光の帯を引く。
        加算合成にすると同じ場所に足し続けて尾が白く飽和するので使わない */
@@ -1307,16 +1369,16 @@
     drawVignette();
     ctx2.globalCompositeOperation = DBG.lighter ? 'lighter' : 'source-over';
 
-    if (heat > 0.01) {
+    if (heat > 0.01 || beat > 0.01) {
       var hg = ctx2.createRadialGradient(CX, CY, 0, CX, CY, VW * 0.75);
-      hg.addColorStop(0, 'rgba(90,150,255,' + (heat * 0.10) + ')');
+      hg.addColorStop(0, 'rgba(90,150,255,' + (heat * 0.10 + beat * 0.035) + ')');
       hg.addColorStop(1, 'rgba(90,150,255,0)');
       ctx2.fillStyle = hg;
       ctx2.fillRect(0, 0, VW, VH);
     }
 
     /* 領域の縁。ここを越えたものは失われるので、うっすら見せる */
-    ctx2.strokeStyle = 'rgba(120,200,255,0.16)';
+    ctx2.strokeStyle = 'rgba(120,200,255,' + (0.16 + beat * 0.16) + ')';
     ctx2.lineWidth = 2;
     ctx2.beginPath(); ctx2.arc(CX, CY, FIELD_R, 0, 6.2832); ctx2.stroke();
     ctx2.strokeStyle = 'rgba(120,200,255,0.05)';
@@ -1723,6 +1785,16 @@
         out.textContent = Math.round(val * 100) + '%';
       });
     });
+    var mEl = document.getElementById('v-motion'), mOut = document.getElementById('v-motion-v');
+    if (mEl) {
+      mEl.value = motion;
+      mOut.textContent = Math.round(motion * 100) + '%';
+      mEl.addEventListener('input', function () {
+        motion = parseFloat(mEl.value);
+        mOut.textContent = Math.round(motion * 100) + '%';
+        try { localStorage.setItem('cf_motion', String(motion)); } catch (e) {}
+      });
+    }
     var box = document.getElementById('credits');
     var list = SFX.credits();
     if (!list.length) {
@@ -1843,6 +1915,16 @@
   }
   /* dev:end */
 
+  /* 2枚のキャンバスを同じだけずらす。軌跡の層も一緒に動くので、尾がずれない */
+  function applyShake(dt) {
+    if (shake > 0) shake = Math.max(0, shake - dt * 40);
+    var a = shake * motion;
+    var tr = a > 0.3
+      ? 'translate(' + ((Math.random() - 0.5) * a).toFixed(1) + 'px,' + ((Math.random() - 0.5) * a).toFixed(1) + 'px)'
+      : '';
+    if (tr !== shakeCss) { cv.style.transform = tr; cv2.style.transform = tr; shakeCss = tr; }
+  }
+
   /* ---------- ループ ---------- */
 
   function frame(ts) {
@@ -1853,6 +1935,9 @@
     var dt = tPrev ? Math.min(now - tPrev, 0.05) : 0;
     tPrev = now;
     if (optOpen) { render(); requestAnimationFrame(frame); return; }
+    applyShake(dt);
+    /* 一瞬の止め。盤面の時計ごと止めるので、連鎖の猶予も減らない */
+    if (hitStop > 0) { hitStop = Math.max(0, hitStop - dt); render(); requestAnimationFrame(frame); return; }
     tNow += dt;
     if (dt > 0) stat.fps += (1 / dt - stat.fps) * 0.06;
     var _u0 = performance.now();
@@ -1879,6 +1964,9 @@
                 setRuns: function (n) { runs = n; try { localStorage.setItem('cf_runs', String(n)); } catch (e) {} },
                 info: function () { return { state: state, score: +score.toFixed(0), high: +high.toFixed(0), light: +core.light.toFixed(1) }; },
                 bench: runBench, DBG: DBG,
+                fx: function () { return { shake: +shake.toFixed(2), hitStop: +hitStop.toFixed(3), beat: +beat.toFixed(3), motion: motion, flash: +flash.toFixed(2), css: shakeCss }; },
+                milestone: function (n) { milestone(n, CX, CY - 120); },
+                jolt: jolt,
                 sim: function (sec, step) {
                   step = step || 1 / 60;
                   var n = Math.round(sec / step);
