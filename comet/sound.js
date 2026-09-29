@@ -11,6 +11,11 @@
    最初のクリックかタップ（boot）まで再生を試みない。
 
    出どころ（素材提供者）は CREDITS に書く。設定パネルにそのまま出る。
+
+   ボス戦と燃焼中の曲は music.js（Mus）がその場で合成する。
+   boss / burn の場面を頼まれたら mp3 ではなく合成の曲へ回す。
+   合成の曲が鳴っている間は、欠片を拾う音も曲の和音に合わせる。
+   Web Audio が使えないときは、ここに書いた mp3 がそのまま代わりに鳴る。
    ========================================================== */
 
 const Snd = (() => {
@@ -18,7 +23,7 @@ const Snd = (() => {
   const BGM_FILES = {
     title: 'bgm/Free!Free!.mp3', // タイトル画面。裏でデモが飛んでいる
     field: 'bgm/Donut.mp3',      // 宙域。隕石を砕いて育てている間
-    boss:  'bgm/bpm150.mp3',     // 惑星が現れてから倒すまで
+    boss:  'bgm/bpm150.mp3',     // 惑星が現れてから倒すまで（合成の曲が使えないときだけ）
     burn:  '',   // 燃焼中。空なら現行のまま
     clear: '',   // 1周クリア。空なら field のまま
     over:  'bgm/GAME OVER.mp3',  // ゲームオーバー
@@ -30,6 +35,10 @@ const Snd = (() => {
   const CREDITS = [
     { what: 'BGM', who: 'Moeru Music', url: 'https://moerumusic.com/' }
   ];
+
+  /* 合成の曲で鳴らす場面 */
+  const SYNTH_SCENES = { boss: 1, burn: 1 };
+  const MUS = (typeof Mus !== 'undefined' && Mus.ok()) ? Mus : null;
 
   /* ---------- ここから下は素材が決まっても触らなくていい ---------- */
 
@@ -49,6 +58,7 @@ const Snd = (() => {
   function save() {
     try { localStorage.setItem('cs_vol', JSON.stringify(vol)); } catch (e) {}
   }
+  if (MUS) MUS.setVol(vol.bgm);
 
   let ac = null, master = null;
   let trailGain = null, trailFilt = null;
@@ -57,6 +67,7 @@ const Snd = (() => {
 
   function boot() {
     unlock();
+    if (MUS) MUS.boot();
     if (ac) return;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
@@ -131,8 +142,15 @@ const Snd = (() => {
     s.start(t0); s.stop(t0 + a + d + 0.05);
   }
 
-  // pick は連鎖でピッチが上がる。700ms 空くとリセット
+  // pick は連鎖でピッチが上がる。700ms 空くとリセット。
+  // 合成の曲が鳴っていればその和音を、mp3 の間は五音音階を上っていく（どちらも濁らない）
   let pickN = 0, pickT = 0;
+  const PENTA = [0, 2, 4, 7, 9];
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  function pickFreq(i) {
+    if (MUS && MUS.playing()) return mtof(MUS.tone(i) + 12);
+    return mtof(76 + PENTA[i % 5] + 12 * Math.floor(i / 5));
+  }
 
   const SFX = {
     break:  () => { noise(1400, 1.1, 0.004, 0.16, 0.5); tone('triangle', 420, 90, 0.004, 0.16, 0.22); },
@@ -142,9 +160,19 @@ const Snd = (() => {
     pick:   () => {
       const now = performance.now();
       if (now - pickT > 700) pickN = 0;
-      pickT = now; pickN = Math.min(pickN + 1, 14);
-      const f = 640 * Math.pow(1.0595, pickN * 2);
+      pickT = now; pickN = Math.min(pickN + 1, 12);
+      const f = pickFreq(pickN - 1);
       tone('sine', f, f * 1.5, 0.003, 0.07, 0.16);
+    },
+    // 連撃の節目。合成の曲の間は和音を駆け上がる。mp3 の間は調が分からないので音程を持たせない
+    streak: () => {
+      if (MUS && MUS.playing()) {
+        for (let i = 0; i < 6; i++) { const f = pickFreq(i); tone('triangle', f, f, 0.004, 0.3, 0.15, i * 0.05); }
+      } else {
+        [0, 0.06, 0.12].forEach((w, i) => noise(1800 + i * 1500, 1.2, 0.004, 0.2, 0.3, w));
+      }
+      tone('sine', 110, 45, 0.004, 0.35, 0.32);
+      noise(5000, 0.8, 0.003, 0.6, 0.18);
     },
     level:  () => { [0, .07, .14].forEach((w, i) => tone('triangle', 520 * Math.pow(1.26, i), 520 * Math.pow(1.26, i), 0.01, 0.16, 0.20, w)); },
     warn:   () => { tone('sine', 1500, 1500, 0.01, 0.10, 0.10); tone('sine', 1500, 1500, 0.01, 0.10, 0.10, 0.14); },
@@ -188,8 +216,18 @@ const Snd = (() => {
   // name を null にすると止める。素材が無いキーは、いまの曲をそのまま続ける
   function bgm(name) {
     if (!unlocked) { wantBgm = name; return; }
+    // クリアの曲が無ければ宙域の曲に戻す。ボス戦の曲のまま勝利画面にしない
+    if (name === 'clear' && !isFile(BGM_FILES.clear)) name = 'field';
     if (name === curBgm) return;
+    if (MUS && name && SYNTH_SCENES[name]) {
+      const was = curBgm ? bgmEls[curBgm] : null;
+      if (was) fade(was, 0, 500, true);
+      curBgm = name;
+      MUS.start();
+      return;
+    }
     if (name && !isFile(BGM_FILES[name])) return;
+    if (MUS) MUS.stop();
     const prev = curBgm ? bgmEls[curBgm] : null;
     if (prev) fade(prev, 0, 500, true);
     curBgm = name;
@@ -226,6 +264,7 @@ const Snd = (() => {
     vol[kind] = clamp01(v);
     if (kind === 'se' && master) master.gain.setTargetAtTime(vol.se * SYNTH, ac.currentTime, 0.05);
     if (kind === 'bgm' && curBgm && bgmEls[curBgm]) bgmEls[curBgm].volume = vol.bgm;
+    if (kind === 'bgm' && MUS) MUS.setVol(vol.bgm);
     save();
   }
 
