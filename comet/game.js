@@ -45,6 +45,23 @@ const C = {
   SWARM_MAX: 2,     // 同時に出す群れの数
 };
 
+// 連撃。この秒数以内に次を砕くと続く。削られたら途切れる
+const STREAK_GAP = 2.4;
+// ボスの残りがこれを切ったら曲が溜めに入り、REACH_SEC 秒後に転調して最後の攻めになる
+const REACH_AT = 0.25, REACH_SEC = 3.0;
+
+// ボス戦と燃焼中の合成の曲。music.js が無くても落ちないようにしておく
+const MUS = (typeof Mus !== 'undefined' && Mus.ok()) ? Mus : null;
+
+// 動きの強さ（0〜1）。揺れ・一瞬の止め・拍の脈動・閃光にかける。
+// 端末に「動きを減らす」指定があれば、はじめは 0 にしておく
+let motion = 1;
+try {
+  const mv = localStorage.getItem('cs_motion');
+  if (mv !== null) motion = Math.max(0, Math.min(1, parseFloat(mv) || 0));
+  else if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) motion = 0;
+} catch (e) { motion = 1; }
+
 // 進み具合。企画どおり、到達した宙域と最高撃破数だけ残す。
 // 彗星の育ち具合は残さない。死んでも痛くないと、失敗の重さが消える
 const SAVE_KEY = 'cs_save';
@@ -164,6 +181,7 @@ function reset(full) {
     flocks: [],
     scrollX: 0, scrollY: 0, shake: 0, hitStop: 0, t: 0,
     lv: 1, best: 0, banner: null, bannerT: 0,
+    streak: { n: 0, t: -9, pop: 0, end: 0, endN: 0 },
     ai: { phase: 'run', target: null, tx: W / 2, ty: H / 2 },
   };
   S.comet.r = radOf(S.comet.m);
@@ -350,7 +368,7 @@ function banner(a, b) { S.banner = [a, b]; S.bannerT = 3.4; }
 // ============ 物理 ============
 function step(dt) {
   S.t += dt;
-  if (S.hitStop > 0) { S.hitStop -= dt; return; }
+  if (S.hitStop > 0) { S.hitStop -= dt; if (motion > 0) return; }
 
   const c = S.comet;
 
@@ -415,6 +433,7 @@ function step(dt) {
 
   // --- ボス ---
   if (S.boss) bossStep(S.boss, dt);
+  musicTick();
 
   // --- 群れの中心 ---
   S.flocks.length = 0;
@@ -548,6 +567,10 @@ function step(dt) {
 
   if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 26);
   if (S.bannerT > 0) S.bannerT -= dt;
+  const k = S.streak;
+  k.pop = Math.max(0, k.pop - dt * 3.2);
+  if (k.n > 0 && S.t - k.t > STREAK_GAP) { if (k.n >= 3) { k.end = 0.9; k.endN = k.n; } k.n = 0; }
+  k.end = Math.max(0, k.end - dt);
 
   // --- 進行 ---
   if (S.mode === 'field' || S.mode === 'title') fillField();
@@ -627,6 +650,7 @@ function resolveHit(c, e, idx) {
     S.shake = 16; S.hitStop = 0.05;
     flash(c.x, c.y, c.r * 2.4, 'rgba(255,110,90,.9)');
     Snd.play('hurt');
+    S.streak.n = 0;
   } else {
     sepAndBounce(0);
     Snd.play('bounce');
@@ -644,6 +668,7 @@ function breakRock(e, idx, power) {
   S.hitStop = 0.045;
   S.kills += e.worth || 1;
   S.killsAll += e.worth || 1;
+  addStreak();
   // 同じフレームで大量に砕けたときに音が重ならないようにする
   if (S.t - lastBreak > 0.035) { Snd.play('break'); lastBreak = S.t; }
   if (e.moon && S.boss) {
@@ -673,6 +698,55 @@ function breakRock(e, idx, power) {
       }
     }
   }
+}
+
+// 連撃の節目。5・10・15・20・30・40・50、そこからは25ごと
+function isStreakMark(n) {
+  return n === 5 || n === 10 || n === 15 || n === 20 || n === 30 || n === 40 || n === 50 || (n > 50 && n % 25 === 0);
+}
+
+function addStreak() {
+  const k = S.streak;
+  if (S.t - k.t > STREAK_GAP) k.n = 0;
+  k.n++; k.t = S.t; k.pop = 1;
+  if (S.mode !== 'title' && isStreakMark(k.n)) streakMark(k.n);
+}
+
+// 節目を祝う。彗星の周りに光の輪を重ね、揺らして一瞬止める
+function streakMark(n) {
+  const c = S.comet;
+  Snd.play('streak');
+  S.shake = Math.max(S.shake, 14);
+  S.hitStop = Math.max(S.hitStop, 0.06);
+  flash(c.x, c.y, c.r * 5, 'rgba(255,236,170,.95)');
+  flash(c.x, c.y, c.r * 9 + Math.min(120, n * 3), 'rgba(180,220,255,.55)');
+  for (let i = 0; i < 26; i++) {
+    const a = rnd(0, 6.2832), v = rnd(3, 9);
+    S.sparks.push({ x: c.x, y: c.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+      r: rnd(1.5, 3.5), col: pick(['#ffe9a8', '#fff6d8', '#9fd4ff']), life: 0.7, max: 0.7 });
+  }
+}
+
+// ============ 曲 ============
+// 合成の曲（ボス戦と燃焼中）に、いまの盛り上がりを渡す。
+// ボス戦は惑星を削るほど楽器が重なり、残りわずかで溜め→転調して最後の攻めになる
+function musicTick() {
+  if (!MUS || !MUS.playing()) return;
+  const c = S.comet, b = S.boss;
+  const burning = c.burn > 0;
+  const surge = Math.min(1, S.streak.n * 0.1);
+  if (b && !b.dead) {
+    const left = clamp(b.hp / b.hpMax, 0, 1);
+    if (!b.reachT && left < REACH_AT) { b.reachT = S.t; MUS.reach(true); }
+    if (b.reachT && !b.final && S.t - b.reachT > REACH_SEC) { b.final = true; MUS.reach(false); MUS.setKey(2); }
+    MUS.setLevel(b.final ? 9 : 4 + (1 - left) * 4 + (burning ? 1 : 0) + surge);
+    MUS.setTempo(138 + S.wave * 2 + (burning ? 8 : 0) + (b.final ? 6 : 0));
+  } else if (!b) {
+    MUS.setLevel(8 + surge);
+    MUS.setTempo(156);
+  }
+  MUS.danger(c.m < C.MDEAD * 1.35);
+  MUS.tick();
 }
 
 // ============ ボス ============
@@ -764,6 +838,7 @@ function bossHit(c, b, px, py) {
       c.m -= loss; c.hurt = 0.45; c.inv = 0.7; S.lv = levelOf(c.m);
       spawnShards(c.x, c.y, c.vx, c.vy, loss * C.DROP, 'rock');
       Snd.play('hurt');
+      S.streak.n = 0;
     } else Snd.play('shield');
     return;
   }
@@ -786,6 +861,7 @@ function bossDown(b) {
   spawnDebris(b.x, b.y, b.r, 'rock', 40);
   flash(b.x, b.y, b.r * 3, 'rgba(255,230,180,1)');
   S.shake = 34;
+  if (MUS) MUS.finale();
   S.boss = null;
   S.enemies = S.enemies.filter(e => !e.orb);
   Snd.play('down');
@@ -869,7 +945,7 @@ function draw() {
   g.fillRect(0, 0, cv.clientWidth, cv.clientHeight);
 
   g.save();
-  const sh = S.shake;
+  const sh = S.shake * motion;
   g.translate(view.ox + (sh ? rnd(-sh, sh) : 0), view.oy + (sh ? rnd(-sh, sh) : 0));
   g.scale(view.s, view.s);
   g.beginPath(); g.rect(0, 0, W, H); g.clip();
@@ -881,6 +957,15 @@ function draw() {
   Art.stars(g, W, H, S.scrollX, S.scrollY, S.t);
   if (S.boss && S.boss.wind) Art.wind(g, W, H, S.boss.windAng, S.boss.wind, S.t);
   Art.bounds(g, W, H, S.t);
+  // 合成の曲のキックに合わせて縁を脈打たせる
+  const beat = MUS && MUS.playing() && S.mode !== 'title' ? MUS.pulse().kick * motion : 0;
+  if (beat > 0.02) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.strokeStyle = 'rgba(150,190,255,' + (beat * 0.22) + ')';
+    g.lineWidth = 4 + beat * 12;
+    g.strokeRect(0, 0, W, H);
+    g.restore();
+  }
 
   for (const f of S.flocks) Art.flock(g, f);
   for (const d of S.debris) Art.debris(g, d);
@@ -911,7 +996,7 @@ function draw() {
 
   // 削られた合図
   if (c.hurt > 0) {
-    g.fillStyle = 'rgba(255,60,50,' + (c.hurt * 0.30) + ')';
+    g.fillStyle = 'rgba(255,60,50,' + (c.hurt * 0.30 * (0.35 + 0.65 * motion)) + ')';
     g.fillRect(0, 0, W, H);
   }
   // 燃焼中は縁が光る
@@ -923,9 +1008,37 @@ function draw() {
     g.strokeRect(0, 0, W, H);
     g.restore();
   }
+  if (S.mode !== 'title') drawStreak();
   g.restore();
 
   hud(sp, spN);
+}
+
+// 連撃の数。画面の上に大きく出し、途切れたら最後の数をその場で消していく
+function drawStreak() {
+  const k = S.streak;
+  let n = k.n, a = 1, y = 118;
+  if (n < 3) {
+    if (k.end <= 0) return;
+    n = k.endN; a = k.end / 0.9; y += (1 - a) * 24;
+  }
+  const size = (40 + Math.min(40, n * 1.6)) * (1 + k.pop * k.pop * 0.35);
+  g.save();
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.font = 'bold ' + size.toFixed(0) + 'px system-ui, sans-serif';
+  g.shadowBlur = 18 + k.pop * 26; g.shadowColor = 'rgba(255,210,120,.9)';
+  g.fillStyle = 'rgba(255,240,205,' + (0.92 * a) + ')';
+  g.fillText(n + '', W / 2, y);
+  g.shadowBlur = 0;
+  g.font = 'bold 15px system-ui, sans-serif';
+  g.fillStyle = 'rgba(255,225,170,' + (0.6 * a) + ')';
+  g.fillText('連撃', W / 2, y + 22);
+  if (k.n >= 3) {
+    const left = clamp(1 - (S.t - k.t) / STREAK_GAP, 0, 1);
+    g.fillStyle = 'rgba(255,210,120,.18)'; g.fillRect(W / 2 - 70, y + 32, 140, 4);
+    g.fillStyle = 'rgba(255,225,160,.85)'; g.fillRect(W / 2 - 70, y + 32, 140 * left, 4);
+  }
+  g.restore();
 }
 
 function hud(sp, spN) {
@@ -1044,6 +1157,18 @@ function paintMute() { btnSound.classList.toggle('is-mute', Snd.isMuted()); }
 $('btnMute').onclick = () => { Snd.boot(); Snd.setMute(!Snd.isMuted()); paintMute(); syncVol(); };
 
 const ovSound = $('ovSound');
+{
+  const mEl = $('vMotion'), mOut = $('vMotionV');
+  if (mEl) {
+    mEl.value = motion;
+    mOut.textContent = Math.round(motion * 100) + '%';
+    mEl.oninput = () => {
+      motion = parseFloat(mEl.value);
+      mOut.textContent = Math.round(motion * 100) + '%';
+      try { localStorage.setItem('cs_motion', String(motion)); } catch (e) {}
+    };
+  }
+}
 const VOLS = [['vBgm', 'bgm'], ['vSe', 'se']];
 function syncVol() {
   const v = Snd.vol();
@@ -1088,6 +1213,15 @@ function loop(now) {
   draw();
   requestAnimationFrame(loop);
 }
+
+/* dev:start */
+window.CS = {
+  S: () => S, C, MUS,
+  sim(sec) { const n = Math.round(sec / TICK); for (let i = 0; i < n; i++) step(TICK); return S.mode; },
+  startRun, startBoss, streakMark, addStreak, musicTick,
+  fx: () => ({ shake: +S.shake.toFixed(2), hitStop: +S.hitStop.toFixed(3), motion, streak: S.streak.n }),
+};
+/* dev:end */
 
 Art.initStars(W, H, Math.random);
 resize();
