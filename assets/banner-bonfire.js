@@ -19,10 +19,11 @@
    27.5–30 締め
 
    作品の画像はページ内のブラウザゲームのカードから拾う（先頭5件）。
+   もう一方（banner.js）とどちらを出すかは banner-pick.js が決める。
    ========================================================== */
 (() => {
   const root = document.getElementById('welcome');
-  if (!root) return;
+  if (!root || root.dataset.banner !== 'bonfire') return;
   const cv = root.querySelector('.wb-cv');
   const ctx = cv.getContext && cv.getContext('2d');
   if (!ctx) return;
