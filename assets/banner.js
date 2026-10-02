@@ -17,10 +17,11 @@
    28–30 締め。終わると締めの1枚で止まる
 
    作品の画像はページ内のブラウザゲームのカードから拾う（先頭8件）。
+   焚き火版（banner-bonfire.js）とどちらを出すかは banner-pick.js が決める。
    ========================================================== */
 (() => {
   const root = document.getElementById('welcome');
-  if (!root) return;
+  if (!root || root.dataset.banner !== 'flash') return;
   const cv = root.querySelector('.wb-cv');
   const ctx = cv.getContext && cv.getContext('2d');
   if (!ctx) return;

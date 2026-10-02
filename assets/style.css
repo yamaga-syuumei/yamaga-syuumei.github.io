@@ -250,6 +250,12 @@ nav .nav-sep { width: 1px; height: 18px; background: rgba(255,255,255,.18); marg
 .wb-btn:hover { opacity: 1; background: #fff; color: #101418; }
 .wb-btn[aria-pressed="true"] { opacity: 1; }
 
+/* 焚き火版。火が中央下にあるので、再生ボタンは左下に寄せる */
+.wb.is-bonfire { background: #03040a; }
+.wb.is-bonfire .wb-fallback { color: #f3e7d6; }
+.wb.is-bonfire .wb-play { left: 16px; bottom: 14px; transform: none; }
+@media (max-width: 520px) { .wb.is-bonfire .wb-play small { display: none; } }
+
 /* ==========================================================
    セクション
    ========================================================== */
