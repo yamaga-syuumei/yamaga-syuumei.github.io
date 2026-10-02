@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>トップのバナー 焚き火版（試作） | ヒノガタリ</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+  /* 焚き火版は火が中央下にあるので、再生ボタンは左下に寄せる */
+  .wb { background: #03040a; }
+  .wb-fallback { color: #f3e7d6; }
+  .wb-play { left: 16px; bottom: 14px; transform: none; }
+  @media (max-width: 520px) { .wb-play small { display: none; } }
+  .trial-note { font-size: var(--fs-3); color: var(--ink-2); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="../../" class="logo">
+      <span class="logo-name">ヒノガタリ</span>
+      <span class="logo-circle">山賀秀明</span>
+    </a>
+    <div class="head-right">
+    <nav>
+      <a href="../../#news">お知らせ</a>
+      <a href="../../#web">ブラウザゲーム</a>
+      <a href="../../#games">ゲーム</a>
+      <a href="../../#novels">小説</a>
+      <a href="../../blog.html">ブログ</a>
+      <a href="../../#about">このサイトについて</a>
+    </nav>
+    </div>
+  </div>
+</header>
+
+<div id="welcome" class="wb">
+  <canvas class="wb-cv" role="img" aria-label="深夜の焚き火。ようこそお越しくださいました。ヒノガタリ／山賀秀明"></canvas>
+  <p class="wb-fallback">ようこそお越しくださいました。</p>
+  <button class="wb-play" type="button"><i aria-hidden="true"></i><span class="wb-play-label">話を聞く</span><small>30秒・音が出ます</small></button>
+  <div class="wb-ctrl">
+    <button class="wb-btn wb-mute" type="button" aria-pressed="false">消音</button>
+    <button class="wb-btn wb-skip" type="button">スキップ</button>
+  </div>
+</div>
+
+<main class="wrap">
+  <section>
+    <p class="trial-note">トップのバナーの焚き火版（試作）。いまのトップは <a href="../../">こちら</a>。</p>
+  </section>
+</main>
+
+<!-- 煙に映す作品。トップではブラウザゲームのカードから拾う -->
+<div class="wg-more-grid" hidden style="display:none">
+  <img class="card-thumb" src="../../img/thumbnail-savanna.png" alt="サバンナの一日">
+  <img class="card-thumb" src="../../img/thumbnail-coralreef.png" alt="サンゴ礁の一日">
+  <img class="card-thumb" src="../../img/thumbnail-alchemy.png" alt="錬金工場と魔法のお店">
+  <img class="card-thumb" src="../../img/onestroke.png" alt="ワンストローク・ファクトリー">
+  <img class="card-thumb" src="../../img/thumbnail-comet.jpg" alt="コリジョン・シューティングスター">
+</div>
+
+<script src="bonfire.js"></script>
+</body>
+</html>
