@@ -31,7 +31,7 @@ window.ALSND = (function () {
   /* ---------- BGM ----------
      空のキーを指定されたときは、いま鳴っている曲をそのまま流し続ける。 */
   var BGM_FILES = {
-    play: 'bgm/konoha.mp3',       // プレイ中。基本はずっとこれ
+    play: 'bgm/contedefees_0155.mp3', // プレイ中。基本はずっとこれ
     boom: 'bgm/yobikomi.mp3',     // 三次品のラインが動き出してから
     news: '',                     // 師匠の手紙。空なら曲を切り替えず、いまの曲を続ける
     end:  'bgm/acoustic32.mp3'    // エンディング・世界一の看板

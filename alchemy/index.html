@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=1bf3a7c9">
+<link rel="stylesheet" href="style.css?v=19f1eb42">
 </head>
 <body>
 
@@ -49,12 +49,14 @@
 
   <p class="al-hint" id="hint"></p>
 
-  <div class="al-pal">
-    <div class="al-palmain">
-      <div class="al-tabs" id="tabs"></div>
-      <div class="al-cards" id="cards"></div>
+  <div class="al-bottom">
+    <div class="al-pal">
+      <div class="al-palmain">
+        <div class="al-tabs" id="tabs"></div>
+        <div class="al-cards" id="cards"></div>
+      </div>
     </div>
-    <!-- 勇者の一行の旅。眺めるだけ -->
+    <!-- 勇者の一行の旅。購入パレットとは別の枠。眺めるだけ -->
     <div class="al-hero" aria-hidden="true">
       <canvas id="heroCv"></canvas>
       <span class="al-herocap" id="heroCap"></span>
@@ -190,7 +192,8 @@
           <li><b>右クリック</b>…メニュー（レベルアップ・回転・売却・撤去）／設置中は取り消し</li>
           <li><b>ホイール</b>…盤面の拡大・縮小／下のパレットの上では横に送る</li>
           <li><b>拡大中のドラッグ</b>…何も無いところを掴んで盤面を動かす（中ボタンならどこでも）</li>
-          <li><b>R キー</b>（または Shift＋ホイール）…設備を回す。設置中は置く向きを回す</li>
+          <li><b>設置中のホイール</b>…置く向きを回す</li>
+          <li><b>R キー</b>（または Shift＋ホイール）…置いてある設備を回す</li>
           <li><b>敷地の外の ＋</b>…土地を買う。瓦礫はカーソルを乗せると撤去の値段が出ます</li>
         </ul>
       </section>
@@ -276,10 +279,10 @@
 </div>
 
 <script src="data.js?v=9f90b1a8"></script>
-<script src="sound.js?v=67ed815a"></script>
+<script src="sound.js?v=bbd44f3e"></script>
 <script src="art.js?v=6e6f3c3d"></script>
 <script src="sprites.js?v=2389894c"></script>
 <script src="hero.js?v=e6937c0a"></script>
-<script src="game.js?v=977c758b"></script>
+<script src="game.js?v=79ee9e23"></script>
 </body>
 </html>

@@ -683,20 +683,21 @@
     cv.style.cursor = 'grabbing';
   }
 
-  // ホイールは拡大・縮小。Shift を押しながらだと回転。
-  // 回すと送り道が外れるので、拡大のつもりで回ってしまわないよう分けてある
+  // ホイールは拡大・縮小。設置中と Shift を押しながらは回転。
+  // 置いてある設備は回すと送り道が外れるので、拡大のつもりで回ってしまわないよう分けてある。
+  // 設置中は置く向きを回すだけで何も壊れないので、ホイールをそのまま回転に使う
   function onWheel(e) {
     e.preventDefault();
     const d = e.deltaY || e.deltaX;            // Shift を押すと横の量で来るブラウザがある
     const pc = pointerAt(e);
-    if (e.shiftKey) { turnAt(pc, d > 0 ? 1 : 3); return; }
+    if (placing || e.shiftKey) { turnAt(pc, d > 0 ? 1 : 3); return; }
     zoomAt(pc.px, pc.py, Math.exp(-d * (e.deltaMode === 1 ? 0.05 : 0.0015)));
   }
 
   // 回す。設置中は置く向き、そうでなければ指している設備
   let turnAtT = 0;
   function turnAt(pc, dir) {
-    if (performance.now() - turnAtT < 140) return;   // 一振りで何回も回らないように
+    if (performance.now() - turnAtT < (placing ? 80 : 140)) return;   // 一振りで何回も回らないように。設置中は軽く
     turnAtT = performance.now();
     if (placing) { placing.rot = (placing.rot + dir) & 3; return; }
     if (!pc || !inBoard(pc.x, pc.y)) return;
@@ -1681,7 +1682,7 @@
     const h = el('hint');
     const step = placing ? null : tutStep();
     const txt = placing
-      ? '設置中：' + placing.def.name + '　左クリックで置く　／　右クリックで取り消し　／　R キーで回転'
+      ? '設置中：' + placing.def.name + '　左クリックで置く　／　右クリックで取り消し　／　ホイールで回転'
       : step ? step.text : HINT;
     if (h.dataset.txt !== txt) {
       h.dataset.txt = txt;
