@@ -14,7 +14,8 @@
 
   const D = window.ALCHEMY;
   const { ITEMS, RECIPES, SOURCES, FLAVOR, LOGI, SHOP, RESEARCH, PILLARS, TIERS, LOG, BOARD, LEVEL } = D;
-  const { drawItem, drawBridge, drawSpeed, drawGlyph, roundRect } = window.ART;
+  const { drawItem, drawBridge, drawSpeed, drawGlyph, roundRect,
+    hexA, drawSigil, drawStone, glow, twinkle } = window.ART;
   const SND = window.ALSND;
 
   const TPS = 12;
@@ -25,12 +26,13 @@
   const SAVE_VER = 1;
 
   // 明るい盤面の上に置くので、面は淡く・縁だけ濃くする
+  // fill と edge は明るい札の上、glow は夜の盤面の上で使う色
   const SKIN = {
-    src:   { fill: '#e4f0f7', edge: '#4e87a8' },
-    fac:   { fill: '#ece4f7', edge: '#7a5fa8' },
-    split: { fill: '#dff1ea', edge: '#2e8b6f' },
-    store: { fill: '#f5ecd8', edge: '#a3833c' },
-    shop:  { fill: '#fbe7d8', edge: '#c07a3c' },
+    src:   { fill: '#e4f0f7', edge: '#4e87a8', glow: '#6fd3ff' },
+    fac:   { fill: '#ece4f7', edge: '#7a5fa8', glow: '#b994ff' },
+    split: { fill: '#dff1ea', edge: '#2e8b6f', glow: '#62e6b0' },
+    store: { fill: '#f5ecd8', edge: '#a3833c', glow: '#f0c46a' },
+    shop:  { fill: '#fbe7d8', edge: '#c07a3c', glow: '#ffae5c' },
   };
 
   // ---------------------------------------------------------------- 設備表
@@ -305,7 +307,10 @@
       if (n.craftT > 0) { n.craftT--; if (n.craftT === 0) { n.pending = n.def.make; n.craftT = -1; } }
       if (n.pending) {
         const o = n.outs[0];
-        if (o.buf.length < o.cap) { o.buf.push(n.pending); n.pending = null; n.lit = 1; SND.se('craft'); }
+        if (o.buf.length < o.cap) {
+          o.buf.push(n.pending); n.pending = null; n.lit = 1; SND.se('craft');
+          addFx('craft', n.x, n.y, { col: SKIN.fac.glow });
+        }
       }
       return;
     }
@@ -341,6 +346,7 @@
         st.sold[item] = (st.sold[item] || 0) + g;
         n.lit = 1;
         pops.push({ x: n.x, y: n.y, g, t: 0 });
+        addFx('coin', n.x, n.y);
         SND.se('sell', { rate: 1 + Math.min(1, g / 60) * 0.6 });
         logSell(item, g);
         checkTier();
@@ -813,7 +819,10 @@
     const c = defCost(def);
     if (st.money < c) { SND.se('deny'); return; }
     st.money -= c;
-    addNode(mkNode(def, x, y, placing.rot, 0));
+    const nn = mkNode(def, x, y, placing.rot, 0);
+    nn.born = performance.now();
+    addNode(nn);
+    addFx('build', x, y, { col: SKIN[def.k].glow, kind: def.k === 'split' || def.k === 'store' ? 'none' : def.k });
     resolve();
     SND.se('place');
     save();
@@ -823,8 +832,11 @@
   function moveNode(n, x, y) {
     n.ins.concat(n.outs).forEach((p) => { if (p.belt) removeBelt(p.belt, true); });
     at(n.x, n.y).node = null;
+    addFx('poof', n.x, n.y, { col: SKIN[n.k].glow });
     n.x = x; n.y = y;
     at(x, y).node = n;
+    n.born = performance.now();
+    addFx('build', x, y, { col: SKIN[n.k].glow, kind: n.k === 'split' || n.k === 'store' ? 'none' : n.k });
     resolve();
     SND.se('place');
     save();
@@ -840,6 +852,7 @@
 
   function sellNode(n) {
     st.money += sellBack(n);
+    addFx('poof', n.x, n.y, { col: SKIN[n.k].glow });
     dropNode(n);
     SND.se('ui');
     save();
@@ -852,6 +865,7 @@
     if (st.money < c) { SND.se('deny'); return; }
     st.money -= c;
     n.lv++;
+    addFx('level', n.x, n.y);
     SND.se('levelup');
     save();
   }
@@ -902,6 +916,7 @@
     st.money -= c;
     st.rockBuys = (st.rockBuys || 0) + 1;
     at(x, y).rock = false;
+    addFx('poof', x, y, { col: '#b9a8d8' });
     SND.se('expand');
     save();
   }
@@ -936,30 +951,64 @@
 
     pops.forEach((p) => { p.t += dt; });
     pops = pops.filter((p) => p.t < 900);
+    stepMotes(dt);
+    stepFx(dt);
 
     draw();
     updateHud();
   }
 
+  // ---------------------------------------------------------------- 盤面の絵
+  // 夜の錬金台。暗い石の台に金の縁、薄く回る大きな魔法陣、漂う光の粒。
+  // 設備は石の台座に乗り、足元の魔法陣が働いている間だけ速く回る。
+  // 光は shadowBlur を使わず、放射グラデーションを加算で重ねて出す（数が増えても重くしない）。
+
+  // 漂う光の粒。盤面の中の位置を 0〜1 で持つので、拡大しても同じ場所に浮いている
+  const motes = [];
+  function stepMotes(dt) {
+    const want = Math.min(70, Math.round(st.w * st.h / 3));
+    while (motes.length < want) motes.push(newMote(true));
+    if (motes.length > want) motes.length = want;
+    const k = dt / 1000;
+    for (let i = 0; i < motes.length; i++) {
+      const m = motes[i];
+      m.v -= m.sp * k;
+      m.u += Math.sin(m.ph + st.flowT / 1000 * m.sw) * .004 * k;
+      if (m.v < -0.05) motes[i] = newMote(false);
+    }
+  }
+  function newMote(anywhere) {
+    return { u: Math.random(), v: anywhere ? Math.random() : 1.05, sp: .015 + Math.random() * .03,
+      ph: Math.random() * 6.3, sw: .4 + Math.random() * .8, r: .4 + Math.random() * .9,
+      col: Math.random() < .7 ? '#c9a8ff' : '#f0c46a' };
+  }
+
+  let fx = [];              // 一度きりの演出（設置・レベルアップ・撤去・錬成・売上）
+  const FX_DUR = { build: 900, level: 1000, poof: 700, craft: 520, coin: 800 };
+  function addFx(type, x, y, extra) {
+    const f = Object.assign({ type, x, y, t: 0, parts: [] }, extra || {});
+    const n = { build: 18, level: 14, poof: 16, craft: 7, coin: 4 }[type] || 0;
+    for (let i = 0; i < n; i++) {
+      f.parts.push({ a: Math.random() * 6.283, v: .6 + Math.random() * .9, s: .5 + Math.random() * .8,
+        d: Math.random() * .25, spin: (Math.random() - .5) * 8 });
+    }
+    fx.push(f);
+    if (fx.length > 160) fx.splice(0, fx.length - 160);
+  }
+  function stepFx(dt) {
+    for (const f of fx) f.t += dt;
+    fx = fx.filter((f) => f.t < FX_DUR[f.type]);
+  }
+
+  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+  const backOut = (t) => { const c = 1.9; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+
   function draw() {
     ctx.clearRect(0, 0, VW, VH);
-
-    ctx.fillStyle = '#fbf6ec';
-    roundRect(ctx, ox - 6, oy - 6, st.w * cs + 12, st.h * cs + 12, 10); ctx.fill();
-    ctx.strokeStyle = '#e4dbcb';
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= st.w; x++) {
-      ctx.beginPath(); ctx.moveTo(cellX(x) + .5, oy); ctx.lineTo(cellX(x) + .5, oy + st.h * cs); ctx.stroke();
-    }
-    for (let y = 0; y <= st.h; y++) {
-      ctx.beginPath(); ctx.moveTo(ox, cellY(y) + .5); ctx.lineTo(ox + st.w * cs, cellY(y) + .5); ctx.stroke();
-    }
-
-    for (let y = 0; y < st.h; y++) for (let x = 0; x < st.w; x++) {
-      if (at(x, y).rock) drawGlyph(ctx, 'rubble', midX(x), midY(y), cs * 0.38);
-    }
+    drawTable();
+    drawRocks();
     drawRockPrice();
-
+    drawHover();
     drawExpand();
     st.belts.forEach(drawBelt);
     if (drag) drawDrag();
@@ -968,7 +1017,73 @@
     if (drag) drawPortHints();
     if (placing) drawGhost();
     if (moving && moving.moved) drawMoveGhost();
+    drawFx();
     drawPops();
+  }
+
+  // 台。外は暗い縁、内に金の二重線。中に罫と透かしの魔法陣と光の粒
+  function drawTable() {
+    const BW = st.w * cs, BH = st.h * cs;
+    const t = st.flowT / 1000;
+    ctx.save();
+    roundRect(ctx, ox - 8, oy - 8, BW + 16, BH + 16, 12);
+    ctx.fillStyle = '#0f0b1c'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#b8913f'; ctx.stroke();
+    const g = ctx.createRadialGradient(ox + BW / 2, oy + BH / 2, 0, ox + BW / 2, oy + BH / 2, Math.max(BW, BH) * .72);
+    g.addColorStop(0, '#2c2149'); g.addColorStop(.7, '#1b1430'); g.addColorStop(1, '#120d22');
+    ctx.fillStyle = g;
+    ctx.fillRect(ox, oy, BW, BH);
+    ctx.strokeStyle = 'rgba(240,196,106,.32)'; ctx.lineWidth = 1;
+    ctx.strokeRect(ox - 3.5, oy - 3.5, BW + 7, BH + 7);
+    // 四隅の金の飾り
+    ctx.fillStyle = '#d9b35a';
+    [[ox - 8, oy - 8], [ox + BW + 8, oy - 8], [ox - 8, oy + BH + 8], [ox + BW + 8, oy + BH + 8]].forEach(([x, y]) => {
+      ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.fill();
+    });
+
+    ctx.beginPath(); ctx.rect(ox, oy, BW, BH); ctx.clip();
+    // 透かしの魔法陣。とてもゆっくり回る
+    const R = Math.min(BW, BH) * .46;
+    drawSigil(ctx, ox + BW / 2, oy + BH / 2, R, t * .02, 'rgba(201,168,255,.07)', 'big');
+    drawSigil(ctx, ox + BW / 2, oy + BH / 2, R * .55, -t * .035, 'rgba(240,196,106,.05)', 'fac');
+    // 罫と交点の金の点
+    ctx.strokeStyle = 'rgba(201,168,255,.075)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 1; x < st.w; x++) { const px = Math.round(cellX(x)) + .5; ctx.moveTo(px, oy); ctx.lineTo(px, oy + BH); }
+    for (let y = 1; y < st.h; y++) { const py = Math.round(cellY(y)) + .5; ctx.moveTo(ox, py); ctx.lineTo(ox + BW, py); }
+    ctx.stroke();
+    if (cs >= 20) {
+      ctx.fillStyle = 'rgba(240,196,106,.28)';
+      for (let y = 1; y < st.h; y++) for (let x = 1; x < st.w; x++) {
+        ctx.fillRect(Math.round(cellX(x)) - .5, Math.round(cellY(y)) - .5, 2, 2);
+      }
+    }
+    // 光の粒
+    ctx.globalCompositeOperation = 'lighter';
+    for (const m of motes) {
+      const x = ox + m.u * BW, y = oy + m.v * BH;
+      const tw = .5 + .5 * Math.sin(t * 2 + m.ph * 3);
+      glow(ctx, x, y, cs * .12 * m.r * (1 + tw * .5), m.col, .35 * tw + .1);
+    }
+    ctx.restore();
+  }
+
+  function drawRocks() {
+    for (let y = 0; y < st.h; y++) for (let x = 0; x < st.w; x++) {
+      if (at(x, y).rock) drawStone(ctx, midX(x), midY(y), cs * .4, x * 31 + y * 17);
+    }
+  }
+
+  // 指しているマスをうっすら照らす
+  function drawHover() {
+    if (!hoverCell || drag || moving || panning) return;
+    const x = cellX(hoverCell.x), y = cellY(hoverCell.y);
+    ctx.save();
+    ctx.fillStyle = 'rgba(201,168,255,.07)';
+    ctx.fillRect(x, y, cs, cs);
+    ctx.strokeStyle = 'rgba(240,196,106,.35)'; ctx.lineWidth = 1;
+    ctx.strokeRect(x + .5, y + .5, cs - 1, cs - 1);
+    ctx.restore();
   }
 
   // 岩に乗せたら撤去の値段を出す。盤面の外の ＋ と同じ見せ方に揃える
@@ -980,15 +1095,15 @@
     const x = midX(hoverCell.x), y = midY(hoverCell.y);
     const txt = '撤去 ' + c.toLocaleString() + 'G';
     ctx.save();
-    ctx.font = '600 ' + Math.round(Math.max(10, cs * 0.24)) + 'px sans-serif';
+    ctx.font = '600 ' + Math.round(Math.max(10, Math.min(16, cs * 0.24))) + 'px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const w = ctx.measureText(txt).width + cs * 0.3;
-    const h = cs * 0.42;
+    const w = ctx.measureText(txt).width + 14;
+    const h = Math.max(18, Math.min(24, cs * 0.42));
     roundRect(ctx, x - w / 2, y - cs * 0.62 - h / 2, w, h, 5);
-    ctx.fillStyle = 'rgba(255,252,246,.94)'; ctx.fill();
-    ctx.strokeStyle = can ? 'rgba(122,95,168,.55)' : 'rgba(190,80,80,.55)';
+    ctx.fillStyle = 'rgba(20,14,36,.92)'; ctx.fill();
+    ctx.strokeStyle = can ? 'rgba(240,196,106,.7)' : 'rgba(240,110,110,.7)';
     ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = can ? '#6a4f8a' : '#b44a4a';
+    ctx.fillStyle = can ? '#f3d58a' : '#ff9a9a';
     ctx.fillText(txt, x, y - cs * 0.62);
     ctx.restore();
   }
@@ -998,18 +1113,22 @@
     const c = landCost();
     const can = st.money >= c;
     const bands = [];
-    if (st.h < BOARD.maxH) bands.push(['N', ox, oy - PAD + 2, W, PAD - 6]);
-    if (st.h < BOARD.maxH) bands.push(['S', ox, oy + H + 4, W, PAD - 6]);
-    if (st.w < BOARD.maxW) bands.push(['W', ox - PAD + 2, oy, PAD - 6, H]);
-    if (st.w < BOARD.maxW) bands.push(['E', ox + W + 4, oy, PAD - 6, H]);
+    if (st.h < BOARD.maxH) bands.push(['N', ox, oy - PAD + 1, W, PAD - 11]);
+    if (st.h < BOARD.maxH) bands.push(['S', ox, oy + H + 10, W, PAD - 11]);
+    if (st.w < BOARD.maxW) bands.push(['W', ox - PAD + 1, oy, PAD - 11, H]);
+    if (st.w < BOARD.maxW) bands.push(['E', ox + W + 10, oy, PAD - 11, H]);
     bands.forEach(([side, x, y, w, h]) => {
       const hot = hoverExpand === side;
       ctx.save();
-      roundRect(ctx, x, y, w, h, 5);
-      ctx.fillStyle = hot ? (can ? 'rgba(122,95,168,.22)' : 'rgba(190,80,80,.16)') : 'rgba(150,130,180,.12)';
+      roundRect(ctx, x, y, w, h, 4);
+      ctx.fillStyle = hot ? (can ? 'rgba(240,196,106,.28)' : 'rgba(200,80,80,.22)') : 'rgba(122,95,168,.10)';
       ctx.fill();
-      ctx.fillStyle = hot ? (can ? '#6a4f8a' : '#b44a4a') : 'rgba(110,92,140,.6)';
-      ctx.font = '600 ' + Math.round(Math.min(13, PAD * 0.52)) + 'px sans-serif';
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = hot ? (can ? 'rgba(184,121,28,.9)' : 'rgba(180,74,74,.8)') : 'rgba(122,95,168,.35)';
+      ctx.lineWidth = 1; ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = hot ? (can ? '#8a5a12' : '#b44a4a') : 'rgba(110,92,140,.7)';
+      ctx.font = '700 ' + Math.round(Math.min(13, PAD * 0.52)) + 'px sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(hot ? c.toLocaleString() + 'G' : '＋', x + w / 2, y + h / 2);
       ctx.restore();
@@ -1028,20 +1147,27 @@
     ctx.restore();
   }
 
+  // 送り道は魔力の流れる溝。動いている間だけ芯が明るく、光の粒が流れる
   function drawBelt(b) {
     const pts = b.pts = beltPts(b);
     for (const c of b.cells) {
       const list = at(c.x, c.y).belts;
       if (list.length < 2 || list[list.length - 1] !== b) continue;
+      // 渡し橋。下の道を石の橋で覆う
       const d = straightDirAt(b, c.x, c.y) || { x: 1, y: 0 };
       const mx = midX(c.x), my = midY(c.y);
       const ex = d.x * cs * .56, ey = d.y * cs * .56;
-      strokePts([{ x: mx - ex, y: my - ey }, { x: mx + ex, y: my + ey }], cs * .74, 'rgba(251,246,236,.95)');
+      strokePts([{ x: mx - ex, y: my - ey }, { x: mx + ex, y: my + ey }], cs * .78, '#3a2f57');
+      strokePts([{ x: mx - ex, y: my - ey }, { x: mx + ex, y: my + ey }], cs * .7, '#241a3a');
     }
     const hot = hoverBelt === b;
-    strokePts(pts, cs * .54, hot ? '#d8a0a8' : '#d9cdbb');
-    strokePts(pts, cs * .40, hot ? '#e8bcc2' : '#efe6d8');
-    strokePts(pts, cs * .26, 'rgba(122,95,168,0.20)', [cs * .16, cs * .34], -b.flow);
+    const live = b.moved;
+    strokePts(pts, cs * .6, hot ? 'rgba(200,70,90,.45)' : 'rgba(5,3,12,.55)');
+    strokePts(pts, cs * .46, hot ? '#4a1e2e' : '#251b3d');
+    strokePts(pts, cs * .46, hot ? 'rgba(255,120,140,.25)' : 'rgba(201,168,255,.10)', [1, cs * .5], 0);
+    strokePts(pts, cs * .2, hot ? 'rgba(255,140,160,.35)' : (live ? 'rgba(180,140,255,.32)' : 'rgba(150,120,210,.14)'));
+    strokePts(pts, cs * .08, hot ? 'rgba(255,200,210,.7)' : (live ? 'rgba(230,214,255,.75)' : 'rgba(200,180,240,.25)'));
+    if (live) strokePts(pts, cs * .13, 'rgba(255,240,200,.65)', [cs * .06, cs * .44], -b.flow);
   }
 
   function under(b, i) {
@@ -1066,24 +1192,29 @@
       if (!o || under(b, i)) continue;
       const prev = o.prev === undefined ? i : o.prev;
       const p = posAt(prev + (i - prev) * alpha);
-      pad(p.x, p.y, r);
+      pad(p.x, p.y, r, o.item);
       drawItem(ctx, o.item, p.x, p.y, r);
     }
     b.ghosts.forEach((o) => {
       const p = posAt((n - 1) + alpha);
       ctx.save(); ctx.globalAlpha = 1 - alpha * .6;
-      pad(p.x, p.y, r);
+      pad(p.x, p.y, r, o.item);
       drawItem(ctx, o.item, p.x, p.y, r);
       ctx.restore();
     });
   }
 
-  function pad(x, y, r) {
+  // 流れている品の下敷き。品の色で淡く光る玉
+  function pad(x, y, r, item) {
+    const col = (ITEMS[item] && ITEMS[item].color) || '#c9a8ff';
     ctx.save();
-    ctx.fillStyle = '#fffdf8';
-    ctx.beginPath(); ctx.arc(x, y, r * 1.2, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(70,58,90,.28)';
-    ctx.lineWidth = 1;
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, x, y, r * 1.9, col, .45);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#1a1430';
+    ctx.beginPath(); ctx.arc(x, y, r * 1.12, 0, 7); ctx.fill();
+    ctx.strokeStyle = hexA(col, .75);
+    ctx.lineWidth = 1.2;
     ctx.stroke();
     ctx.restore();
   }
@@ -1092,8 +1223,10 @@
     const pts = [jointOf(drag.port)];
     drag.cells.forEach((c) => pts.push({ x: midX(c.x), y: midY(c.y) }));
     if (drag.snap) pts.push(jointOf(drag.snap));
-    strokePts(pts, cs * .44, drag.snap ? 'rgba(122,95,168,.45)' : 'rgba(150,140,170,.28)');
-    strokePts(pts, cs * .24, drag.snap ? '#8a63c4' : 'rgba(120,110,140,.45)');
+    const on = !!drag.snap;
+    strokePts(pts, cs * .56, on ? 'rgba(240,196,106,.22)' : 'rgba(201,168,255,.14)');
+    strokePts(pts, cs * .3, on ? 'rgba(240,196,106,.45)' : 'rgba(201,168,255,.3)');
+    strokePts(pts, cs * .1, on ? '#ffe7a8' : 'rgba(230,214,255,.8)', [cs * .1, cs * .2], -st.flowT / 20);
   }
 
   function drawPortHints() {
@@ -1101,41 +1234,73 @@
     allPorts().forEach((p) => {
       if (!compatible(drag.port, p)) return;
       const j = jointOf(p);
+      const snap = p === drag.snap;
       ctx.save();
-      ctx.strokeStyle = p === drag.snap ? '#e0962c' : 'rgba(122,95,168,' + (.4 + t * .45) + ')';
-      ctx.lineWidth = 2.5;
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, j.x, j.y, cs * (snap ? .6 : .42 + t * .1), snap ? '#f0c46a' : '#b48cff', snap ? .6 : .25 + t * .25);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = snap ? '#ffe2a0' : 'rgba(201,168,255,' + (.5 + t * .45) + ')';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(j.x, j.y, cs * (p === drag.snap ? .34 : .28 + t * .05), 0, 7);
+      ctx.arc(j.x, j.y, cs * (snap ? .34 : .28 + t * .05), 0, 7);
       ctx.stroke();
       ctx.restore();
     });
   }
 
-  function nodeBody(def, x, y, rot, lv, n) {
+  // 働いているか。足元の魔法陣の回り方と明るさに使う
+  function busy(n) {
+    if (!n) return false;
+    if (n.k === 'fac') return n.craftT > 0 || !!n.pending;
+    if (n.k === 'src') return n.outs[0].buf.length < n.outs[0].cap;
+    if (n.k === 'shop') return n.ins[0].buf.length > 0;
+    if (n.k === 'store') return n.hold.length > 0;
+    return n.ins.some((p) => p.buf.length > 0);
+  }
+
+  function nodeBody(def, x, y, rot, lv, n, scale) {
     const skin = SKIN[def.k];
-    const px = cellX(x), py = cellY(y);
     const mx = midX(x), my = midY(y);
+    const s = cs * (scale === undefined ? 1 : scale);
+    const t = st.flowT / 1000;
+    const on = busy(n);
+    const lit = n && n.lit > 0 ? n.lit : 0;
 
     ctx.save();
-    roundRect(ctx, px + 3, py + 3, cs - 6, cs - 6, cs * .16);
-    ctx.fillStyle = skin.fill; ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = (n && n.lit > 0) ? '#e0962c' : (sel === n ? '#8a63c4' : skin.edge);
+    // 足元の光と魔法陣
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, mx, my, s * (.8 + lit * .4), skin.glow, (on ? .28 : .12) + lit * .4);
+    ctx.globalCompositeOperation = 'source-over';
+    drawSigil(ctx, mx, my, s * .6, t * (on ? .9 : .18) * (def.k === 'fac' ? 1 : -1),
+      hexA(skin.glow, on ? .6 : .25), def.k === 'split' || def.k === 'store' ? 'none' : def.k);
+    // 石の台座
+    const h = s * .4;
+    roundRect(ctx, mx - h, my - h, h * 2, h * 2, s * .13);
+    const g = ctx.createLinearGradient(mx, my - h, mx, my + h);
+    g.addColorStop(0, '#3d3160'); g.addColorStop(1, '#1b1530');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = Math.max(1.5, s * .045);
+    ctx.strokeStyle = lit > .3 ? '#ffe2a0' : (n && sel === n ? '#ffffff' : skin.glow);
     ctx.stroke();
+    roundRect(ctx, mx - h + 3, my - h + 3, h * 2 - 6, h * 2 - 6, s * .09);
+    ctx.strokeStyle = hexA(skin.glow, .22); ctx.lineWidth = 1; ctx.stroke();
     ctx.restore();
 
+    const meterOn = hexA(skin.glow, .95), meterOff = 'rgba(255,255,255,.12)';
     if (def.k === 'src') {
-      drawItem(ctx, def.item, mx, my - cs * .1, cs * .22);
-      drawSpeed(ctx, mx, my + cs * .40, cs * .58, cs * .2, lv + 1);
+      iconGlow(def.item, mx, my - s * .07, s * .21);
+      drawSpeed(ctx, mx, my + s * .33, s * .5, s * .15, lv + 1, meterOn, meterOff);
     } else if (def.k === 'fac') {
-      drawItem(ctx, def.make, mx, my - cs * .08, cs * .22);
-      drawSpeed(ctx, mx, my + cs * .40, cs * .58, cs * .2, lv + 1);
+      iconGlow(def.make, mx, my - s * .06, s * .21);
+      drawSpeed(ctx, mx, my + s * .33, s * .5, s * .15, lv + 1, meterOn, meterOff);
       if (n && (n.craftT > 0 || n.pending)) {
         const prog = n.pending ? 1 : 1 - n.craftT / n.span;
         ctx.save();
-        ctx.strokeStyle = '#7a5fa8'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        ctx.strokeStyle = hexA(skin.glow, .25); ctx.lineWidth = Math.max(2, s * .05);
+        ctx.beginPath(); ctx.arc(mx, my, s * .47, 0, 7); ctx.stroke();
+        ctx.strokeStyle = '#e7d6ff'; ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(mx, my, cs * .37, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * prog);
+        ctx.arc(mx, my, s * .47, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * prog);
         ctx.stroke();
         ctx.restore();
       }
@@ -1143,74 +1308,93 @@
       // 扱う品は繋いだ相手で決まる。繋ぐまでは看板だけ。
       const it = n && n.flow;
       if (it) {
-        drawItem(ctx, it, mx, my - cs * .2, cs * .2);
-        ctx.fillStyle = '#a8621f';
-        ctx.font = '700 ' + Math.round(cs * .19) + 'px sans-serif';
+        iconGlow(it, mx, my - s * .14, s * .18);
+        ctx.fillStyle = '#ffd98a';
+        ctx.font = '700 ' + Math.round(s * .17) + 'px sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(priceOf(it).toLocaleString() + 'G', mx, my + cs * .13);
+        ctx.fillText(priceOf(it).toLocaleString() + 'G', mx, my + s * .12);
       } else {
-        drawGlyph(ctx, 'shop', mx, my - cs * .06, cs * .26);
+        drawGlyph(ctx, 'shop', mx, my - s * .05, s * .23, true);
       }
-      // 採取地・錬成陣と同じ目盛りでレベルを出す
-      drawSpeed(ctx, mx, my + cs * .40, cs * .58, cs * .2, lv + 1);
+      drawSpeed(ctx, mx, my + s * .33, s * .5, s * .15, lv + 1, meterOn, meterOff);
     } else {
-      drawGlyph(ctx, def.k, mx, my, cs * .24);
+      drawGlyph(ctx, def.k, mx, my - (def.k === 'store' ? s * .06 : 0), s * .22, true);
       if (def.k === 'store' && n) {
-        ctx.fillStyle = 'rgba(70,58,90,.75)';
-        ctx.font = '600 ' + Math.round(cs * .18) + 'px sans-serif';
+        ctx.fillStyle = 'rgba(243,213,138,.9)';
+        ctx.font = '600 ' + Math.round(s * .16) + 'px sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        ctx.fillText(n.hold.length + '/' + def.hold, mx, my + cs * .2);
+        ctx.fillText(n.hold.length + '/' + def.hold, mx, my + s * .18);
       }
     }
+  }
+
+  // 品の絵を、その色の光の上に置く
+  function iconGlow(item, x, y, r) {
+    const col = (ITEMS[item] && ITEMS[item].color) || '#c9a8ff';
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, x, y, r * 1.9, col, .4);
+    ctx.restore();
+    drawItem(ctx, item, x, y, r);
   }
 
   function drawNode(n) {
-    n.ins.concat(n.outs).forEach((p) => drawPort(p));
-    nodeBody(n.def, n.x, n.y, n.rot, n.lv, n);
+    const age = n.born ? (performance.now() - n.born) / 420 : 1;
+    const sc = age < 1 ? Math.max(.2, backOut(Math.max(0, age))) : 1;
+    if (sc === 1) n.ins.concat(n.outs).forEach((p) => drawPort(p));
+    nodeBody(n.def, n.x, n.y, n.rot, n.lv, n, sc);
+    if (sc !== 1 && age >= .6) n.ins.concat(n.outs).forEach((p) => drawPort(p));
   }
 
+  // 口。入口は丸い受け口、出口は菱形の宝石。繋がっていれば光る
   function drawPort(p) {
     const skin = SKIN[p.node.k];
     const j = jointOf(p);
-    const s = cs * .38;
+    const s = cs * .19;
     ctx.save();
-    roundRect(ctx, j.x - s / 2, j.y - s / 2, s, s, s * .3);
-    ctx.fillStyle = p.belt ? skin.edge : skin.fill;
-    ctx.fill();
-    ctx.lineWidth = 1.8;
-    ctx.strokeStyle = skin.edge;
-    ctx.stroke();
-    ctx.restore();
-    if (p.io === 'in' && p.item) {
-      drawItem(ctx, p.item, j.x, j.y, cs * .12);
-    } else {
-      ctx.save();
-      ctx.fillStyle = p.belt ? 'rgba(70,58,90,.75)' : 'rgba(70,58,90,.3)';
-      ctx.beginPath(); ctx.arc(j.x, j.y, cs * .07, 0, 7); ctx.fill();
-      ctx.restore();
+    ctx.translate(j.x, j.y);
+    if (p.belt) {
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, 0, 0, s * 2.2, skin.glow, .45);
+      ctx.globalCompositeOperation = 'source-over';
     }
+    ctx.lineWidth = Math.max(1.5, cs * .04);
+    ctx.strokeStyle = skin.glow;
+    if (p.io === 'in') {
+      ctx.fillStyle = '#1b1530';
+      ctx.beginPath(); ctx.arc(0, 0, s, 0, 7); ctx.fill(); ctx.stroke();
+      if (p.item) drawItem(ctx, p.item, 0, 0, cs * .11);
+      else {
+        ctx.fillStyle = p.belt ? skin.glow : hexA(skin.glow, .35);
+        ctx.beginPath(); ctx.arc(0, 0, s * .35, 0, 7); ctx.fill();
+      }
+    } else {
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = p.belt ? skin.glow : '#1b1530';
+      ctx.fillRect(-s * .78, -s * .78, s * 1.56, s * 1.56);
+      ctx.strokeRect(-s * .78, -s * .78, s * 1.56, s * 1.56);
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      ctx.fillRect(-s * .5, -s * .5, s * .45, s * .45);
+    }
+    ctx.restore();
   }
 
   function drawGhost() {
     if (!hoverCell) return;
     const ok = free(hoverCell.x, hoverCell.y) && st.money >= placing.def.cost;
     ctx.save();
-    ctx.globalAlpha = ok ? .8 : .3;
+    ctx.globalAlpha = ok ? .78 : .3;
     nodeBody(placing.def, hoverCell.x, hoverCell.y, placing.rot, 0, null);
     // 仮のポートも描く。どの向きに口が出るか置く前に分かる
     const s = sidesOf(placing.def, null);
-    ctx.globalAlpha = ok ? .6 : .2;
-    s.in.concat(s.out).forEach((side) => {
-      const d = DIRS[(side + placing.rot) & 3];
-      const x = midX(hoverCell.x) + d[0] * cs * .5, y = midY(hoverCell.y) + d[1] * cs * .5;
-      const w = cs * .3;
-      roundRect(ctx, x - w / 2, y - w / 2, w, w, w * .3);
-      ctx.fillStyle = SKIN[placing.def.k].edge; ctx.fill();
-    });
+    const skin = SKIN[placing.def.k];
+    ctx.globalAlpha = ok ? .85 : .25;
+    s.in.forEach((side) => ghostPort(side, 'in', skin));
+    s.out.forEach((side) => ghostPort(side, 'out', skin));
     ctx.restore();
     if (!ok) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(190,70,70,.85)'; ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,110,110,.9)'; ctx.lineWidth = 2;
       const px = cellX(hoverCell.x), py = cellY(hoverCell.y);
       ctx.beginPath();
       ctx.moveTo(px + 6, py + 6); ctx.lineTo(px + cs - 6, py + cs - 6);
@@ -1218,6 +1402,19 @@
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+  function ghostPort(side, io, skin) {
+    const d = DIRS[(side + placing.rot) & 3];
+    const x = midX(hoverCell.x) + d[0] * cs * .5, y = midY(hoverCell.y) + d[1] * cs * .5;
+    const s = cs * .19;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = skin.glow; ctx.fillStyle = io === 'out' ? skin.glow : '#1b1530';
+    ctx.lineWidth = 2;
+    if (io === 'in') { ctx.beginPath(); ctx.arc(0, 0, s, 0, 7); ctx.fill(); ctx.stroke(); }
+    else { ctx.rotate(Math.PI / 4); ctx.fillRect(-s * .78, -s * .78, s * 1.56, s * 1.56); }
+    ctx.restore();
   }
 
   function drawMoveGhost() {
@@ -1229,15 +1426,98 @@
     ctx.restore();
   }
 
+  // 一度きりの演出
+  function drawFx() {
+    for (const f of fx) {
+      const dur = FX_DUR[f.type], k = f.t / dur;
+      const x = midX(f.x), y = midY(f.y);
+      ctx.save();
+      if (f.type === 'build') {
+        // 光の柱が立ち、魔法陣が開き、粒がはじける
+        const e = easeOut(Math.min(1, k * 1.6));
+        ctx.globalCompositeOperation = 'lighter';
+        glow(ctx, x, y, cs * (.6 + e * 1.1), f.col, (1 - k) * .7);
+        const colW = cs * .5 * (1 - k);
+        const cg = ctx.createLinearGradient(x, y - cs * 2.2, x, y);
+        cg.addColorStop(0, hexA(f.col, 0)); cg.addColorStop(1, hexA(f.col, .55 * (1 - k)));
+        ctx.fillStyle = cg;
+        ctx.fillRect(x - colW / 2, y - cs * 2.2, colW, cs * 2.2);
+        ctx.globalCompositeOperation = 'source-over';
+        drawSigil(ctx, x, y, cs * (.3 + e * .55), k * 4, hexA(f.col, .9 * (1 - k)), f.kind || 'fac');
+        ctx.strokeStyle = hexA('#ffe7a8', (1 - k) * .9); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, cs * (.2 + e * 1.1), 0, 7); ctx.stroke();
+        for (const p of f.parts) {
+          const q = Math.max(0, (k - p.d) / (1 - p.d));
+          if (q <= 0) continue;
+          const d = cs * (.3 + easeOut(q) * 1.2 * p.v);
+          twinkle(ctx, x + Math.cos(p.a) * d, y + Math.sin(p.a) * d - q * cs * .3,
+            cs * .09 * p.s * (1 - q), q < .5 ? '#fff4d0' : f.col);
+        }
+      } else if (f.type === 'level') {
+        // 金の粒が昇る
+        ctx.globalCompositeOperation = 'lighter';
+        glow(ctx, x, y, cs * 1.2, '#f0c46a', (1 - k) * .55);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = hexA('#ffe7a8', 1 - k); ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(x, y, cs * (.45 + k * .6), 0, 7); ctx.stroke();
+        for (const p of f.parts) {
+          const q = Math.max(0, Math.min(1, (k - p.d) / .7));
+          if (q <= 0 || q >= 1) continue;
+          twinkle(ctx, x + Math.cos(p.a) * cs * .42 * p.v, y + cs * .3 - q * cs * 1.4 * p.v,
+            cs * .1 * p.s * (1 - q * .6), '#ffe08a');
+        }
+        ctx.fillStyle = hexA('#ffe7a8', 1 - k);
+        ctx.font = '800 ' + Math.round(cs * .26) + 'px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('Lv UP', x, y - cs * (.6 + k * .5));
+      } else if (f.type === 'poof') {
+        // ほどけて消える
+        for (const p of f.parts) {
+          const d = cs * (.1 + easeOut(k) * .9 * p.v);
+          ctx.globalAlpha = 1 - k;
+          ctx.fillStyle = f.col;
+          ctx.beginPath();
+          ctx.arc(x + Math.cos(p.a) * d, y + Math.sin(p.a) * d - k * cs * .4, cs * .07 * p.s * (1 - k * .5), 0, 7);
+          ctx.fill();
+        }
+      } else if (f.type === 'craft') {
+        ctx.globalCompositeOperation = 'lighter';
+        glow(ctx, x, y, cs * (.5 + k * .4), f.col, (1 - k) * .5);
+        for (const p of f.parts) {
+          const d = cs * (.35 + easeOut(k) * .45 * p.v);
+          twinkle(ctx, x + Math.cos(p.a) * d, y + Math.sin(p.a) * d, cs * .07 * p.s * (1 - k), '#f4e8ff');
+        }
+      } else if (f.type === 'coin') {
+        // 金貨が跳ねる
+        f.parts.forEach((p, i) => {
+          const q = Math.max(0, Math.min(1, (k - i * .08) / .8));
+          if (q <= 0) return;
+          const cx = x + (i - 1.5) * cs * .18 + Math.cos(p.a) * cs * .08;
+          const cy = y - cs * .3 - Math.sin(q * Math.PI) * cs * .55 - q * cs * .2;
+          ctx.globalAlpha = 1 - q * q;
+          const w = cs * .1 * Math.abs(Math.cos(q * 9 + p.a));
+          ctx.fillStyle = '#f0c46a';
+          ctx.beginPath(); ctx.ellipse(cx, cy, Math.max(1, w), cs * .1, 0, 0, 7); ctx.fill();
+          ctx.strokeStyle = '#9a6a14'; ctx.lineWidth = 1; ctx.stroke();
+        });
+      }
+      ctx.restore();
+    }
+  }
+
   function drawPops() {
     ctx.save();
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
     pops.forEach((p) => {
       const f = p.t / 900;
-      ctx.globalAlpha = 1 - f;
-      ctx.fillStyle = '#c07a1c';
-      ctx.font = '700 ' + Math.round(cs * .26) + 'px sans-serif';
-      ctx.fillText('+' + p.g, midX(p.x), midY(p.y) - cs * (.4 + f * .8));
+      ctx.globalAlpha = 1 - f * f;
+      ctx.font = '800 ' + Math.round(Math.max(11, cs * .27)) + 'px sans-serif';
+      const x = midX(p.x), y = midY(p.y) - cs * (.45 + f * .8);
+      ctx.strokeStyle = 'rgba(40,24,6,.85)'; ctx.lineWidth = 3;
+      ctx.strokeText('+' + p.g + 'G', x, y);
+      ctx.fillStyle = '#ffd36a';
+      ctx.fillText('+' + p.g + 'G', x, y);
     });
     ctx.restore();
   }

@@ -527,25 +527,25 @@
 
   // 速さの目盛り。レベルを上げると本数が増える。
   const BARS = 5;
-  function drawSpeed(c, cx, cy, w, h, level) {
+  function drawSpeed(c, cx, cy, w, h, level, on, off) {
     const gap = w / BARS;
     const bw = Math.max(1.5, gap * .66);
     for (let i = 0; i < BARS; i++) {
       const bh = Math.max(1.5, h * (.36 + .64 * (i / (BARS - 1))));
       const x = cx - w / 2 + gap * i + (gap - bw) / 2;
-      c.fillStyle = i < level ? '#6a4f8a' : 'rgba(106,79,138,.18)';
+      c.fillStyle = i < level ? (on || '#6a4f8a') : (off || 'rgba(106,79,138,.18)');
       c.fillRect(x, cy - bh, bw, bh);
     }
   }
 
   // 品目を持たない設備の絵
-  function drawGlyph(c, kind, cx, cy, r) {
+  function drawGlyph(c, kind, cx, cy, r, night) {
     c.save();
     c.translate(cx, cy);
     c.lineCap = 'round'; c.lineJoin = 'round';
     c.lineWidth = Math.max(1.6, r * .22);
     if (kind === 'split') {
-      c.strokeStyle = '#2e8b6f';
+      c.strokeStyle = night ? '#7cf0c0' : '#2e8b6f';
       c.beginPath();
       c.moveTo(-r, 0); c.lineTo(0, 0);
       c.moveTo(0, -r); c.lineTo(0, r);
@@ -553,21 +553,21 @@
       c.moveTo(-r * .45, r * .55); c.lineTo(0, r); c.lineTo(r * .45, r * .55);
       c.stroke();
     } else if (kind === 'store') {
-      c.strokeStyle = '#8a6a2e';
+      c.strokeStyle = night ? '#f3cf7e' : '#8a6a2e';
       poly(c, [[-r, r * .9], [-r, -r * .2], [0, -r * .9], [r, -r * .2], [r, r * .9]]);
       c.stroke();
       c.beginPath(); c.moveTo(-r * .5, r * .9); c.lineTo(-r * .5, r * .1);
       c.lineTo(r * .5, r * .1); c.lineTo(r * .5, r * .9); c.stroke();
     } else if (kind === 'shop') {
       // 何も繋いでいないお店。日よけと台
-      c.fillStyle = '#c07a3c';
+      c.fillStyle = night ? '#ffae5c' : '#c07a3c';
       poly(c, [[-r, -r * .1], [-r * .8, -r * .8], [r * .8, -r * .8], [r, -r * .1]]);
       c.fill();
       c.save(); c.globalAlpha = .35; c.fillStyle = '#fffaf0';
       c.fillRect(-r * .55, -r * .8, r * .32, r * .74);
       c.fillRect(r * .2, -r * .8, r * .32, r * .74);
       c.restore();
-      c.strokeStyle = '#8a5a28'; c.lineWidth = Math.max(1.4, r * .2);
+      c.strokeStyle = night ? '#ffd29a' : '#8a5a28'; c.lineWidth = Math.max(1.4, r * .2);
       line(c, [[-r * .8, r * .25], [r * .8, r * .25]]);
       line(c, [[-r * .55, r * .25], [-r * .55, r]]);
       line(c, [[r * .55, r * .25], [r * .55, r]]);
@@ -580,5 +580,129 @@
     c.restore();
   }
 
-  global.ART = { drawItem, drawBridge, drawSpeed, drawGlyph, roundRect };
+  // '#rrggbb' に透明度を付ける
+  function hexA(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+
+  // 魔法陣。外の二重円に目盛り、六芒星、内の円。rot で回す。
+  // kind で中の図形を変える（錬成は六芒星、採取は三角、お店は四角、ほかは円だけ）
+  function drawSigil(c, cx, cy, r, rot, color, kind) {
+    c.save();
+    c.translate(cx, cy);
+    c.rotate(rot);
+    c.strokeStyle = color;
+    c.lineWidth = Math.max(1, r * .035);
+    c.beginPath(); c.arc(0, 0, r, 0, 7); c.stroke();
+    c.beginPath(); c.arc(0, 0, r * .86, 0, 7); c.stroke();
+    // 二重円の間の目盛り。文字の代わり
+    const n = 24;
+    c.beginPath();
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2;
+      const l = i % 3 === 0 ? .86 : .92;
+      c.moveTo(Math.cos(a) * r * l, Math.sin(a) * r * l);
+      c.lineTo(Math.cos(a) * r * .98, Math.sin(a) * r * .98);
+    }
+    c.stroke();
+    const k = kind || 'fac';
+    const ri = r * .82;
+    if (k === 'fac' || k === 'big') {
+      for (const off of [0, Math.PI]) {
+        c.beginPath();
+        for (let i = 0; i < 3; i++) {
+          const a = off - Math.PI / 2 + i * Math.PI * 2 / 3;
+          c[i ? 'lineTo' : 'moveTo'](Math.cos(a) * ri, Math.sin(a) * ri);
+        }
+        c.closePath(); c.stroke();
+      }
+    } else if (k === 'src') {
+      c.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const a = -Math.PI / 2 + i * Math.PI * 2 / 3;
+        c[i ? 'lineTo' : 'moveTo'](Math.cos(a) * ri, Math.sin(a) * ri);
+      }
+      c.closePath(); c.stroke();
+    } else if (k === 'shop') {
+      c.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = Math.PI / 4 + i * Math.PI / 2;
+        c[i ? 'lineTo' : 'moveTo'](Math.cos(a) * ri, Math.sin(a) * ri);
+      }
+      c.closePath(); c.stroke();
+    }
+    c.beginPath(); c.arc(0, 0, r * .42, 0, 7); c.stroke();
+    if (k === 'big') {
+      // 盤面の透かしだけは、内側にもう一重の四角と小円を足して密度を上げる
+      c.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI / 2;
+        c[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r * .42, Math.sin(a) * r * .42);
+      }
+      c.closePath(); c.stroke();
+      for (let i = 0; i < 6; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 3;
+        c.beginPath(); c.arc(Math.cos(a) * ri, Math.sin(a) * ri, r * .07, 0, 7); c.stroke();
+      }
+    }
+    c.restore();
+  }
+
+  // 瓦礫。暗い石を3つ寄せ、紫の結晶をひとつ光らせる。seed で形を変える
+  function drawStone(c, cx, cy, r, seed) {
+    const rnd = (i) => { const v = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453; return v - Math.floor(v); };
+    c.save();
+    c.translate(cx, cy);
+    c.fillStyle = 'rgba(0,0,0,.35)';
+    c.beginPath(); c.ellipse(0, r * .72, r * .95, r * .22, 0, 0, 7); c.fill();
+    const rocks = [[-r * .42, r * .25, r * .55], [r * .38, r * .3, r * .5], [0, -r * .12, r * .62]];
+    rocks.forEach(([x, y, s], k) => {
+      const pts = [];
+      const m = 6;
+      for (let i = 0; i < m; i++) {
+        const a = i / m * Math.PI * 2 + rnd(k * 9 + i) * .5;
+        const d = s * (.72 + rnd(k * 9 + i + 3) * .35);
+        pts.push([x + Math.cos(a) * d, y + Math.sin(a) * d * .82]);
+      }
+      const g = c.createLinearGradient(x, y - s, x, y + s);
+      g.addColorStop(0, '#5a4d74'); g.addColorStop(1, '#2a2240');
+      c.fillStyle = g;
+      c.beginPath(); pts.forEach((p, i) => c[i ? 'lineTo' : 'moveTo'](p[0], p[1])); c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,.14)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(pts[3][0], pts[3][1]); c.lineTo(pts[4][0], pts[4][1]); c.lineTo(pts[5][0], pts[5][1]); c.stroke();
+    });
+    // 結晶
+    c.fillStyle = '#b48cff';
+    c.beginPath();
+    c.moveTo(r * .1, -r * .55); c.lineTo(r * .28, -r * .2); c.lineTo(r * .12, r * .05); c.lineTo(-r * .04, -r * .22);
+    c.closePath(); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.55)';
+    c.beginPath(); c.moveTo(r * .1, -r * .55); c.lineTo(r * .16, -r * .25); c.lineTo(r * .04, -r * .26); c.closePath(); c.fill();
+    c.restore();
+  }
+
+  // 柔らかい光の玉。加算で重ねると光って見える
+  function glow(c, cx, cy, r, color, a) {
+    const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, hexA(color, a));
+    g.addColorStop(1, hexA(color, 0));
+    c.fillStyle = g;
+    c.beginPath(); c.arc(cx, cy, r, 0, 7); c.fill();
+  }
+
+  // 4方向に光る星。きらめきの粒に使う
+  function twinkle(c, cx, cy, r, color) {
+    c.save();
+    c.translate(cx, cy);
+    c.fillStyle = color;
+    c.beginPath();
+    c.moveTo(0, -r); c.quadraticCurveTo(0, 0, r, 0); c.quadraticCurveTo(0, 0, 0, r);
+    c.quadraticCurveTo(0, 0, -r, 0); c.quadraticCurveTo(0, 0, 0, -r);
+    c.fill();
+    c.restore();
+  }
+
+  global.ART = { drawItem, drawBridge, drawSpeed, drawGlyph, roundRect,
+    hexA, drawSigil, drawStone, glow, twinkle };
 })(window);
