@@ -388,6 +388,109 @@ canvas{touch-action:none; display:block}
   .al-hint{display:none}
 }
 
+/* ================================================================ 錬金術の装い
+   羊皮紙の上に金の縁取り。盤面（夜の錬金台）と同じ金と紫で揃える。
+   値の大きさ（角丸・文字・動き）はトークンから選び、ここで足すのは色と飾りだけ。 */
+body{
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%237a5fa8' stroke-opacity='.10' stroke-width='1'%3E%3Ccircle cx='100' cy='100' r='96'/%3E%3Ccircle cx='100' cy='100' r='86'/%3E%3Cpath d='M100 14 L174.5 143 L25.5 143 Z'/%3E%3Cpath d='M100 186 L25.5 57 L174.5 57 Z'/%3E%3Ccircle cx='100' cy='100' r='40'/%3E%3Cpath d='M100 60 L140 100 L100 140 L60 100 Z'/%3E%3C/g%3E%3C/svg%3E") right -140px top -160px / 520px 520px no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%237a5fa8' stroke-opacity='.08' stroke-width='1'%3E%3Ccircle cx='100' cy='100' r='96'/%3E%3Ccircle cx='100' cy='100' r='86'/%3E%3Cpath d='M100 14 L174.5 143 L25.5 143 Z'/%3E%3Cpath d='M100 186 L25.5 57 L174.5 57 Z'/%3E%3Ccircle cx='100' cy='100' r='40'/%3E%3Cpath d='M100 60 L140 100 L100 140 L60 100 Z'/%3E%3C/g%3E%3C/svg%3E") left -180px bottom -220px / 620px 620px no-repeat,
+    radial-gradient(1100px 600px at 12% -10%, #fbf3e4 0%, rgba(251,243,228,0) 60%),
+    radial-gradient(900px 520px at 100% 0%, #efe6f7 0%, rgba(239,230,247,0) 62%),
+    var(--bg);
+}
+
+/* 上の帯と購入パレット。金の二重線と四隅の菱形 */
+.al-bar,.al-pal{
+  position:relative;
+  background:linear-gradient(180deg,#fffcf5,#fbf2e2);
+  border-color:#d6b469;
+  box-shadow:0 0 0 3px #fffaf0, 0 0 0 4px rgba(184,121,28,.28), 0 4px 14px rgba(90,70,120,.10);
+}
+.al-bar::before,.al-bar::after,.al-pal::before,.al-pal::after{
+  content:""; position:absolute; width:7px; height:7px; background:#c9a24a; transform:rotate(45deg);
+  top:-4px; pointer-events:none;
+}
+.al-bar::before,.al-pal::before{left:-4px}
+.al-bar::after,.al-pal::after{right:-4px}
+
+.al-money b{color:#b67712; text-shadow:0 1px 0 #fff}
+.al-rankrow b{background:linear-gradient(90deg,#6a4f9a,#a8621f); -webkit-background-clip:text; background-clip:text; color:transparent}
+.al-rankbar{background:#2a2042; height:8px; box-shadow:0 0 0 1px #c9a24a inset}
+.al-rankfill{position:relative; background:linear-gradient(90deg,#8f6ac8,#c9a8ff 45%,#f0c15a); box-shadow:0 0 8px rgba(240,193,90,.6)}
+.al-rankfill::after{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(100deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.65) 50%, rgba(255,255,255,0) 70%);
+  background-size:220% 100%; animation:al-shine 2.8s linear infinite;
+}
+@keyframes al-shine{from{background-position:120% 0}to{background-position:-120% 0}}
+
+/* ボタン。押せるものは金の縁、選ぶと紫に光る */
+.al-btn{background:linear-gradient(180deg,#fffdf8,#f6ecda); border-color:#dcc28a}
+.al-btn:hover:not(:disabled){background:linear-gradient(180deg,#fbf6ff,#efe4fb); border-color:var(--magic-lt);
+  box-shadow:0 0 0 2px rgba(169,143,216,.25)}
+.al-btn-p{background:linear-gradient(180deg,#8f6ac8,#6a4f9a); border-color:#c9a24a; color:#fff;
+  box-shadow:0 1px 0 rgba(255,255,255,.35) inset}
+.al-btn-p:hover:not(:disabled){background:linear-gradient(180deg,#a07ad8,#7a5fa8); border-color:#e0bd68}
+
+/* 購入パレットのタブと札 */
+.al-tab.on{background:linear-gradient(180deg,#f7f0ff,#ece0fb); border-color:var(--magic-lt);
+  box-shadow:0 2px 0 #c9a24a inset}
+.al-card{background:linear-gradient(180deg,#fffdf8,#f8efdf); border-color:#e0cfa6; padding:5px 11px 5px 6px}
+.al-card:hover{border-color:var(--magic-lt); background:linear-gradient(180deg,#fcf8ff,#f1e8fb);
+  box-shadow:0 0 0 2px rgba(169,143,216,.28), 0 4px 10px rgba(106,79,138,.18); transform:translateY(-1px)}
+.al-card.on{border-color:#c9a24a; background:linear-gradient(180deg,#fdf6ff,#efe2fb);
+  box-shadow:0 0 0 2px rgba(201,162,74,.55), 0 0 14px rgba(169,143,216,.55)}
+.al-card canvas{flex:0 0 auto}
+.al-new{background:linear-gradient(180deg,#f0a83a,#d0801c); box-shadow:0 1px 4px rgba(160,90,10,.4)}
+
+/* 右クリックのメニューと説明の吹き出しは、夜の台と同じ色の札にする */
+.al-menu,.al-tip{background:linear-gradient(180deg,#2c2248,#1c1530); border-color:#c9a24a; color:#efe6ff;
+  box-shadow:0 0 0 1px rgba(201,162,74,.25) inset, 0 12px 30px rgba(20,10,40,.45)}
+.al-mhead{border-bottom-color:rgba(201,162,74,.35)}
+.al-mhead i,.al-tip span.dim{color:#b9a8d8}
+.al-tip span{color:#efe6ff}
+.al-menu .al-btn{background:rgba(255,255,255,.06); border-color:rgba(201,162,74,.4); color:#efe6ff}
+.al-menu .al-btn:hover:not(:disabled){background:rgba(185,148,255,.22); border-color:#e0bd68; box-shadow:none}
+
+/* パネル。羊皮紙に金の縁、見出しの両脇に菱形 */
+.al-panel{background:linear-gradient(180deg,#fffcf5,#fbf1df); border:1px solid #d6b469;
+  box-shadow:0 0 0 4px #fffaf0, 0 0 0 5px rgba(184,121,28,.35), 0 22px 56px rgba(40,24,70,.38)}
+.al-ovhead{display:flex; align-items:baseline; gap:8px; color:#4a3a68}
+.al-ovhead::before{content:"\2726"; color:#c9a24a; font-size:var(--fs-3)}
+.al-ov{background:radial-gradient(circle at 50% 45%, rgba(60,40,100,.32), rgba(20,12,40,.55))}
+.al-resec h4,.al-cosec h4,.al-logsec h4,.al-helpbody h4{border-bottom-color:#e2cf9e; color:#7a6a92}
+.al-res{background:linear-gradient(180deg,#fffdf8,#f8efdf); border-color:#e0cfa6}
+.al-res:hover:not(:disabled){box-shadow:0 0 0 2px rgba(169,143,216,.25)}
+.al-corow canvas,.al-logrow canvas{background:radial-gradient(circle,#3d3160,#1b1530); border-radius:var(--r-pill);
+  box-shadow:0 0 0 1px #c9a24a}
+.al-corow.unknown canvas{background:#e8ddc9; box-shadow:0 0 0 1px #d6c7a5}
+
+/* タイトル。題字は金、後ろで魔法陣がゆっくり回る */
+.al-ov-title{background:radial-gradient(circle at 50% 46%, rgba(40,26,70,.25), rgba(20,12,40,.62)); backdrop-filter:blur(1.5px)}
+.al-titlecard{position:relative; padding:46px 34px; background:none}
+.al-titlecard::before{
+  content:""; position:absolute; left:50%; top:50%; width:460px; height:460px; margin:-230px 0 0 -230px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%237a5fa8' stroke-opacity='.35' stroke-width='1'%3E%3Ccircle cx='100' cy='100' r='96'/%3E%3Ccircle cx='100' cy='100' r='86'/%3E%3Cpath d='M100 14 L174.5 143 L25.5 143 Z'/%3E%3Cpath d='M100 186 L25.5 57 L174.5 57 Z'/%3E%3Ccircle cx='100' cy='100' r='40'/%3E%3Cpath d='M100 60 L140 100 L100 140 L60 100 Z'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; animation:al-turn 60s linear infinite; pointer-events:none; z-index:-1;
+}
+.al-titlecard::after{
+  content:""; position:absolute; inset:-10px -40px; z-index:-2; pointer-events:none;
+  background:radial-gradient(ellipse at center, rgba(255,250,240,.97) 0%, rgba(255,248,232,.9) 46%, rgba(255,248,232,0) 72%);
+}
+@keyframes al-turn{to{transform:rotate(360deg)}}
+.al-titlecard h1{background:linear-gradient(180deg,#d9a83a,#9a6514); -webkit-background-clip:text; background-clip:text;
+  color:transparent; text-shadow:none; filter:drop-shadow(0 2px 0 rgba(255,255,255,.9)) drop-shadow(0 0 12px rgba(240,196,106,.55))}
+.al-tagline{color:#7a6a92}
+
+/* 便りと手紙。封蝋を押した手紙にする */
+.al-toast,.al-news{background:linear-gradient(180deg,#fffcf5,#f8ecd6); border-color:#d6b469;
+  box-shadow:0 0 0 3px #fffaf0, 0 0 0 4px rgba(184,121,28,.3), 0 12px 30px rgba(60,40,90,.28)}
+.al-toast,.al-news{position:relative}
+.al-toast::after,.al-news::after{
+  content:""; position:absolute; right:10px; top:-7px; width:16px; height:16px; border-radius:var(--r-pill);
+  background:radial-gradient(circle at 35% 30%, #e86a6a, #9a1e2a); box-shadow:0 1px 3px rgba(90,10,20,.45)}
+.al-newshead{color:#6a4f9a}
+
 /* display を持つ要素にも hidden を効かせる */
 [hidden]{display:none !important}
 

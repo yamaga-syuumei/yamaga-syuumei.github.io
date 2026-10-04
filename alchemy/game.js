@@ -1715,15 +1715,29 @@
   const GROUPED = { fac: 1 };                // 数が多いタブはランクで分ける
   const groupSel = { fac: 0 };
 
+  // 札の絵は、盤面と同じ夜の台座に乗せる。札を見ただけで盤面のどれか分かる
   function cardIcon(def) {
+    const S = 34;
     const c = document.createElement('canvas');
-    c.width = 56; c.height = 56; c.style.width = '28px'; c.style.height = '28px';
+    c.width = S * 2; c.height = S * 2; c.style.width = S + 'px'; c.style.height = S + 'px';
     const cc = c.getContext('2d');
     cc.scale(2, 2);
-    if (def.k === 'src') drawItem(cc, def.item, 14, 14, 11);
-    else if (def.k === 'fac') drawItem(cc, def.make, 14, 14, 11);
-    else if (def.bridge) drawBridge(cc, 14, 14, 9);
-    else drawGlyph(cc, def.k, 14, 14, 10);
+    const col = def.bridge ? '#c9a8ff' : (SKIN[def.k] || SKIN.fac).glow;
+    const m = S / 2;
+    const bg = cc.createRadialGradient(m, m * .8, 2, m, m, m);
+    bg.addColorStop(0, '#41346a'); bg.addColorStop(1, '#17122a');
+    cc.fillStyle = bg;
+    cc.beginPath(); cc.arc(m, m, m - 1, 0, 7); cc.fill();
+    drawSigil(cc, m, m, m - 3, .3, hexA(col, .4), def.k === 'src' || def.k === 'fac' || def.k === 'shop' ? def.k : 'none');
+    const it = def.k === 'src' ? def.item : def.k === 'fac' ? def.make : null;
+    cc.save(); cc.globalCompositeOperation = 'lighter';
+    glow(cc, m, m, m * .8, it ? ITEMS[it].color : col, .5);
+    cc.restore();
+    if (it) drawItem(cc, it, m, m, 9.5);
+    else if (def.bridge) drawBridge(cc, m, m, 8);
+    else drawGlyph(cc, def.k, m, m, 8.5, true);
+    cc.strokeStyle = hexA(col, .95); cc.lineWidth = 1.2;
+    cc.beginPath(); cc.arc(m, m, m - 1, 0, 7); cc.stroke();
     return c;
   }
 
@@ -2519,6 +2533,8 @@
     }, { passive: false });
     cv.addEventListener('pointerleave', () => { hoverCell = null; hoverExpand = null; });
     window.addEventListener('resize', layout);
+    // 盤面の枠は窓の大きさ以外でも変わる（パレットの高さなど）。枠そのものを見張る
+    if (window.ResizeObserver) new ResizeObserver(() => layout()).observe(document.querySelector('.al-board'));
     window.addEventListener('beforeunload', writeSave);
     // メニューの外を触ったら閉じる
     document.addEventListener('pointerdown', (e) => {
