@@ -118,7 +118,7 @@
     return {
       w: BOARD.w, h: BOARD.h, cell: [], nodes: [], belts: [],
       money: BOARD.startMoney, total: 0, tier: 0, landBuys: 0, rockBuys: 0, bridges: 0,
-      unlock: {}, done: {}, sold: {}, log: {}, logNew: 0, seen: {}, tut: 0,
+      unlock: {}, done: {}, sold: {}, log: {}, logNew: 0, seen: {}, tut: 0, made: {},
       bonus: { belt: 0, sellRate: 0, price: 0, land: 0, rock: 0 },
       beltPhase: 0, acc: 0, flowT: 0, boom: false,
     };
@@ -294,7 +294,7 @@
       const o = n.outs[0];
       if (o.buf.length < o.cap) {
         n.t++;
-        if (n.t >= nodeTicks(n.def, n.lv)) { n.t = 0; o.buf.push(n.def.item); }
+        if (n.t >= nodeTicks(n.def, n.lv)) { n.t = 0; o.buf.push(n.def.item); discover(n.def.item); }
       }
       return;
     }
@@ -308,6 +308,7 @@
       if (n.pending) {
         const o = n.outs[0];
         if (o.buf.length < o.cap) {
+          discover(n.pending);
           o.buf.push(n.pending); n.pending = null; n.lit = 1; SND.se('craft');
           addFx('craft', n.x, n.y, { col: SKIN.fac.glow });
         }
@@ -385,7 +386,7 @@
   // 研究は買えるようになったもの、図鑑は作れるようになった品を数える。
   const resKeys = () => RESEARCH.filter((r) => r.tier <= st.tier && resLv(r) < resMax(r))
     .map((r) => 'res:' + r.key);
-  const codexKeys = () => Object.keys(ITEMS).filter((k) => producible(k)).map((k) => 'cdx:' + k);
+  const codexKeys = () => Object.keys(st.made).map((k) => 'cdx:' + k);
   const anyNew = (keys) => keys.some((k) => !st.seen[k]);
 
   function markDots() {
@@ -953,6 +954,7 @@
     pops = pops.filter((p) => p.t < 900);
     stepMotes(dt);
     stepFx(dt);
+    discStep(dt);
 
     draw();
     updateHud(dt);
@@ -1593,7 +1595,7 @@
     f.className = 'al-float ' + cls;
     f.textContent = text + 'G';
     el('moneyBox').appendChild(f);
-    reel.floats.push({ el: f, t: 0 });
+    reel.floats.push({ el: f, t: 0, dir: cls === 'down' ? 1 : -1 });
   }
 
   function reelStep(dt) {
@@ -1622,7 +1624,7 @@
     reel.floats = reel.floats.filter((f) => {
       f.t += dt;
       const k = f.t / 1100;
-      f.el.style.transform = 'translateY(' + (-k * 26).toFixed(1) + 'px)';
+      f.el.style.transform = 'translateY(' + (f.dir * k * 22).toFixed(1) + 'px)';
       f.el.style.opacity = Math.max(0, 1 - k * k).toFixed(3);
       if (k >= 1) { f.el.remove(); return false; }
       return true;
@@ -2146,24 +2148,31 @@
     return best;
   }
 
+  // 図鑑は作った品が載る。研究で作れるようになっただけの品は、影と作り方だけ見せる。
   function buildCodex() {
     const box = el('codexBody');
     box.innerHTML = '';
+    const all = Object.keys(ITEMS).length;
+    const got = Object.keys(st.made).filter((k) => ITEMS[k]).length;
+    el('codexCount').textContent = '登録 ' + got + ' / ' + all;
     for (let t = 0; t < TIERS.length; t++) {
-      const known = Object.keys(ITEMS).filter((k) => itemRank(k) === t && producible(k));
+      const known = Object.keys(ITEMS).filter((k) => itemRank(k) === t && (st.made[k] || producible(k)));
       if (!known.length) continue;
       const sec = document.createElement('div');
       sec.className = 'al-cosec';
       const h = document.createElement('h4');
-      h.textContent = TIERS[t].name;
+      const n = known.filter((k) => st.made[k]).length;
+      h.innerHTML = '<span>' + TIERS[t].name + '</span><span>' + n + ' / ' + known.length + '</span>';
       sec.appendChild(h);
       known.forEach((k) => {
+        const made = !!st.made[k];
         const row = document.createElement('div');
-        row.className = 'al-corow';
+        row.className = 'al-corow' + (made ? '' : ' unknown');
         const c = document.createElement('canvas');
         c.width = 48; c.height = 48; c.style.width = '24px'; c.style.height = '24px';
         const cc = c.getContext('2d'); cc.scale(2, 2);
         drawItem(cc, k, 12, 12, 9);
+        if (!made) { cc.globalCompositeOperation = 'source-in'; cc.fillStyle = '#5b4f70'; cc.fillRect(0, 0, 24, 24); }
         row.appendChild(c);
         const from = RECIPES.filter((r) => r.make === k && st.unlock[r.key])
           .map((r) => r.in.map((i) => ITEMS[i].name).join('＋'));
@@ -2171,15 +2180,155 @@
         const use = RECIPES.filter((r) => r.in.indexOf(k) >= 0 && st.unlock[r.key])
           .map((r) => ITEMS[r.make].name);
         const txt = document.createElement('span');
-        txt.innerHTML = '<b>' + ITEMS[k].name + '</b><em>' + priceOf(k).toLocaleString() + 'G</em>'
-          + (FLAVOR[k] ? '<q>' + FLAVOR[k] + '</q>' : '')
-          + '<i>作り方: ' + (src.concat(from).join(' ／ ') || '—') + '</i>'
-          + '<i>使い道: ' + (use.join('・') || 'まだ無い（売る）') + '</i>';
+        txt.innerHTML = made
+          ? '<b>' + ITEMS[k].name + '</b><em>' + priceOf(k).toLocaleString() + 'G</em>'
+            + (FLAVOR[k] ? '<q>' + FLAVOR[k] + '</q>' : '')
+            + '<i>作り方: ' + (src.concat(from).join(' ／ ') || '—') + '</i>'
+            + '<i>使い道: ' + (use.join('・') || 'まだ無い（売る）') + '</i>'
+          : '<b>？？？</b>'
+            + '<i>まだ作っていない。作ると図鑑に載る</i>'
+            + '<i>作り方: ' + (src.concat(from).join(' ／ ') || '—') + '</i>';
         row.appendChild(txt);
         sec.appendChild(row);
       });
       box.appendChild(sec);
     }
+  }
+
+  // 古い保存には作った記録が無い。売ったことのある品と、その材料をさかのぼって作ったことにする
+  function madeFromSold(sold) {
+    const made = {};
+    const mark = (k) => {
+      if (made[k] || !ITEMS[k]) return;
+      made[k] = 1;
+      RECIPES.filter((r) => r.make === k).slice(0, 1).forEach((r) => r.in.forEach(mark));
+    };
+    Object.keys(sold || {}).forEach(mark);
+    return made;
+  }
+
+  // ---------------------------------------------------------------- 図鑑に載った
+  // 初めて作った品は、画面の真ん中に札を出して紙吹雪で祝う。続けて作れたら順番に出す。
+  // タイトルが出ている間は待たせる（裏で盤面が動いているので、遊ぶ前に作ってしまう）。
+  const disc = { queue: [], cur: null, t: 0 };
+  const DISC_IN = 320, DISC_HOLD = 2600, DISC_OUT = 320;
+  let confetti = [];
+
+  function discover(item) {
+    if (!item || st.made[item]) return;
+    st.made[item] = 1;
+    disc.queue.push(item);
+    markDots();
+    save();
+  }
+
+  function discOpen(item) {
+    disc.cur = item; disc.t = 0;
+    const it = ITEMS[item];
+    el('discName').textContent = it.name;
+    el('discFlavor').textContent = FLAVOR[item] || '';
+    el('discMeta').textContent = TIERS[Math.min(TIERS.length - 1, Math.max(0, itemRank(item)))].short + 'の品　／　売値 ' + priceOf(item).toLocaleString() + 'G';
+    const got = Object.keys(st.made).length;
+    el('discCount').textContent = '図鑑 ' + got + ' / ' + Object.keys(ITEMS).length;
+    el('discover').hidden = false;
+    el('discCard').style.visibility = 'visible';
+    SND.se('discover');
+    burstConfetti(it.color);
+  }
+
+  function discClose() { disc.t = Math.max(disc.t, DISC_IN + DISC_HOLD); }
+
+  function discStep(dt) {
+    if (!disc.cur) {
+      if (disc.queue.length && el('ovTitle').hidden) discOpen(disc.queue.shift());
+    } else {
+      disc.t += dt;
+      const card = el('discCard');
+      let sc = 1, op = 1;
+      if (disc.t < DISC_IN) { const k = disc.t / DISC_IN; sc = .55 + .45 * backOut(k); op = Math.min(1, k * 2); }
+      else if (disc.t > DISC_IN + DISC_HOLD) { const k = Math.min(1, (disc.t - DISC_IN - DISC_HOLD) / DISC_OUT); sc = 1 + k * .06; op = 1 - k; }
+      card.style.transform = 'scale(' + sc.toFixed(3) + ')';
+      card.style.opacity = op.toFixed(3);
+      drawDiscIcon();
+      if (disc.t >= DISC_IN + DISC_HOLD + DISC_OUT) {
+        disc.cur = null;
+        card.style.visibility = 'hidden';          // 透明のまま残すと真ん中のクリックを奪う
+        el('discover').hidden = !confetti.length;
+      }
+    }
+    stepConfetti(dt);
+  }
+
+  // 札の絵。後ろで光の筋がゆっくり回る
+  function drawDiscIcon() {
+    const c = el('discIcon');
+    const dpr = window.devicePixelRatio || 1;
+    const S = 110;
+    if (c.width !== Math.round(S * dpr)) { c.width = Math.round(S * dpr); c.height = Math.round(S * dpr); }
+    const g = c.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, S, S);
+    const col = ITEMS[disc.cur].color;
+    g.save();
+    g.translate(S / 2, S / 2);
+    g.rotate(disc.t / 2600);
+    for (let i = 0; i < 12; i++) {
+      g.rotate(Math.PI / 6);
+      g.fillStyle = i % 2 ? hexA('#f0c46a', .22) : hexA(col, .2);
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(-7, -S / 2); g.lineTo(7, -S / 2); g.closePath(); g.fill();
+    }
+    g.restore();
+    glow(g, S / 2, S / 2, S * .38, col, .55);
+    drawItem(g, disc.cur, S / 2, S / 2, S * .24);
+  }
+
+  // 紙吹雪。真ん中から上へはじけ、左右の下からも打ち上げる。重力で落ちながら回る
+  function burstConfetti(col) {
+    const W = window.innerWidth, H = window.innerHeight;
+    const cols = ['#f0c46a', '#b994ff', '#6fd3ff', '#ff8fb1', '#7cf0c0', col];
+    const add = (x, y, a0, spread, n, sp) => {
+      for (let i = 0; i < n; i++) {
+        const a = a0 + (Math.random() - .5) * spread, v = sp * (.55 + Math.random() * .6);
+        confetti.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: Math.random() * 6.3, vr: (Math.random() - .5) * 14,
+          f: Math.random() * 6.3, vf: 6 + Math.random() * 10, w: 5 + Math.random() * 5, h: 8 + Math.random() * 7,
+          col: cols[(Math.random() * cols.length) | 0], t: 0, life: 2600 + Math.random() * 1200, star: Math.random() < .18 });
+      }
+    };
+    add(W / 2, H * .46, -Math.PI / 2, Math.PI * 1.3, 70, 900);
+    add(-10, H * .95, -Math.PI / 3, .55, 45, 1250);
+    add(W + 10, H * .95, -Math.PI * 2 / 3, .55, 45, 1250);
+    if (confetti.length > 400) confetti.splice(0, confetti.length - 400);
+  }
+
+  function stepConfetti(dt) {
+    const c = el('confetti');
+    if (!confetti.length) { if (c.width) { c.width = 0; c.height = 0; } return; }
+    const W = window.innerWidth, H = window.innerHeight, dpr = window.devicePixelRatio || 1;
+    if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+    const g = c.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    const k = dt / 1000;
+    confetti = confetti.filter((p) => {
+      p.t += dt;
+      p.vy += 1500 * k;
+      p.vx *= Math.pow(.35, k); p.vy *= Math.pow(.5, k);
+      p.vy = Math.min(p.vy, 260);
+      p.vx += Math.sin(p.f) * 30 * k;
+      p.x += p.vx * k; p.y += p.vy * k;
+      p.r += p.vr * k; p.f += p.vf * k;
+      const a = Math.min(1, (p.life - p.t) / 500);
+      if (a <= 0 || p.y > H + 30) return false;
+      g.save();
+      g.globalAlpha = a;
+      g.translate(p.x, p.y); g.rotate(p.r);
+      g.fillStyle = p.col;
+      if (p.star) twinkle(g, 0, 0, p.w * .9, p.col);
+      else { g.scale(1, Math.cos(p.f)); g.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); }
+      g.restore();
+      return true;
+    });
+    if (!confetti.length && !disc.cur) el('discover').hidden = true;
   }
 
   // ---------------------------------------------------------------- 通信
@@ -2241,7 +2390,7 @@
       v: SAVE_VER,
       w: st.w, h: st.h, money: st.money, total: st.total, tier: st.tier,
       landBuys: st.landBuys, rockBuys: st.rockBuys, bridges: st.bridges,
-      done: st.done, sold: st.sold, log: st.log, seen: st.seen, tut: st.tut,
+      done: st.done, sold: st.sold, log: st.log, seen: st.seen, tut: st.tut, made: st.made,
       rocks: st.cell.map((c, i) => (c.rock ? i : -1)).filter((i) => i >= 0),
       nodes: st.nodes.map((n) => ({ d: n.def.key, x: n.x, y: n.y, r: n.rot, l: n.lv })),
       belts: st.belts.map((b) => ({ f: pi.get(b.from), t: pi.get(b.to), c: b.cells.map((c) => [c.x, c.y]) })),
@@ -2275,6 +2424,7 @@
     while (TIERS[st.tier + 1] && st.total >= TIERS[st.tier + 1].need) st.tier++;
     st.done = raw.done || {}; st.sold = raw.sold || {}; st.log = raw.log || {}; st.seen = raw.seen || {};
     st.tut = raw.tut === undefined ? -1 : raw.tut;
+    st.made = raw.made || madeFromSold(st.sold);
     applyResearch();
     raw.nodes.forEach((n) => {
       const def = BUILDS[n.d] || (n.d.indexOf('shop_') === 0 ? BUILDS.shop : null);
@@ -2344,6 +2494,7 @@
     cv.addEventListener('wheel', onWheel, { passive: false });
     cv.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });   // 中ボタンの自動スクロールを止める
     window.addEventListener('keydown', onKey);
+    el('discCard').addEventListener('click', discClose);
 
     // 購入パレットは横に並ぶ。ホイールは縦に回すので、そのまま横送りに割り当てる
     el('cards').addEventListener('wheel', (e) => {
@@ -2408,6 +2559,8 @@
   window.__cl = {
     st: () => st,
     view: () => ({ zoom, cs, ox, oy, fitCs, focusX, focusY, VW, VH }),
+    disc: () => ({ cur: disc.cur, queue: disc.queue.slice(), t: disc.t, confetti: confetti.length, made: Object.keys(st.made) }),
+    discover: (k) => discover(k),
     ports: () => allPorts().map((p) => ({ n: p.node.def.key, io: p.io, item: p.item,
       side: p.side, dir: portDir(p), ax: portAX(p), ay: portAY(p), belt: !!p.belt })),
     belts: () => st.belts.map((b) => ({ from: b.from.node.def.key, to: b.to.node.def.key,

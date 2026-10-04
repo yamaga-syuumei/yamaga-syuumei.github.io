@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=2af5dc0d">
+<link rel="stylesheet" href="style.css?v=eb5eafb3">
 </head>
 <body>
 
@@ -102,9 +102,22 @@
 <!-- 図鑑 -->
 <div class="al-ov" id="codex" hidden>
   <div class="al-panel al-panel-w">
-    <div class="al-ovhead">図鑑</div>
+    <div class="al-ovhead">図鑑<span class="al-ovcount" id="codexCount"></span></div>
     <div class="al-codex" id="codexBody"></div>
     <div class="al-ovbtns"><button class="al-btn al-btn-p" id="btnCodexClose">閉じる</button></div>
+  </div>
+</div>
+
+<!-- 初めて作った品が図鑑に載った。紙吹雪は盤面の上に重ねる -->
+<div class="al-discover" id="discover" hidden>
+  <canvas class="al-confetti" id="confetti"></canvas>
+  <div class="al-dcard" id="discCard" role="status">
+    <div class="al-dribbon">図鑑に登録</div>
+    <canvas class="al-dicon" id="discIcon"></canvas>
+    <b class="al-dname" id="discName"></b>
+    <q class="al-dflavor" id="discFlavor"></q>
+    <span class="al-dmeta" id="discMeta"></span>
+    <span class="al-dcount" id="discCount"></span>
   </div>
 </div>
 
@@ -254,8 +267,8 @@
 </div>
 
 <script src="data.js?v=9f90b1a8"></script>
-<script src="sound.js?v=db1f12be"></script>
+<script src="sound.js?v=67ed815a"></script>
 <script src="art.js?v=6e6f3c3d"></script>
-<script src="game.js?v=b41f3dc0"></script>
+<script src="game.js?v=17ddec45"></script>
 </body>
 </html>

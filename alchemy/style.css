@@ -52,7 +52,7 @@ button{font:inherit; color:inherit; cursor:pointer}
 .al-money b.down{color:var(--warn); text-shadow:0 0 8px rgba(180,74,74,.45)}
 .al-reel{display:inline-block; height:1.15em; width:.6em; overflow:hidden; text-align:center}
 .al-strip{display:block; will-change:transform}
-.al-strip i{display:block; height:1.15em; font-style:normal}
+.al-money .al-strip i{display:block; height:1.15em; font-style:normal; font-size:1em; color:inherit}   /* 見出しの i の指定を受けない */
 .al-comma{display:inline-block; width:.28em; text-align:center}
 .al-coin{display:inline-block; width:16px; height:16px; border-radius:var(--r-pill); flex:0 0 auto;
   background:radial-gradient(circle at 35% 30%, #fff4c8 0 18%, #f0c45a 35%, #b8791c 100%);
@@ -60,7 +60,7 @@ button{font:inherit; color:inherit; cursor:pointer}
 .al-float{position:absolute; left:64px; top:-4px; font-size:var(--fs-3); font-weight:800;
   pointer-events:none; white-space:nowrap; font-variant-numeric:tabular-nums}
 .al-float.up{color:#c98a12; text-shadow:0 0 6px rgba(255,236,170,.9)}
-.al-float.down{color:var(--warn)}
+.al-float.down{color:var(--warn); top:auto; bottom:-16px}   /* 減った分は下へ。増えた分と重ねない */
 .al-total b{font-size:var(--fs-4); font-variant-numeric:tabular-nums}
 .al-money u,.al-total u{text-decoration:none; font-size:var(--fs-2); color:var(--dim)}
 
@@ -268,6 +268,27 @@ canvas{touch-action:none; display:block}
 .al-cosec h4{margin:0 0 6px; font-size:var(--fs-2); color:var(--dim); font-weight:600;
   border-bottom:1px solid var(--line); padding-bottom:4px}
 .al-corow{display:flex; gap:9px; align-items:flex-start; padding:5px 0}
+.al-corow.unknown b{color:var(--dim); letter-spacing:.1em}
+.al-cosec h4{display:flex; justify-content:space-between}
+.al-ovcount{margin-left:10px; font-size:var(--fs-2); color:var(--dim); font-weight:600}
+
+/* 図鑑に載った札。紙吹雪の上、盤面の真ん中に出す。札の外は触れても下へ通す */
+.al-discover{position:fixed; inset:0; z-index:70; display:flex; align-items:center; justify-content:center;
+  pointer-events:none}
+.al-confetti{position:absolute; inset:0; width:100%; height:100%}
+.al-dcard{position:relative; pointer-events:auto; cursor:pointer; width:260px; text-align:center;
+  display:flex; flex-direction:column; align-items:center; gap:4px; padding:26px 20px 16px;
+  background:linear-gradient(180deg,#fffaf0,#f6ead2); border:2px solid #d9b35a; border-radius:var(--r-2);
+  box-shadow:0 0 0 4px rgba(255,250,240,.85), 0 0 0 5px rgba(184,121,28,.45), 0 18px 48px rgba(60,40,90,.35), 0 0 60px rgba(240,196,106,.45)}
+.al-dribbon{position:absolute; top:-14px; left:50%; transform:translateX(-50%); white-space:nowrap;
+  background:linear-gradient(180deg,#8f6ac8,#6a4f9a); color:#fff; font-size:var(--fs-2); font-weight:700;
+  padding:4px 16px; border-radius:var(--r-pill); box-shadow:0 2px 8px rgba(70,40,120,.35); letter-spacing:.12em}
+.al-dicon{width:110px; height:110px}
+.al-dname{font-size:var(--fs-5); color:var(--ink)}
+.al-dflavor{quotes:none; font-size:var(--fs-2); color:var(--ink); line-height:1.5}
+.al-dflavor:empty{display:none}
+.al-dmeta{font-size:var(--fs-1); color:var(--gold); font-weight:700}
+.al-dcount{font-size:var(--fs-1); color:var(--dim)}
 .al-corow span{display:flex; flex-direction:column; line-height:1.4; min-width:0}
 .al-corow b{font-size:var(--fs-2); display:inline}
 .al-corow em{font-style:normal; font-size:var(--fs-1); color:var(--gold)}

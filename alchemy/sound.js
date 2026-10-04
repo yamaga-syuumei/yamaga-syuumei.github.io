@@ -21,6 +21,7 @@ window.ALSND = (function () {
     sell:     'sfx/スイッチ5.mp3',    // お店が1つ売った（単価が高いほど高くなる）
     craft:    'sfx/マウスクリック.mp3', // 錬成陣が完成品を1つ出した
     levelup:  'sfx/正解9.mp3',        // 設備のレベルアップ
+    discover: 'sfx/決定16.mp3',       // 初めて作った品が図鑑に載った
     research: 'sfx/電源オン.mp3',     // 研究を解放した
     expand:   'sfx/扉が開く1.mp3',    // 土地を広げた
     news:     'sfx/決定16.mp3',       // 師匠の手紙・風の便りが届いた
