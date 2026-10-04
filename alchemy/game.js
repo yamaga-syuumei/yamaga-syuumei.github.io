@@ -955,7 +955,7 @@
     stepFx(dt);
 
     draw();
-    updateHud();
+    updateHud(dt);
   }
 
   // ---------------------------------------------------------------- 盤面の絵
@@ -1525,10 +1525,115 @@
   // ---------------------------------------------------------------- HUD
   let lastMoney = -1;
 
-  function updateHud() {
+  // ---------------------------------------------------------------- 所持金のリール
+  // 数字ごとに 0〜9 の帯を縦に持ち、増えるときは下から、減るときは上から回して止める。
+  // 大きく動いたときは1周余分に回し、左の桁から順に止まる。スロットのリールに見せる。
+  // 増えた分は少しまとめてから「+」を浮かせる。売上は細かく続くので、1つずつ出すと読めない。
+  const REEL_H = 1.15;      // 1文字の高さ（em）
+  const reel = { digits: [], str: '', value: -1, gain: 0, gainT: 0, flashT: 0, coinT: 0, floats: [] };
+
+  function reelBuild(str) {
+    const box = el('money');
+    box.innerHTML = '';
+    const keep = reel.digits.slice().reverse();     // 右から引き継ぐ。桁が増えても下の桁は回り続ける
+    reel.digits = [];
+    for (const ch of str) {
+      if (ch < '0' || ch > '9') {
+        const s = document.createElement('span');
+        s.className = 'al-comma'; s.textContent = ch;
+        box.appendChild(s);
+        continue;
+      }
+      const w = document.createElement('span'); w.className = 'al-reel';
+      const strip = document.createElement('span'); strip.className = 'al-strip';
+      let h = '';
+      for (let k = 0; k < 30; k++) h += '<i>' + (k % 10) + '</i>';
+      strip.innerHTML = h;
+      w.appendChild(strip);
+      box.appendChild(w);
+      reel.digits.push({ strip, pos: +ch, goal: +ch, shown: NaN });
+    }
+    const n = reel.digits.length;
+    keep.forEach((d, i) => { if (i < n) { const t = reel.digits[n - 1 - i]; t.pos = d.pos; } });
+  }
+
+  function reelSet(v) {
+    const str = v.toLocaleString();
+    const first = reel.value < 0;
+    const dir = v >= reel.value ? 1 : -1;
+    const delta = v - reel.value;
+    const nd = str.replace(/\D/g, '').length;
+    if (str.length !== reel.str.length || nd !== reel.digits.length) reelBuild(str);
+    reel.str = str;
+    const ds = str.replace(/\D/g, '');
+    const big = !first && Math.abs(delta) >= Math.max(100, reel.value * 0.02);
+    reel.digits.forEach((d, i) => {
+      const want = +ds[i];
+      if (first) { d.pos = d.goal = want; return; }
+      const cur = ((d.goal % 10) + 10) % 10;
+      let dist = dir > 0 ? (want - cur + 10) % 10 : -((cur - want + 10) % 10);
+      if (big && dist !== 0) dist += dir * 10;
+      d.goal += dist;
+      d.rate = 7 + (ds.length - i) * 1.3;          // 左の桁ほど速く止まる
+    });
+    el('money').setAttribute('aria-label', str + 'G');
+    if (!first) {
+      const box = el('money');
+      box.classList.toggle('up', dir > 0);
+      box.classList.toggle('down', dir < 0);
+      reel.flashT = 380;
+      if (delta > 0) { reel.gain += delta; reel.coinT = 420; }
+      else if (delta < 0) reelFloat('-' + (-delta).toLocaleString(), 'down');
+    }
+    reel.value = v;
+  }
+
+  function reelFloat(text, cls) {
+    const f = document.createElement('span');
+    f.className = 'al-float ' + cls;
+    f.textContent = text + 'G';
+    el('moneyBox').appendChild(f);
+    reel.floats.push({ el: f, t: 0 });
+  }
+
+  function reelStep(dt) {
+    for (const d of reel.digits) {
+      const diff = d.goal - d.pos;
+      if (Math.abs(diff) < 0.003) d.pos = d.goal;
+      else d.pos += diff * Math.min(1, dt / 1000 * (d.rate || 9));
+      if (d.pos !== d.shown) {
+        d.shown = d.pos;
+        const p = ((d.pos % 10) + 10) % 10 + 10;
+        d.strip.style.transform = 'translateY(' + (-p * REEL_H).toFixed(4) + 'em)';
+      }
+    }
+    if (reel.flashT > 0) {
+      reel.flashT -= dt;
+      if (reel.flashT <= 0) el('money').classList.remove('up', 'down');
+    }
+    reel.gainT += dt;
+    if (reel.gain > 0 && reel.gainT > 650) { reelFloat('+' + reel.gain.toLocaleString(), 'up'); reel.gain = 0; reel.gainT = 0; }
+    // 金貨は増えたときにくるりと回る
+    const coin = el('coin');
+    if (reel.coinT > 0) {
+      reel.coinT -= dt;
+      coin.style.transform = 'scaleX(' + Math.cos((1 - Math.max(0, reel.coinT) / 420) * Math.PI * 2).toFixed(3) + ')';
+    } else if (coin.style.transform) coin.style.transform = '';
+    reel.floats = reel.floats.filter((f) => {
+      f.t += dt;
+      const k = f.t / 1100;
+      f.el.style.transform = 'translateY(' + (-k * 26).toFixed(1) + 'px)';
+      f.el.style.opacity = Math.max(0, 1 - k * k).toFixed(3);
+      if (k >= 1) { f.el.remove(); return false; }
+      return true;
+    });
+  }
+
+  function updateHud(dt) {
+    reelStep(dt || 16);
     if (st.money !== lastMoney) {
       lastMoney = st.money;
-      el('money').textContent = st.money.toLocaleString();
+      reelSet(st.money);
       syncMenu();                                // 買えるようになった項目を押せるようにする
       syncResearch();                            // 研究も開いたまま買えるようになる
       syncPalette();                             // 購入パレットの札も色だけ変える

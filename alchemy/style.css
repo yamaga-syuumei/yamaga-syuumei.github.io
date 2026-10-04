@@ -44,6 +44,23 @@ button{font:inherit; color:inherit; cursor:pointer}
 .al-money,.al-total{display:flex; align-items:baseline; gap:5px; white-space:nowrap}
 .al-money i,.al-total i{font-style:normal; font-size:var(--fs-2); color:var(--dim)}
 .al-money b{font-size:var(--fs-6); color:var(--gold); font-variant-numeric:tabular-nums}
+
+/* 所持金はスロットのリール。1桁ずつ縦に回る */
+.al-money{position:relative; align-items:center}
+.al-money b{display:inline-flex; align-items:flex-end; line-height:1.15; transition:color var(--t), text-shadow var(--t)}
+.al-money b.up{color:#d99a1e; text-shadow:0 0 10px rgba(240,196,106,.85)}
+.al-money b.down{color:var(--warn); text-shadow:0 0 8px rgba(180,74,74,.45)}
+.al-reel{display:inline-block; height:1.15em; width:.6em; overflow:hidden; text-align:center}
+.al-strip{display:block; will-change:transform}
+.al-strip i{display:block; height:1.15em; font-style:normal}
+.al-comma{display:inline-block; width:.28em; text-align:center}
+.al-coin{display:inline-block; width:16px; height:16px; border-radius:var(--r-pill); flex:0 0 auto;
+  background:radial-gradient(circle at 35% 30%, #fff4c8 0 18%, #f0c45a 35%, #b8791c 100%);
+  box-shadow:0 0 0 1px #9a6614 inset, 0 0 8px rgba(240,196,106,.6)}
+.al-float{position:absolute; left:64px; top:-4px; font-size:var(--fs-3); font-weight:800;
+  pointer-events:none; white-space:nowrap; font-variant-numeric:tabular-nums}
+.al-float.up{color:#c98a12; text-shadow:0 0 6px rgba(255,236,170,.9)}
+.al-float.down{color:var(--warn)}
 .al-total b{font-size:var(--fs-4); font-variant-numeric:tabular-nums}
 .al-money u,.al-total u{text-decoration:none; font-size:var(--fs-2); color:var(--dim)}
 
