@@ -126,7 +126,17 @@ canvas{touch-action:none; display:block}
 
 /* ---------------------------------------------------------------- 購入パレット */
 .al-pal{background:var(--panel); border:1px solid var(--line); border-radius:var(--r-2); padding:7px 9px;
-  box-shadow:0 1px 0 #fff inset, 0 2px 8px rgba(90,70,120,.07)}
+  box-shadow:0 1px 0 #fff inset, 0 2px 8px rgba(90,70,120,.07); display:flex; gap:10px}
+.al-palmain{flex:1; min-width:0}
+
+/* 勇者の一行の旅。小さく描いて引き伸ばすので、にじませない */
+.al-hero{flex:0 0 300px; position:relative; border-radius:var(--r-1); overflow:hidden;
+  border:1px solid #c9a75a; box-shadow:0 0 0 2px #fffaf0, 0 0 0 3px rgba(184,121,28,.35)}
+/* 帯の高さはパレットの左側に合わせる。キャンバスの大きさで帯を押し広げない */
+.al-hero canvas{position:absolute; inset:0; display:block; width:100%; height:100%; image-rendering:pixelated; image-rendering:crisp-edges}
+.al-herocap{position:absolute; left:6px; top:4px; right:6px; font-size:var(--fs-1); font-weight:700; color:#fff;
+  text-shadow:0 1px 0 #000, 0 0 3px rgba(0,0,0,.8); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  pointer-events:none}
 /* タブ行と札の行はどちらも高さを固定する。
    スクロールバーの出る出ないでパレット全体の高さが動くのを止めるため。 */
 .al-tabs{
@@ -371,6 +381,7 @@ canvas{touch-action:none; display:block}
 .al-newshead{font-size:var(--fs-3); font-weight:700; color:var(--magic); margin-bottom:7px}
 .al-newsbody p{margin:0 0 4px; font-size:var(--fs-2); line-height:1.6}
 
+@media (max-width:860px){ .al-hero{display:none} }
 @media (max-width:620px){
   .al-money b{font-size:var(--fs-5)}
   .al-sent{order:9; max-width:none; width:100%}

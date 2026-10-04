@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=eb5eafb3">
+<link rel="stylesheet" href="style.css?v=b9c1c715">
 </head>
 <body>
 
@@ -50,8 +50,15 @@
   <p class="al-hint" id="hint"></p>
 
   <div class="al-pal">
-    <div class="al-tabs" id="tabs"></div>
-    <div class="al-cards" id="cards"></div>
+    <div class="al-palmain">
+      <div class="al-tabs" id="tabs"></div>
+      <div class="al-cards" id="cards"></div>
+    </div>
+    <!-- 勇者の一行の旅。眺めるだけ -->
+    <div class="al-hero" aria-hidden="true">
+      <canvas id="heroCv"></canvas>
+      <span class="al-herocap" id="heroCap"></span>
+    </div>
   </div>
 
 </div>
@@ -269,6 +276,7 @@
 <script src="data.js?v=9f90b1a8"></script>
 <script src="sound.js?v=67ed815a"></script>
 <script src="art.js?v=6e6f3c3d"></script>
-<script src="game.js?v=17ddec45"></script>
+<script src="hero.js?v=d74c2c39"></script>
+<script src="game.js?v=9989d1e7"></script>
 </body>
 </html>

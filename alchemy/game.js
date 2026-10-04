@@ -377,7 +377,9 @@
       st.log[e.key || e.item] = 1;
       st.logNew++;
       toast(e);
+      if (e.key && window.HERO) HERO.boss();      // 勇者の話が進んだ。次の敵は大物
     });
+    if (got.length) heroSync();
     if (got.length) SND.se('news');
     if (got.length) { markDots(); save(); }
   }
@@ -473,6 +475,7 @@
     const next = TIERS[st.tier + 1];
     if (!next || st.total < next.need) return;
     st.tier++;
+    heroSync();
     SND.se('news');
     showNews(TIERS[st.tier]);
     buildResearch();
@@ -955,6 +958,7 @@
     stepMotes(dt);
     stepFx(dt);
     discStep(dt);
+    if (window.HERO) { HERO.step(dt); HERO.draw(); }
 
     draw();
     updateHud(dt);
@@ -2195,6 +2199,15 @@
     }
   }
 
+  // 勇者の帯に、いまの話とランクを渡す
+  function heroSync() {
+    if (!window.HERO) return;
+    const n = LOG.hero.filter((h) => st.log[h.key]).length;
+    const ch = Math.max(0, n - 1);
+    HERO.set({ chapter: ch, tier: st.tier });
+    el('heroCap').textContent = '勇者の歩み　第' + (ch + 1) + '話　' + LOG.hero[ch].text;
+  }
+
   // 古い保存には作った記録が無い。売ったことのある品と、その材料をさかのぼって作ったことにする
   function madeFromSold(sold) {
     const made = {};
@@ -2475,7 +2488,7 @@
 
   function startFresh() {
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
-    reset(); layout(); buildPalette(); buildResearch(); buildCodex(); markDots(); closeMenu();
+    reset(); layout(); buildPalette(); buildResearch(); buildCodex(); markDots(); closeMenu(); heroSync();
   }
 
   function init() {
@@ -2494,6 +2507,7 @@
     cv.addEventListener('wheel', onWheel, { passive: false });
     cv.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });   // 中ボタンの自動スクロールを止める
     window.addEventListener('keydown', onKey);
+    if (window.HERO) { HERO.attach(el('heroCv')); heroSync(); }
     el('discCard').addEventListener('click', discClose);
 
     // 購入パレットは横に並ぶ。ホイールは縦に回すので、そのまま横送りに割り当てる
@@ -2559,6 +2573,7 @@
   window.__cl = {
     st: () => st,
     view: () => ({ zoom, cs, ox, oy, fitCs, focusX, focusY, VW, VH }),
+    hero: () => (window.HERO ? HERO.state() : null),
     disc: () => ({ cur: disc.cur, queue: disc.queue.slice(), t: disc.t, confetti: confetti.length, made: Object.keys(st.made) }),
     discover: (k) => discover(k),
     ports: () => allPorts().map((p) => ({ n: p.node.def.key, io: p.io, item: p.item,
@@ -2622,7 +2637,7 @@
         + 'G」を読み込みます。\n\nいま遊んでいる盤面は消えます。よろしいですか？')) return;
       if (!restore(raw)) { alert('この控えは読めませんでした。'); return; }
       writeSave();
-      layout(); buildPalette(); buildResearch(); buildCodex(); markDots(); closeMenu();
+      layout(); buildPalette(); buildResearch(); buildCodex(); markDots(); closeMenu(); heroSync();
       SND.se('levelup');
       note('控えを読み込みました。' + name);
     };
