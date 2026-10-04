@@ -81,6 +81,10 @@
 
   let st = null;
   let cs = 46, ox = PAD, oy = PAD;
+  // 拡大。zoom 1 で盤面全体が枠に収まる。focus は枠の中心に来る盤面の位置（マス単位）
+  let zoom = 1, fitCs = 46, focusX = -1, focusY = -1, VW = 0, VH = 0;
+  let panning = null;       // 盤面を掴んで動かしている
+  const ZOOM_MAX = 3.2;
   let drag = null;          // ベルトを引いている
   let moving = null;        // 設備をつまんでいる
   let placing = null;       // 購入パレットから選んだ設備
@@ -477,19 +481,52 @@
   }
 
   // ---------------------------------------------------------------- 座標
+  // キャンバスは枠いっぱい。拡大していなければ盤面全体が収まる大きさで真ん中に置く
   function layout() {
     const box = document.querySelector('.al-board');
-    const availW = box.clientWidth - 12;
-    const availH = box.clientHeight - 12;
-    cs = Math.max(22, Math.min(58, Math.floor(Math.min(
-      (availW - PAD * 2) / st.w, (availH - PAD * 2) / st.h))));
-    const w = st.w * cs + PAD * 2, h = st.h * cs + PAD * 2;
+    VW = Math.max(120, box.clientWidth);
+    VH = Math.max(120, box.clientHeight);
     const dpr = window.devicePixelRatio || 1;
-    cv.width = Math.round(w * dpr);
-    cv.height = Math.round(h * dpr);
-    cv.style.width = w + 'px';
-    cv.style.height = h + 'px';
+    cv.width = Math.round(VW * dpr);
+    cv.height = Math.round(VH * dpr);
+    cv.style.width = VW + 'px';
+    cv.style.height = VH + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fitCs = Math.max(12, Math.min(58, Math.floor(Math.min((VW - PAD * 2) / st.w, (VH - PAD * 2) / st.h))));
+    cs = fitCs * zoom;
+    placeView();
+  }
+
+  // 拡大中でも盤面の外ばかり見えないよう、盤面の端を枠に合わせて止める
+  function placeView() {
+    if (focusX < 0) { focusX = st.w / 2; focusY = st.h / 2; }
+    const fit = (f, n, view) => {
+      const full = n * cs;
+      if (full + PAD * 2 <= view) return Math.round(view / 2 - full / 2);
+      return Math.min(PAD, Math.max(view - full - PAD, view / 2 - f * cs));
+    };
+    ox = fit(focusX, st.w, VW);
+    oy = fit(focusY, st.h, VH);
+    focusX = (VW / 2 - ox) / cs;
+    focusY = (VH / 2 - oy) / cs;
+  }
+
+  // 指している場所を動かさずに拡大・縮小する
+  function zoomAt(px, py, factor) {
+    const nz = Math.max(1, Math.min(ZOOM_MAX, zoom * factor));
+    if (Math.abs(nz - zoom) < 1e-4) return;
+    const bx = (px - ox) / cs, by = (py - oy) / cs;
+    zoom = nz;
+    cs = fitCs * zoom;
+    focusX = (VW / 2 - (px - bx * cs)) / cs;
+    focusY = (VH / 2 - (py - by * cs)) / cs;
+    placeView();
+  }
+
+  function panBy(dx, dy) {
+    focusX -= dx / cs;
+    focusY -= dy / cs;
+    placeView();
   }
 
   const cellX = (x) => ox + x * cs;
@@ -584,6 +621,9 @@
     SND.unlock();
     const pc = pointerAt(e);
 
+    // 中ボタンはどこでも盤面を掴む
+    if (e.button === 1) { e.preventDefault(); startPan(e, pc); return; }
+
     // 右クリックはメニュー。設置中なら設置の取り消し
     if (e.button === 2) {
       e.preventDefault();
@@ -601,7 +641,7 @@
 
     const ex = expandAt(pc);
     if (ex) { buyLand(ex); return; }
-    if (!inBoard(pc.x, pc.y)) return;
+    if (!inBoard(pc.x, pc.y)) { if (zoom > 1) startPan(e, pc); return; }
 
     if (placing) { place(pc.x, pc.y); return; }
 
@@ -622,34 +662,57 @@
 
     if (at(pc.x, pc.y).rock) return;
     const hit = beltAt(pc.x, pc.y);
-    if (hit) removeBelt(hit);
+    if (hit) { removeBelt(hit); return; }
+    // 何も無いマス。拡大中なら掴んで盤面を動かす
+    if (zoom > 1) startPan(e, pc);
   }
 
-  // ホイールで回転。設置中はゴースト、盤面では下にある設備
-  let wheelAt = 0;
+  function startPan(e, pc) {
+    panning = { px: pc.px, py: pc.py };
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 合成イベントでは失敗する */ }
+    cv.style.cursor = 'grabbing';
+  }
+
+  // ホイールは拡大・縮小。Shift を押しながらだと回転。
+  // 回すと送り道が外れるので、拡大のつもりで回ってしまわないよう分けてある
   function onWheel(e) {
-    const dir = e.deltaY > 0 ? 1 : 3;
-    if (placing) {
-      e.preventDefault();
-      if (performance.now() - wheelAt < 80) return;
-      wheelAt = performance.now();
-      placing.rot = (placing.rot + dir) & 3;
-      return;
-    }
-    const pc = pointerAt(e);
-    if (!inBoard(pc.x, pc.y)) return;
-    const n = at(pc.x, pc.y).node;
-    if (!n) return;
     e.preventDefault();
-    if (performance.now() - wheelAt < 140) return;   // 一振りで何回も回らないように
-    wheelAt = performance.now();
-    rotate(n, dir);
+    const d = e.deltaY || e.deltaX;            // Shift を押すと横の量で来るブラウザがある
+    const pc = pointerAt(e);
+    if (e.shiftKey) { turnAt(pc, d > 0 ? 1 : 3); return; }
+    zoomAt(pc.px, pc.py, Math.exp(-d * (e.deltaMode === 1 ? 0.05 : 0.0015)));
+  }
+
+  // 回す。設置中は置く向き、そうでなければ指している設備
+  let turnAtT = 0;
+  function turnAt(pc, dir) {
+    if (performance.now() - turnAtT < 140) return;   // 一振りで何回も回らないように
+    turnAtT = performance.now();
+    if (placing) { placing.rot = (placing.rot + dir) & 3; return; }
+    if (!pc || !inBoard(pc.x, pc.y)) return;
+    const n = at(pc.x, pc.y).node;
+    if (n) rotate(n, dir);
+  }
+
+  function onKey(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    if (e.key === 'r' || e.key === 'R') { turnAt(hoverCell, e.shiftKey ? 3 : 1); return; }
+    if (e.key === '+' || e.key === '=') { zoomAt(VW / 2, VH / 2, 1.25); return; }
+    if (e.key === '-') { zoomAt(VW / 2, VH / 2, 0.8); return; }
+    if (e.key === '0') { zoom = 1; focusX = -1; layout(); }
   }
 
   let denyAt = 0;
 
   function onMove(e) {
     const pc = pointerAt(e);
+    if (panning) {
+      panBy(pc.px - panning.px, pc.py - panning.py);
+      const q = pointerAt(e);
+      panning.px = q.px; panning.py = q.py;
+      return;
+    }
     hoverCell = inBoard(pc.x, pc.y) ? { x: pc.x, y: pc.y } : null;
     hoverExpand = expandAt(pc);
 
@@ -661,9 +724,11 @@
     if (!drag) {
       hoverBelt = inBoard(pc.x, pc.y) ? beltAt(pc.x, pc.y) : null;
       const onNode = inBoard(pc.x, pc.y) && at(pc.x, pc.y).node;
+      const onRock = inBoard(pc.x, pc.y) && at(pc.x, pc.y).rock;
       cv.style.cursor = placing ? 'copy'
         : onNode ? 'move'
-        : (hoverExpand || hoverBelt) ? 'pointer' : 'crosshair';
+        : (hoverExpand || hoverBelt) ? 'pointer'
+        : (zoom > 1 && !onRock) ? 'grab' : 'crosshair';
       return;
     }
     if (!inBoard(pc.x, pc.y)) return;
@@ -727,6 +792,7 @@
   }
 
   function onUp() {
+    if (panning) { panning = null; cv.style.cursor = zoom > 1 ? 'grab' : 'crosshair'; return; }
     if (moving) {
       const m = moving; moving = null;
       if (m.moved && m.to && free(m.to.x, m.to.y)) moveNode(m.node, m.to.x, m.to.y);
@@ -796,6 +862,8 @@
     st.money -= c;
     st.landBuys++;
     expand(side);
+    if (side === 'W') focusX += 1;
+    if (side === 'N') focusY += 1;
     SND.se('expand');
     layout();
     save();
@@ -874,11 +942,10 @@
   }
 
   function draw() {
-    const W = st.w * cs + PAD * 2, H = st.h * cs + PAD * 2;
-    ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, VW, VH);
 
     ctx.fillStyle = '#fbf6ec';
-    roundRect(ctx, PAD - 6, PAD - 6, st.w * cs + 12, st.h * cs + 12, 10); ctx.fill();
+    roundRect(ctx, ox - 6, oy - 6, st.w * cs + 12, st.h * cs + 12, 10); ctx.fill();
     ctx.strokeStyle = '#e4dbcb';
     ctx.lineWidth = 1;
     for (let x = 0; x <= st.w; x++) {
@@ -1196,7 +1263,7 @@
       : 'この星のどこでも名が通る';
   }
 
-  const HINT = '出口から入口へドラッグして送り道を引く　／　右クリックでメニュー　／　ホイールで回転　／　敷地の外の ＋ で土地を買う　／　右上の ? で遊び方';
+  const HINT = '出口から入口へドラッグして送り道を引く　／　右クリックでメニュー　／　ホイールで拡大　／　R キーで回転　／　敷地の外の ＋ で土地を買う';
 
   // はじめのてびき。案内の行をそのまま使うので、出ても高さは変わらない。
   // 読ませるのではなく、やることを1つずつ出して、やったら次へ進む。
@@ -1223,7 +1290,7 @@
     const h = el('hint');
     const step = placing ? null : tutStep();
     const txt = placing
-      ? '設置中：' + placing.def.name + '　左クリックで置く　／　右クリックで取り消し　／　ホイールで回転'
+      ? '設置中：' + placing.def.name + '　左クリックで置く　／　右クリックで取り消し　／　R キーで回転'
       : step ? step.text : HINT;
     if (h.dataset.txt !== txt) {
       h.dataset.txt = txt;
@@ -1543,7 +1610,7 @@
         menuItem(lvLabel(), () => { levelUp(n); buildMenu(); }, maxed || st.money < lvCost(n),
           () => ({ label: lvLabel(), dis: n.lv >= LEVEL.max - 1 || st.money < lvCost(n) }));
       }
-      menuItem('回転（ホイールでも回る）', () => { rotate(n); buildMenu(); });
+      menuItem('回転（R キーでも回る）', () => { rotate(n); buildMenu(); });
       menuItem('売却 +' + sellBack(n).toLocaleString() + 'G', () => { sellNode(n); closeMenu(); });
     } else if (menu.kind === 'belt') {
       el('mName').textContent = '送り道';
@@ -1809,6 +1876,7 @@
   }
 
   function restore(raw) {
+    zoom = 1; focusX = -1; focusY = -1;
     if (!raw || !raw.nodes) return false;
     st = blank();
     st.w = raw.w; st.h = raw.h;
@@ -1840,6 +1908,7 @@
   }
 
   function reset() {
+    zoom = 1; focusX = -1; focusY = -1;
     st = blank();
     st.cell = makeCells(st.w, st.h);
     applyResearch();
@@ -1888,6 +1957,8 @@
     window.addEventListener('pointerup', onUp);
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
     cv.addEventListener('wheel', onWheel, { passive: false });
+    cv.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });   // 中ボタンの自動スクロールを止める
+    window.addEventListener('keydown', onKey);
 
     // 購入パレットは横に並ぶ。ホイールは縦に回すので、そのまま横送りに割り当てる
     el('cards').addEventListener('wheel', (e) => {
@@ -1951,6 +2022,7 @@
   // 盤面の中身をブラウザから覗くための口。動作確認に使う
   window.__cl = {
     st: () => st,
+    view: () => ({ zoom, cs, ox, oy, fitCs, focusX, focusY, VW, VH }),
     ports: () => allPorts().map((p) => ({ n: p.node.def.key, io: p.io, item: p.item,
       side: p.side, dir: portDir(p), ax: portAX(p), ay: portAY(p), belt: !!p.belt })),
     belts: () => st.belts.map((b) => ({ from: b.from.node.def.key, to: b.to.node.def.key,
