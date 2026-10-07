@@ -153,7 +153,17 @@ const Proof = (() => {
   function show(name) {
     for (const k in screens) screens[k].hidden = k !== name;
     $('aim').classList.toggle('on', false);
+    placeGear();
   }
+
+  // 歯車をスクロールバーに重ねない。中身の大きさが変わるたびに置き直す
+  function placeGear() {
+    const sc = Object.values(screens).find(s => !s.hidden);
+    const w = sc ? sc.offsetWidth - sc.clientWidth : 0;
+    document.body.style.setProperty('--sbw', w + 'px');
+  }
+  const gearRO = new ResizeObserver(placeGear);
+  for (const s of Object.values(screens)) { gearRO.observe(s); for (const c of s.children) gearRO.observe(c); }
 
   // ---------------------------------------------------------------- 好きな文章
 
