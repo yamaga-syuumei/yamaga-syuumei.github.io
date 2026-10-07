@@ -409,10 +409,25 @@
     $('resStage').textContent = g.stage.title;
     $('resAll').textContent = all;
     $('resSource').textContent = g.stage.source ? '出典：' + g.stage.source : '';
-    const missed = [...new Set(g.targets.filter(t => !t.got).map(t => GOROKU[t.gi][0]))];
-    $('resMissedBox').hidden = !missed.length;
-    $('resMissed').innerHTML = '';
-    for (const w of missed) { const s = document.createElement('span'); s.textContent = w; $('resMissed').appendChild(s); }
+    // 見逃した語録：元の文のどの文字が、どの語録に当たったか。最初は閉じておく（答えになるため）
+    const missed = g.targets.filter(t => !t.got);
+    const box = $('resMissedBox'), ol = $('resMissed');
+    box.hidden = !missed.length;
+    box.open = false;
+    $('resMissedN').textContent = missed.length;
+    ol.innerHTML = '';
+    const CTX = 10;
+    for (const t of missed) {
+      const cs = g.lines[t.li].chars;
+      const li = document.createElement('li');
+      const q = document.createElement('span'); q.className = 'ctx';
+      const pre = cs.slice(Math.max(0, t.s - CTX), t.s).join(''), post = cs.slice(t.e, t.e + CTX).join('');
+      const mk = document.createElement('mark'); mk.textContent = cs.slice(t.s, t.e).join('');
+      q.append((t.s > CTX ? '…' : '') + pre, mk, post + (t.e + CTX < cs.length ? '…' : ''));
+      const w = document.createElement('b'); w.textContent = GOROKU[t.gi][0];
+      li.append(q, w);
+      ol.appendChild(li);
+    }
     const rk = $('resRank');
     rk.textContent = ''; rk.className = 'res-rank';
     show('result');
