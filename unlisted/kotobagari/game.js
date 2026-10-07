@@ -137,7 +137,7 @@ const Proof = (() => {
       const { targets } = prepare(st.text);
       const b = document.createElement('button');
       b.className = 'stage';
-      b.innerHTML = `<span class="kind">第${KAN[k] || k + 1}章　${st.source ? '青空文庫' : '会話'}</span><b></b><span></span><em>語録 ${targets.length} 個</em>`;
+      b.innerHTML = `<span class="kind">第${KAN[k] || k + 1}章　${st.source ? '青空文庫' : '会話'}</span><b></b><span></span><em>語録が ${targets.length} 個潜んでるゾ</em>`;
       b.querySelector('b').textContent = st.title;
       b.querySelector('span:not(.kind)').textContent = st.source ? st.source : st.note;
       b.onclick = () => start({ title: st.title, text: st.text, source: st.source || '' });
@@ -145,7 +145,7 @@ const Proof = (() => {
     });
     const f = document.createElement('button');
     f.className = 'stage free';
-    f.innerHTML = '<span class="kind">自由</span><b>好きな文章で遊ぶ</b><span>貼り付けた文章がそのままステージになる</span>';
+    f.innerHTML = '<span class="kind">番外編　自由</span><b>好きな文章で遊ぶ</b><span>貼った文章に潜む語録を指摘しろよ～</span><em>何個あるかは貼ってからのお楽しみ</em>';
     f.onclick = openFree;
     list.appendChild(f);
   }
@@ -180,7 +180,7 @@ const Proof = (() => {
     try { localStorage.setItem(FKEY, text); } catch (e) {}
     const { lines, targets } = prepare(text);
     const kinds = new Set(targets.map(t => t.gi)).size;
-    $('freeCount').textContent = targets.length ? `語録 ${targets.length} 個（${kinds} 種）が潜んでいます` : '語録 0 個';
+    $('freeCount').textContent = targets.length ? `語録が ${targets.length} 個（${kinds} 種）潜んでるゾ～` : '語録 0 個（ないです）';
     $('freePlay').disabled = !targets.length;
     const pv = $('freePreview');
     pv.hidden = !$('freeShow').checked || !targets.length;
@@ -439,6 +439,12 @@ const Proof = (() => {
 
     const words = tgs.map(tg => GOROKU[tg.gi][0]);
     Fx.popWord(words.join(' × '), kind);
+    // 指摘した語の真上に「こ↑こ↓」
+    const cs = tgs.flatMap(charsOf);
+    if (cs.length) {
+      const a = cs[0].getBoundingClientRect(), b = cs[cs.length - 1].getBoundingClientRect();
+      Fx.popPoint((a.left + b.right) / 2, Math.min(a.top, b.top), LINES.point, kind);
+    }
     Fx.popScore(x, y - 20, '+' + pts + (age < TUNE.quickTag ? QUICK_TAG : pickTag()), kind);
     Fx.burst(x, y, kind);
     Fx.shake(TUNE.shake[kind] * (1 + G.tier * 0.25));
@@ -650,6 +656,7 @@ const Proof = (() => {
   }
 
   Fx.init({ bg: $('bg'), fx: $('fx'), shake: $('shake'), flash: $('flash'), pop: $('pop') });
+  $('ver').textContent = VERSION;
   applySettings();
   buildTitle();
   show('title');

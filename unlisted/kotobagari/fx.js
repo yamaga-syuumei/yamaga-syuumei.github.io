@@ -171,6 +171,16 @@ const Fx = (() => {
     autoRemove(d, 1500);
   }
 
+  // 指摘した語の真上に「こ↑こ↓」を矢印つきで跳ねさせる
+  function popPoint(x, y, text, kind) {
+    const d = document.createElement('div');
+    d.className = 'pop-point k-' + kind;
+    d.textContent = text;
+    d.style.left = x + 'px'; d.style.top = y + 'px';
+    popEl.appendChild(d);
+    autoRemove(d, 1500);
+  }
+
   function popBanner(text, cls = '') {
     const d = document.createElement('div');
     d.className = 'pop-banner ' + cls;
@@ -324,5 +334,5 @@ const Fx = (() => {
     shakeAmp = 0; shakeEl.style.transform = '';
   }
 
-  return { init, setMotion, setTier, burst, confetti, firework, eyes, shake, flash, popWord, popScore, popBanner, update, clear, size: () => ({ W, H }) };
+  return { init, setMotion, setTier, burst, confetti, firework, eyes, shake, flash, popWord, popScore, popPoint, popBanner, update, clear, size: () => ({ W, H }) };
 })();
