@@ -1,5 +1,6 @@
 # すべて巡回してよい。
-# r18.html と tank/ は HTML 側で noindex を指定している。
+# r18.html と tank/ と unlisted/ は HTML 側で noindex を指定している。
+# unlisted/ は直URLでだけ見せる場所。サイトのどこからもリンクせず、サイトマップにも載せない。
 # ここで Disallow にするとクロール自体が止まり、noindex を読んでもらえなくなるため書かない。
 
 User-agent: *
