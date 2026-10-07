@@ -258,6 +258,13 @@ const LINES = {
   perfect: "†王道を往く†"
 };
 
+// 結果をXに投稿するときの文。{名前} は結果の値に置き換わる。url はゲームの直URL
+const SHARE = {
+  text: "【言葉狩り淫夢】{stage}で「{rank}」\nスコア {score}／語録 {got}/{all}／最大コンボ {combo}{perfect}",
+  perfect: "\n全語録ヘッドショット（王道を往く）",
+  tags: "#フリーゲーム #ブラウザゲーム #淫夢"
+};
+
 // 内蔵ステージ。text は1行＝1吹き出し。「名前：」で始まる行は話者付き。
 // source があるものは出典を結果画面と選択画面に出す。
 const STAGES = [

@@ -405,6 +405,7 @@
     const perfect = all && got.length === all && got.every(t => t.got !== 'body');
     if (perfect) rank = RANKS.length - 1;
 
+    g.result = { stage: g.stage.title, rank: RANKS[rank], score: g.score, got: got.length, all, combo: g.maxCombo, perfect };
     $('resStage').textContent = g.stage.title;
     $('resAll').textContent = all;
     $('resSource').textContent = g.stage.source ? '出典：' + g.stage.source : '';
@@ -449,6 +450,19 @@
       }
     }, 200 + nums.length * 160 + 300);
   }
+
+  // 結果をXに投稿する。貼った文章そのものは載せない（ステージ名だけ）
+  function shareText(r) {
+    const body = SHARE.text.replace(/\{(\w+)\}/g, (m, k) =>
+      k === 'perfect' ? (r.perfect ? SHARE.perfect : '') : k === 'score' ? r.score.toLocaleString() : (r[k] ?? m));
+    return body + '\n\n' + SHARE.tags;
+  }
+  $('resShare').onclick = () => {
+    if (!G || !G.result) return;
+    const url = new URL('./', location.href).href;
+    const q = new URLSearchParams({ text: shareText(G.result), url });
+    window.open('https://x.com/intent/tweet?' + q, '_blank', 'noopener');
+  };
 
   $('resRetry').onclick = () => G && start(G.stage);
   $('resBack').onclick = toTitle;
