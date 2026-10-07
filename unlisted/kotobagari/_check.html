@@ -23,6 +23,7 @@
 fetch('index.html').then(r => r.text()).then(t => {
   const body = t.slice(t.indexOf('<body>') + 6, t.indexOf('<script src="data.js'));
   document.body.innerHTML = body;
+  const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'style.css?t=' + Date.now(); document.head.appendChild(css);
   const files = ['data.js', 'match.js', 'audio.js', 'fx.js', 'game.js'];
   (function next() {
     const f = files.shift(); if (!f) return;
@@ -30,7 +31,6 @@ fetch('index.html').then(r => r.text()).then(t => {
   })();
 });
 </script>
-<link rel="stylesheet" href="style.css">
 </head>
 <body></body>
 </html>
