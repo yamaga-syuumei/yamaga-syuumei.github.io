@@ -134,7 +134,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* コメント：右から左へ流れる縁取り文字。話者ごとに文字色を変える */
 .cmt{
   position:absolute;top:0;left:0;white-space:nowrap;padding:4px 6px;
-  font-size:var(--fs-6);font-weight:700;line-height:1.5;color:var(--ink);will-change:transform;
+  font-size:var(--fs-7);font-weight:700;line-height:1.5;color:var(--ink);will-change:transform;
   text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 6px rgba(0,0,0,.8);
 }
 .cmt.spk-1{color:#9fe7ff}
@@ -253,7 +253,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 @media (max-width:640px){
   .logo b,.logo span{font-size:min(var(--fs-display),17vw)}
-  .cmt{font-size:var(--fs-5)}
+  .cmt{font-size:var(--fs-6)}
   .hud{gap:10px}
   .hud-cell b{font-size:var(--fs-5)}
   .pop-word{font-size:var(--fs-7)}
