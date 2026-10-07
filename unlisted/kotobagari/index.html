@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>言葉狩り淫夢</title>
+<link rel="stylesheet" href="style.css?v=3cb0a19e">
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<div id="shake">
+
+  <!-- タイトル・ステージ選択 -->
+  <section class="sc sc-title" id="scTitle">
+    <h1 class="logo">
+      <small>うっかり紛れた語録を撃ち抜け</small>
+      <b>言葉狩り</b><span>淫夢</span>
+    </h1>
+    <p class="lead">流れてくるコメントの中から淫夢語録を見つけて、クリックで撃ち抜く。<br>1文字目を撃てば<em class="c-head">ヘッドショット</em>、2つの語録が重なる文字なら<em class="c-double">ダブルショット</em>。</p>
+    <div class="stages" id="stageList"></div>
+  </section>
+
+  <!-- 好きな文章で遊ぶ -->
+  <section class="sc sc-free" id="scFree" hidden>
+    <div class="free-box">
+      <h2>好きな文章で遊ぶ</h2>
+      <p class="free-hint">1行が1つのコメントになって流れます。行頭を「名前：」にすると話者付きになります。長い文は句点で分けます。<br>貼り付けた文章はこの端末の中だけに保存され、外へは送りません。</p>
+      <textarea id="freeText" spellcheck="false" placeholder="ここに文章を貼り付ける&#10;&#10;例）&#10;部長：例の件、どうなった？&#10;部下：まだ時間かかりそうです。"></textarea>
+      <div class="free-info">
+        <b id="freeCount">語録 0 個</b>
+        <label class="chk"><input type="checkbox" id="freeShow"> 位置を見せる</label>
+      </div>
+      <div class="free-preview" id="freePreview" hidden></div>
+      <div class="row">
+        <button class="btn" id="freeBack">戻る</button>
+        <button class="btn btn-go" id="freePlay" disabled>この文章で遊ぶ</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- プレイ -->
+  <section class="sc sc-play" id="scPlay" hidden>
+    <header class="hud">
+      <div class="hud-cell"><i>スコア</i><b id="hudScore">0</b></div>
+      <div class="hud-cell"><i>取った語録</i><b><span id="hudGot">0</span><u> / <span id="hudAll">0</span></u></b></div>
+      <div class="hud-prog"><div id="hudProg"></div></div>
+      <button class="btn btn-i" id="quit" title="やめる" aria-label="やめる">×</button>
+    </header>
+    <div class="field" id="field"></div>
+    <div class="combo" id="combo" hidden><b id="comboNum">0</b><i>コンボ</i></div>
+  </section>
+
+  <!-- 結果 -->
+  <section class="sc sc-result" id="scResult" hidden>
+    <div class="res-box">
+      <p class="res-stage" id="resStage"></p>
+      <div class="res-rank" id="resRank"></div>
+      <dl class="res-nums">
+        <div><dt>スコア</dt><dd id="resScore">0</dd></div>
+        <div><dt>取った語録</dt><dd><span id="resGot">0</span> / <span id="resAll">0</span></dd></div>
+        <div><dt>ヘッドショット</dt><dd id="resHead">0</dd></div>
+        <div><dt>ダブルショット</dt><dd id="resDouble">0</dd></div>
+        <div><dt>最大コンボ</dt><dd id="resCombo">0</dd></div>
+        <div><dt>誤射</dt><dd id="resMiss">0</dd></div>
+      </dl>
+      <div class="res-missed" id="resMissedBox">
+        <h3>見逃した語録</h3>
+        <div class="chips" id="resMissed"></div>
+      </div>
+      <p class="res-source" id="resSource"></p>
+      <div class="row">
+        <button class="btn" id="resBack">ステージ選択へ</button>
+        <button class="btn btn-go" id="resRetry">もう一度</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<canvas id="fx"></canvas>
+<div id="pop"></div>
+<div id="flash"></div>
+<div id="aim"><i></i></div>
+
+<button class="btn btn-i gear" id="gear" title="設定" aria-label="設定">⚙</button>
+
+<div class="modal" id="opt" hidden>
+  <div class="modal-box">
+    <h2>設定</h2>
+    <label class="opt-row"><span>動きの強さ</span><input type="range" id="optMotion" min="0" max="100" step="5"><b id="optMotionV"></b></label>
+    <label class="opt-row"><span>音量</span><input type="range" id="optVolume" min="0" max="100" step="5"><b id="optVolumeV"></b></label>
+    <div class="opt-row"><span>流れる速さ</span>
+      <div class="seg" id="optSpeed">
+        <button data-v="slow">ゆっくり</button><button data-v="normal">ふつう</button><button data-v="fast">はやい</button>
+      </div>
+    </div>
+    <label class="opt-row"><span>モザイク</span><span class="chk"><input type="checkbox" id="optMosaic"> 撃った語録をぼかす（配信向け）</span></label>
+    <div class="row"><button class="btn btn-go" id="optClose">閉じる</button></div>
+  </div>
+</div>
+
+<script src="data.js?v=0307497b"></script>
+<script src="match.js?v=dd7d959f"></script>
+<script src="audio.js?v=e8bfaed2"></script>
+<script src="fx.js?v=ee4f58aa"></script>
+<script src="game.js?v=b567e4f2"></script>
+</body>
+</html>

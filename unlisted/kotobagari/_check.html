@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<title>確認用</title>
+<script>
+// パネルが隠れていても描画ループが止まらないよう、requestAnimationFrame を差し替える
+(() => {
+  const ch = new MessageChannel();
+  let q = [], lastT = 0;
+  ch.port1.onmessage = () => {
+    const now = performance.now();
+    if (now - lastT < 16) { ch.port2.postMessage(0); return; }
+    lastT = now;
+    const run = q; q = [];
+    run.forEach(f => f(now));
+    if (q.length) ch.port2.postMessage(0);
+  };
+  window.requestAnimationFrame = f => { q.push(f); if (q.length === 1) ch.port2.postMessage(0); return 0; };
+})();
+// index.html の本文をそのまま使う
+fetch('index.html').then(r => r.text()).then(t => {
+  const body = t.slice(t.indexOf('<body>') + 6, t.indexOf('<script src="data.js'));
+  document.body.innerHTML = body;
+  const files = ['data.js', 'match.js', 'audio.js', 'fx.js', 'game.js'];
+  (function next() {
+    const f = files.shift(); if (!f) return;
+    const s = document.createElement('script'); s.src = f + '?t=' + Date.now(); s.onload = next; document.body.appendChild(s);
+  })();
+});
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body></body>
+</html>
