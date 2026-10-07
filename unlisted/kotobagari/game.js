@@ -1,6 +1,58 @@
 // 言葉狩り淫夢：本体
 // 画面は4つ（タイトル・好きな文章・プレイ・結果）。プレイはコメントが右から左へ流れ（段に分かれて重ならない）、文字を撃って語録を取る。
 
+// 数字の淫夢論証：どんな数も 1,1,4,5,1,4 の並びと四則演算で表す
+const Proof = (() => {
+  const DIG = '114514';
+  let top = null;
+  const par = (n, need) => (n.p < need ? '(' + n.s + ')' : n.s);
+
+  function build() {
+    const memo = new Map();
+    function get(i, j) {
+      const key = i * 10 + j;
+      if (memo.has(key)) return memo.get(key);
+      const m = new Map();
+      const add = (v, s, p) => {
+        if (!Number.isInteger(v) || Math.abs(v) > 2e6) return;
+        const o = m.get(v);
+        if (!o || o.s.length > s.length) m.set(v, { v, s, p });
+      };
+      add(+DIG.slice(i, j), DIG.slice(i, j), 3);
+      for (let k = i + 1; k < j; k++) {
+        const L = [...get(i, k).values()], R = [...get(k, j).values()];
+        for (const a of L) for (const b of R) {
+          add(a.v + b.v, a.s + '+' + par(b, 1), 1);
+          add(a.v - b.v, a.s + '-' + par(b, 2), 1);
+          add(a.v * b.v, par(a, 2) + '×' + par(b, 2), 2);
+          if (b.v !== 0 && a.v % b.v === 0) add(a.v / b.v, par(a, 2) + '÷' + par(b, 3), 2);
+        }
+      }
+      memo.set(key, m);
+      return m;
+    }
+    top = get(0, DIG.length);
+  }
+
+  // 一致する式が無ければ、式の足し算に分ける
+  function of(n) {
+    if (!top) build();
+    if (top.has(n)) return top.get(n).s;
+    const pos = [...top.keys()].filter(v => v > 0).sort((a, b) => b - a);
+    const parts = [];
+    let rest = n;
+    while (rest > 0 && parts.length < 6) {
+      const v = pos.find(x => x <= rest);
+      if (top.has(rest)) { parts.push(top.get(rest)); rest = 0; break; }
+      parts.push(top.get(v)); rest -= v;
+    }
+    const s = parts.map(p => '(' + p.s + ')').join('+');
+    return rest > 0 ? s + '+…（論証放棄）' : s;
+  }
+
+  return { of };
+})();
+
 (() => {
   const $ = id => document.getElementById(id);
   const screens = { title: $('scTitle'), free: $('scFree'), play: $('scPlay'), result: $('scResult') };
@@ -80,16 +132,17 @@
   function buildTitle() {
     const list = $('stageList');
     list.innerHTML = '';
-    for (const st of STAGES) {
+    const KAN = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+    STAGES.forEach((st, k) => {
       const { targets } = prepare(st.text);
       const b = document.createElement('button');
       b.className = 'stage';
-      b.innerHTML = `<span class="kind">${st.source ? '青空文庫' : '会話'}</span><b></b><span></span><em>語録 ${targets.length} 個</em>`;
+      b.innerHTML = `<span class="kind">第${KAN[k] || k + 1}章　${st.source ? '青空文庫' : '会話'}</span><b></b><span></span><em>語録 ${targets.length} 個</em>`;
       b.querySelector('b').textContent = st.title;
       b.querySelector('span:not(.kind)').textContent = st.source ? st.source : st.note;
       b.onclick = () => start({ title: st.title, text: st.text, source: st.source || '' });
       list.appendChild(b);
-    }
+    });
     const f = document.createElement('button');
     f.className = 'stage free';
     f.innerHTML = '<span class="kind">自由</span><b>好きな文章で遊ぶ</b><span>貼り付けた文章がそのままステージになる</span>';
@@ -166,6 +219,7 @@
     field.innerHTML = '';
     $('hudScore').textContent = '0';
     $('hudGot').textContent = '0';
+    $('hudBare').textContent = '0';
     $('hudAll').textContent = targets.length;
     $('hudProg').style.width = '0';
     $('combo').hidden = true;
@@ -178,10 +232,10 @@
   async function countdown() {
     const g = G;
     const wait = ms => new Promise(r => setTimeout(r, ms));
-    for (const n of ['3', '2', '1']) {
+    for (const n of COUNTDOWN) {
       if (G !== g) return;
-      Fx.popBanner(n, 'big'); Sound.beep(false);
-      await wait(550);
+      Fx.popBanner(n); Sound.beep(false);
+      await wait(800);
     }
     if (G !== g) return;
     Fx.popBanner(LINES.ready); Sound.beep(true);
@@ -261,6 +315,7 @@
   // ---------------------------------------------------------------- 演出の強さ
 
   function stepIntensity(dt) {
+    const g0 = G;
     const prog = G.exited / Math.max(1, G.lines.length);
     const target = TUNE.comboWeight * Math.min(1, G.combo / TUNE.comboFull) + TUNE.progressWeight * prog;
     if (target > G.e) G.e += (target - G.e) * Math.min(1, TUNE.eRise * dt);
@@ -272,6 +327,7 @@
       Fx.popBanner(TIER_CALLS[t] || '');
       Fx.flash(0.35, t >= 4 ? '#ffd23f' : '#ff3d8b');
       if (t >= 3) Fx.confetti(60);
+      if (t >= 4) setTimeout(() => G === g0 && beastEyes(), 900);
     }
     G.tier = t;
     Fx.setTier(t, G.e);
@@ -348,7 +404,18 @@
     }, TUNE.doubleWindup * 1000);
   }
 
+  // 野獣の眼光：暗転して眼が光る。そのあいだ流れも止める
+  function beastEyes() {
+    Fx.eyes(TUNE.eyesTime);
+    Fx.popBanner('野獣の眼光', 'big');
+    Sound.glint();
+    G.hitstop = Math.max(G.hitstop, TUNE.eyesTime * 0.6);
+  }
+
+  const pickTag = () => SCORE_TAGS[Math.floor(Math.random() * SCORE_TAGS.length)];
+
   function take(tgs, kind, x, y, cmt) {
+    const age = (performance.now() - cmt.born) / 1000;
     let pts = 0;
     for (const tg of tgs) {
       pts += scoreOf(tg, kind, cmt);
@@ -362,7 +429,7 @@
 
     const words = tgs.map(tg => GOROKU[tg.gi][0]);
     Fx.popWord(words.join(' × '), kind);
-    Fx.popScore(x, y - 20, '+' + pts, kind);
+    Fx.popScore(x, y - 20, '+' + pts + (age < TUNE.quickTag ? QUICK_TAG : pickTag()), kind);
     Fx.burst(x, y, kind);
     Fx.shake(TUNE.shake[kind] * (1 + G.tier * 0.25));
     if (kind === 'double') { Fx.flash(0.85); Fx.confetti(80); }
@@ -371,7 +438,10 @@
     Sound.hit(kind, G.combo);
 
     $('hudScore').textContent = G.score.toLocaleString();
-    $('hudGot').textContent = G.targets.filter(t => t.got).length;
+    const gotN = G.targets.filter(t => t.got).length;
+    $('hudGot').textContent = gotN;
+    $('hudBare').textContent = Math.round(gotN / G.targets.length * 100);
+    if (words.some(w => EYE_WORDS.some(e => w.includes(e)))) setTimeout(() => G && beastEyes(), 250);
     const cb = $('combo');
     if (G.combo >= 2) {
       cb.hidden = false;
@@ -405,8 +475,47 @@
     const perfect = all && got.length === all && got.every(t => t.got !== 'body');
     if (perfect) rank = RANKS.length - 1;
 
-    g.result = { stage: g.stage.title, rank: RANKS[rank], score: g.score, got: got.length, all, combo: g.maxCombo, perfect };
+    // 淫夢厨バレ度と称号
+    const bare = Math.round(ratio * 100);
+    let title = TITLES[0][1];
+    TITLES.slice(0, -1).forEach(([b, name]) => { if (ratio >= b) title = name; });
+    if (perfect) title = TITLES[TITLES.length - 1][1];
+    $('resTitle').textContent = '';
+
+    g.result = { stage: g.stage.title, rank: RANKS[rank], score: g.score, got: got.length, all, combo: g.maxCombo, perfect, bare, title };
     $('resStage').textContent = g.stage.title;
+
+    // スコアの淫夢論証と、スコアに潜む数字の淫夢要素
+    const pr = $('resProof');
+    pr.innerHTML = '';
+    if (g.score > 0) {
+      const p1 = document.createElement('p');
+      p1.innerHTML = '<i>スコアの淫夢論証</i>';
+      p1.append(`${g.score} = ${Proof.of(g.score)}`);
+      pr.appendChild(p1);
+      const s = String(g.score), hit = NUMBER_MEMES.find(([n]) => s.includes(n));
+      if (hit) {
+        const p2 = document.createElement('p'); p2.className = 'proof-hit';
+        p2.textContent = `スコアに「${hit[0]}」（${hit[1]}）の淫夢要素があります（指摘）`;
+        pr.appendChild(p2);
+      }
+    }
+
+    // 「これ〇〇やんけ！って指摘したら淫夢厨ってバレるな…」：見逃した語録を、その場にいた人が飲み込んだ形で出す
+    const whos = [...new Set(g.lines.map(l => l.who).filter(Boolean))];
+    const roles = whos.length ? whos : CHAIN_ROLES;
+    const chain = $('resChain');
+    chain.innerHTML = '';
+    const seen = new Set();
+    for (const t of g.targets.filter(t => !t.got)) {
+      if (seen.has(t.gi) || seen.size >= CHAIN_ROLES.length) continue;
+      const p = document.createElement('p');
+      p.textContent = CHAIN_LINE.replace('{who}', roles[seen.size % roles.length]).replace('{word}', GOROKU[t.gi][0]);
+      chain.appendChild(p);
+      seen.add(t.gi);
+    }
+    $('resChainAll').hidden = got.length < all || !all;
+    $('resChainAll').textContent = CHAIN_ALL;
     $('resAll').textContent = all;
     $('resSource').textContent = g.stage.source ? '出典：' + g.stage.source : '';
     // 見逃した語録：元の文のどの文字が、どの語録に当たったか。最初は閉じておく（答えになるため）
@@ -451,6 +560,9 @@
     setTimeout(() => {
       rk.textContent = RANKS[rank];
       rk.classList.add('stamp');
+      $('resTitle').innerHTML = `淫夢厨バレ度 <b>${bare}%</b>　称号「<b></b>」`;
+      $('resTitle').querySelectorAll('b')[1].textContent = title;
+      if (perfect || title === TITLES[TITLES.length - 2][1]) setTimeout(() => G === g && beastEyes(), 700);
       if (rank === RANKS.length - 1) rk.classList.add('top');
       Fx.shake(14);
       Fx.flash(0.6);

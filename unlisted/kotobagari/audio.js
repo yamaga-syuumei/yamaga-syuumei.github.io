@@ -230,11 +230,20 @@ const Sound = (() => {
     if (good >= 0.8) cheer(2.5);
   }
 
+  // 野獣の眼光：低い唸りの後に、きらりと光る音
+  function glint() {
+    init(); const t = now();
+    tone(t, { type: 'sawtooth', f: 55, f2: 40, dur: 1.1, gain: 0.25, attack: 0.05, filter: { type: 'lowpass', f: 300 } });
+    noise(t, { dur: 0.9, gain: 0.12, type: 'lowpass', f: 200 });
+    [0, 7, 12, 19, 24].forEach((n, i) => tone(t + 0.18 + i * 0.03, { f: hz(96 + n), dur: 0.9, gain: 0.08 }));
+    noise(t + 0.18, { dur: 0.5, gain: 0.15, f: 9000 });
+  }
+
   function pop() {
     init(); const t = now();
     noise(t, { dur: 0.5, gain: 0.25, type: 'lowpass', f: 2500, f2: 300 });
     tone(t, { f: 90, f2: 40, dur: 0.3, gain: 0.4 });
   }
 
-  return { init, setVolume, startBgm, stopBgm, setIntensity, shot, hit, windup, miss, comboBreak, tierUp, cheer, beep, jingle, pop };
+  return { init, setVolume, startBgm, stopBgm, setIntensity, shot, hit, windup, miss, comboBreak, tierUp, cheer, beep, jingle, pop, glint };
 })();

@@ -63,6 +63,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .chk{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-2);color:var(--dim);cursor:pointer}
 .c-head{color:var(--c-head);font-style:normal;font-weight:700}
 .c-double{color:var(--c-double);font-style:normal;font-weight:700}
+.c-pink{color:var(--pink);font-style:normal;font-weight:700}
 
 /* 歯車：ほかの作品と同じ共通アイコンを型抜きで使う。プレイ中は上の帯の「×」と中心をそろえる（帯の高さ56px） */
 .gear{position:fixed;top:10px;right:12px;z-index:60;background:var(--panel)}
@@ -132,6 +133,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .hud-cell i{font-style:normal;font-size:var(--fs-1);color:var(--dim);letter-spacing:.12em}
 .hud-cell b{font-size:var(--fs-6);font-variant-numeric:tabular-nums}
 .hud-cell u{text-decoration:none;font-size:var(--fs-4);color:var(--dim)}
+.hud-bare b{color:var(--pink)}
 .hud-prog{flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:var(--r-pill);overflow:hidden}
 .hud-prog div{height:100%;width:0;background:linear-gradient(90deg,var(--pink),var(--c-double))}
 #quit{flex:0 0 auto}
@@ -235,6 +237,15 @@ button{font:inherit;color:inherit;cursor:pointer}
 .res-rank.stamp{animation:stamp .5s cubic-bezier(.2,1.6,.4,1)}
 .res-rank.top{color:var(--c-double);text-shadow:0 0 40px var(--c-double),0 6px 0 #8a4b00}
 @keyframes stamp{from{opacity:0;transform:scale(3) rotate(-8deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+.res-title{margin:-8px 0 14px;font-size:var(--fs-5);color:var(--dim);min-height:1.6em}
+.res-title b{color:var(--pink);font-size:var(--fs-6)}
+.res-proof{margin-top:12px;text-align:left;font-size:var(--fs-2);color:var(--dim);word-break:break-all;-webkit-user-select:text;user-select:text}
+.res-proof p{margin:4px 0}
+.res-proof i{font-style:normal;color:var(--pink);margin-right:8px;letter-spacing:.1em}
+.res-proof .proof-hit{color:var(--c-double)}
+.chain{padding:6px 12px 8px;font-size:var(--fs-3);text-align:left;-webkit-user-select:text;user-select:text}
+.chain p{margin:3px 0}
+.chain-all{margin:12px 0 0;color:var(--pink);font-weight:700;text-align:center}
 .res-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0}
 .res-nums div{background:rgba(0,0,0,.3);border-radius:var(--r-1);padding:8px}
 .res-nums dt{font-size:var(--fs-1);color:var(--dim);letter-spacing:.1em}

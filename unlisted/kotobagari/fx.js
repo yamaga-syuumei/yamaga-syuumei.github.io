@@ -86,6 +86,44 @@ const Fx = (() => {
     rings.push({ x, y, r: 160, age: 0, life: 0.4, col, w: 3 });
   }
 
+  // ---------------------------------------------------------------- 野獣の眼光
+  // 画面を暗転させ、闇の中で2つの眼が光る。人物の絵は使わない
+
+  let eyesT = 0, eyesLen = 1;
+  function eyes(len) { eyesT = eyesLen = len; }
+
+  function drawEyes(c) {
+    const k = 1 - eyesT / eyesLen;                      // 0→1
+    const fade = k < 0.12 ? k / 0.12 : k > 0.75 ? (1 - k) / 0.25 : 1;
+    c.globalAlpha = 0.86 * fade;
+    c.fillStyle = '#000';
+    c.fillRect(0, 0, W, H);
+    const cy = H * 0.4, gap = Math.min(W * 0.09, 110) + 40, ew = Math.min(W * 0.1, 120), eh = ew * 0.28;
+    const open = Math.min(1, k / 0.18);                 // まぶたが開く
+    for (const sx of [-1, 1]) {
+      const cx = W / 2 + sx * gap;
+      c.save();
+      c.globalAlpha = fade;
+      c.shadowColor = '#ff2a2a'; c.shadowBlur = 40;
+      c.fillStyle = '#fff';
+      c.beginPath();
+      c.moveTo(cx - ew, cy);
+      c.quadraticCurveTo(cx, cy - eh * 2 * open, cx + ew, cy);
+      c.quadraticCurveTo(cx, cy + eh * 1.2 * open, cx - ew, cy);
+      c.fill();
+      // 光の筋
+      const g = c.createLinearGradient(cx - W * 0.4, cy, cx + W * 0.4, cy);
+      g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,.95)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      c.shadowBlur = 0;
+      c.fillStyle = g;
+      c.fillRect(cx - W * 0.4, cy - 1.5, W * 0.8, 3);
+      c.fillStyle = 'rgba(255,255,255,.8)';
+      c.fillRect(cx - 1, cy - ew * 0.9, 2, ew * 1.8);
+      c.restore();
+    }
+    c.globalAlpha = 1;
+  }
+
   // ---------------------------------------------------------------- 揺れ・光
 
   function shake(a) { shakeAmp = Math.max(shakeAmp, a * motion); }
@@ -146,6 +184,7 @@ const Fx = (() => {
   // dt: 経過秒。frozen: ヒットストップ中（粒子も止める）
   function update(dt, frozen) {
     time += dt;
+    if (eyesT > 0) eyesT = Math.max(0, eyesT - dt);
     drawBg(dt);
     if (!frozen) step(dt);
     drawFx();
@@ -216,6 +255,7 @@ const Fx = (() => {
     }
     c.globalCompositeOperation = 'source-over';
     c.globalAlpha = 1;
+    if (eyesT > 0) drawEyes(c);
   }
 
   // 背景。段階が上がるほど要素が増える
@@ -280,9 +320,9 @@ const Fx = (() => {
 
   function clear() {
     parts.length = 0; rings.length = 0; flyers.length = 0;
-    popEl.innerHTML = ''; lastWord = null;
+    popEl.innerHTML = ''; lastWord = null; eyesT = 0;
     shakeAmp = 0; shakeEl.style.transform = '';
   }
 
-  return { init, setMotion, setTier, burst, confetti, firework, shake, flash, popWord, popScore, popBanner, update, clear, size: () => ({ W, H }) };
+  return { init, setMotion, setTier, burst, confetti, firework, eyes, shake, flash, popWord, popScore, popBanner, update, clear, size: () => ({ W, H }) };
 })();
