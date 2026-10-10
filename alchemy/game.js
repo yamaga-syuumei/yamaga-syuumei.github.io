@@ -13,7 +13,7 @@
   'use strict';
 
   const D = window.ALCHEMY;
-  const { ITEMS, RECIPES, SOURCES, FLAVOR, LOGI, SHOP, RESEARCH, PILLARS, TIERS, LOG, BOARD, LEVEL } = D;
+  const { ITEMS, RECIPES, SOURCES, FLAVOR, LOGI, SHOP, RESEARCH, PILLARS, TIERS, LOG, BOARD, LEVEL, DAY } = D;
   const { drawItem, drawBridge, drawSpeed, drawGlyph, roundRect,
     hexA, drawSigil, drawStone, glow, twinkle } = window.ART;
   const SND = window.ALSND;
@@ -24,6 +24,7 @@
   const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];   // E S W N
   const SAVE_KEY = 'alchemy.save1';
   const SAVE_VER = 1;
+  const DAY_MS = DAY.secs * 1000;
 
   // 明るい盤面の上に置くので、面は淡く・縁だけ濃くする
   // fill と edge は明るい札の上、glow は夜の盤面の上で使う色
@@ -93,6 +94,8 @@
   let hoverBelt = null, hoverCell = null, hoverExpand = null;
   let sel = null;           // 詳細を開いている設備
   let pops = [];            // 売れた金額の浮き文字
+  let quiet = false;        // 昼を飛ばしている間は、音と一度きりの演出を出さない
+  const se = (k, o) => { if (!quiet) SND.se(k, o); };
 
   const idx = (x, y) => y * st.w + x;
   const inBoard = (x, y) => x >= 0 && y >= 0 && x < st.w && y < st.h;
@@ -121,8 +124,16 @@
       unlock: {}, done: {}, sold: {}, log: {}, logNew: 0, seen: {}, tut: 0, made: {},
       bonus: { belt: 0, sellRate: 0, price: 0, land: 0, rock: 0 },
       beltPhase: 0, acc: 0, flowT: 0, boom: false,
+      // 1日。phase は morn（止まっている）／day（流れている）／night（まとめを見ている）
+      day: 1, phase: 'morn', dayT: 0, speed: 1, today: null, yday: null,
     };
   }
+
+  // その日の記録。売上・品目ごとの生産数と販売数、朝の時点の累計とランク
+  function newToday() {
+    return { sales: 0, made: {}, sold: {}, soldG: {}, total0: st.total, tier0: st.tier };
+  }
+  const bump = (o, k, v) => { o[k] = (o[k] || 0) + (v === undefined ? 1 : v); };
 
   function makeCells(w, h) {
     const a = [];
@@ -294,7 +305,7 @@
       const o = n.outs[0];
       if (o.buf.length < o.cap) {
         n.t++;
-        if (n.t >= nodeTicks(n.def, n.lv)) { n.t = 0; o.buf.push(n.def.item); discover(n.def.item); }
+        if (n.t >= nodeTicks(n.def, n.lv)) { n.t = 0; o.buf.push(n.def.item); bump(st.today.made, n.def.item); discover(n.def.item); }
       }
       return;
     }
@@ -309,7 +320,8 @@
         const o = n.outs[0];
         if (o.buf.length < o.cap) {
           discover(n.pending);
-          o.buf.push(n.pending); n.pending = null; n.lit = 1; SND.se('craft');
+          bump(st.today.made, n.pending);
+          o.buf.push(n.pending); n.pending = null; n.lit = 1; se('craft');
           addFx('craft', n.x, n.y, { col: SKIN.fac.glow });
         }
       }
@@ -345,10 +357,13 @@
         st.money += g;
         st.total += g;
         st.sold[item] = (st.sold[item] || 0) + g;
+        st.today.sales += g;
+        bump(st.today.sold, item);
+        bump(st.today.soldG, item, g);
         n.lit = 1;
-        pops.push({ x: n.x, y: n.y, g, t: 0 });
+        if (!quiet) pops.push({ x: n.x, y: n.y, g, t: 0 });
         addFx('coin', n.x, n.y);
-        SND.se('sell', { rate: 1 + Math.min(1, g / 60) * 0.6 });
+        se('sell', { rate: 1 + Math.min(1, g / 60) * 0.6 });
         logSell(item, g);
         checkTier();
       }
@@ -484,10 +499,11 @@
   }
 
   // 次のランクまでどのくらい来たか（0〜1）
-  function rankProgress() {
+  function rankProgress(total) {
+    const v = total === undefined ? st.total : total;
     const cur = TIERS[st.tier], next = TIERS[st.tier + 1];
     if (!next) return 1;
-    return Math.max(0, Math.min(1, (st.total - cur.need) / (next.need - cur.need)));
+    return Math.max(0, Math.min(1, (v - cur.need) / (next.need - cur.need)));
   }
 
   // ---------------------------------------------------------------- 座標
@@ -938,20 +954,16 @@
     advance(dt);
   }
 
-  // パネルを開いていても敷地は動かし続ける。
-  // 手を止めている間も工房が回っているのがこのゲームの手触りなので、止めない。
+  // 時間が流れるのは昼だけ。パネルを開いていても昼なら止めない。
+  // 早送りは、流れる時間を何倍かにして同じ手順で進める。
   function advance(dt) {
-    st.acc += dt;
-    while (st.acc >= DT) { st.acc -= DT; tick(); }
-
-    // ベルトはノードと別の歩調。研究で速くなる
-    st.beltPhase += dt / 1000 * cellsPerSec();
-    let guard = 0;
-    while (st.beltPhase >= 1 && guard++ < 4) { st.beltPhase -= 1; stepBelts(); }
+    const sim = st.phase === 'day' ? Math.min(dt * st.speed, DAY_MS - st.dayT) : 0;
+    if (sim > 0) simulate(sim);
+    if (st.phase === 'day' && st.dayT >= DAY_MS) endDay();
 
     st.flowT += dt;
     let running = 0;
-    st.belts.forEach((b) => { b.flow += dt / 1000 * cellsPerSec() * cs; if (b.moved) running += b.cells.length; });
+    st.belts.forEach((b) => { b.flow += sim / 1000 * cellsPerSec() * cs; if (b.moved) running += b.cells.length; });
     SND.amb('belt', Math.min(1, running / 40));
 
     pops.forEach((p) => { p.t += dt; });
@@ -959,10 +971,189 @@
     stepMotes(dt);
     stepFx(dt);
     discStep(dt);
-    if (window.HERO) { HERO.step(dt); HERO.draw(); }
+    if (window.HERO) { HERO.time(timeOfDay()); HERO.step(dt); HERO.draw(); }
 
     draw();
     updateHud(dt);
+  }
+
+  function simulate(ms) {
+    st.dayT += ms;
+    st.acc += ms;
+    while (st.acc >= DT) { st.acc -= DT; tick(); }
+    // ベルトはノードと別の歩調。研究で速くなる
+    st.beltPhase += ms / 1000 * cellsPerSec();
+    let guard = 0;
+    while (st.beltPhase >= 1 && guard++ < 200) { st.beltPhase -= 1; stepBelts(); }
+  }
+
+  // ---------------------------------------------------------------- 1日
+  // 朝：止まったまま組み替える → 昼：流れる（早送り・飛ばせる）→ 夜：その日のまとめ → また朝。
+  // 時間は昼にしか流れないので、放っておいても1日分しか稼げない。
+
+  // 一日のどこにいるか。0 が朝、1 が夜。勇者の帯の空に使う
+  function timeOfDay() {
+    if (st.phase === 'morn') return 0;
+    if (st.phase === 'night') return 1;
+    return st.dayT / DAY_MS;
+  }
+
+  function startDay() {
+    if (st.phase !== 'morn') return;
+    st.phase = 'day';
+    st.dayT = 0;
+    SND.unlock(); SND.se('levelup');
+    save();
+  }
+
+  function setSpeed(v) {
+    st.speed = v;
+    SND.se('ui');
+    save();
+  }
+
+  // 残りの昼を一度に流す。手順は普段と同じで、音と演出だけ出さない
+  function skipDay() {
+    if (st.phase !== 'day') return;
+    quiet = true;
+    try {
+      while (st.dayT < DAY_MS) simulate(Math.min(DT, DAY_MS - st.dayT));
+    } finally { quiet = false; }
+    endDay();
+  }
+
+  function endDay() {
+    st.phase = 'night';
+    st.dayT = DAY_MS;
+    st.belts.forEach((b) => { b.moved = false; b.ghosts.length = 0; });
+    if (placing) { placing = null; refreshPalette(); }
+    drag = null; moving = null;
+    SND.se('news');
+    showNight();
+    save();
+  }
+
+  function nextMorning() {
+    const t = st.today;
+    st.yday = { sales: t.sales, made: sum(t.made), sold: sum(t.sold) };
+    st.day++;
+    st.phase = 'morn';
+    st.dayT = 0;
+    st.today = newToday();
+    el('night').hidden = true;
+    SND.se('ui');
+    save();
+  }
+
+  const sum = (o) => Object.keys(o).reduce((a, k) => a + o[k], 0);
+
+  // 前の日との差。初日は比べない
+  function diffText(now, before, unit) {
+    if (before === undefined || before === null) return '';
+    const d = now - before;
+    if (!d) return '前の日と同じ';
+    const pct = before > 0 ? '（' + (d >= 0 ? '+' : '−') + Math.round(Math.abs(d) / before * 100) + '%）' : '';
+    return '前の日より ' + (d >= 0 ? '+' : '−') + Math.abs(d).toLocaleString() + unit + pct;
+  }
+
+  function showNight() {
+    const t = st.today, y = st.yday;
+    el('nightHead').textContent = st.day + '日目の店じまい';
+    const box = el('nightBody');
+    box.innerHTML = '';
+
+    const top = document.createElement('div');
+    top.className = 'al-nsum';
+    const stat = (label, value, diff, big) => {
+      const d = document.createElement('div');
+      d.className = 'al-nstat' + (big ? ' big' : '');
+      d.innerHTML = '<i>' + label + '</i><b>' + value + '</b><span>' + (diff || (y ? '' : '初日')) + '</span>';
+      top.appendChild(d);
+    };
+    stat('売上', t.sales.toLocaleString() + 'G', y && diffText(t.sales, y.sales, 'G'), true);
+    stat('生産', sum(t.made).toLocaleString() + '個', y && diffText(sum(t.made), y.made, '個'));
+    stat('販売', sum(t.sold).toLocaleString() + '個', y && diffText(sum(t.sold), y.sold, '個'));
+    box.appendChild(top);
+
+    // ランクの進み具合。朝の位置から今の位置までを金色で足して見せる
+    const rk = document.createElement('div');
+    rk.className = 'al-nrank';
+    const up = st.tier > t.tier0;
+    const from = up ? 0 : rankProgress(t.total0), to = rankProgress();
+    const next = TIERS[st.tier + 1];
+    rk.innerHTML = '<div class="al-nrankrow"><i>ランク</i><b>' + TIERS[st.tier].name + '</b>'
+      + (up ? '<em>' + TIERS[t.tier0].name + 'から上がった</em>' : '') + '</div>'
+      + '<div class="al-nbar"><div class="al-nbar0" style="width:' + (from * 100).toFixed(1) + '%"></div>'
+      + '<div class="al-nbar1" style="left:' + (from * 100).toFixed(1) + '%;width:' + ((to - from) * 100).toFixed(1) + '%"></div></div>'
+      + '<span>' + (next ? '次の ' + next.name + ' まで あと ' + Math.max(0, next.need - st.total).toLocaleString() + 'G' : 'この星のどこでも名が通る') + '</span>';
+    box.appendChild(rk);
+
+    // 品目ごと。売上の多い順、売れていない品は作った数の順
+    const keys = Object.keys(Object.assign({}, t.made, t.sold)).filter((k) => ITEMS[k]);
+    keys.sort((a, b) => (t.soldG[b] || 0) - (t.soldG[a] || 0) || (t.made[b] || 0) - (t.made[a] || 0));
+    const list = document.createElement('div');
+    list.className = 'al-nlist';
+    if (!keys.length) {
+      const p = document.createElement('p');
+      p.className = 'al-empty';
+      p.textContent = '今日は何も作らなかった';
+      list.appendChild(p);
+    } else {
+      const head = document.createElement('div');
+      head.className = 'al-nrow al-nhead';
+      head.innerHTML = '<span></span><span>品</span><span>生産</span><span>販売</span><span>売上</span>';
+      list.appendChild(head);
+    }
+    keys.forEach((k) => {
+      const row = document.createElement('div');
+      row.className = 'al-nrow';
+      const c = document.createElement('canvas');
+      c.width = 40; c.height = 40; c.style.width = '20px'; c.style.height = '20px';
+      const cc = c.getContext('2d'); cc.scale(2, 2);
+      drawItem(cc, k, 10, 10, 7.5);
+      row.appendChild(c);
+      const cell = (txt, cls) => { const s = document.createElement('span'); s.textContent = txt; if (cls) s.className = cls; row.appendChild(s); };
+      cell(ITEMS[k].name);
+      cell((t.made[k] || 0).toLocaleString());
+      cell((t.sold[k] || 0).toLocaleString());
+      cell(t.soldG[k] ? t.soldG[k].toLocaleString() + 'G' : '—', 'g');
+      list.appendChild(row);
+    });
+    box.appendChild(list);
+    el('night').hidden = false;
+  }
+
+  // 上の帯の、日にちと時間の操作
+  let daySig = '';
+  function updateDay() {
+    const left = Math.ceil((DAY_MS - st.dayT) / 1000);
+    const phase = st.phase === 'morn' ? '朝の仕込み　時間は止まっている'
+      : st.phase === 'day' ? '営業中　店じまいまで ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0')
+        : '店じまい';
+    const sig = st.day + '|' + phase + '|' + st.speed;
+    if (sig === daySig) return;
+    daySig = sig;
+    el('dayNum').textContent = st.day + '日目';
+    el('dayPhase').textContent = phase;
+    el('btnOpen').hidden = st.phase !== 'morn';
+    el('dayRun').hidden = st.phase !== 'day';
+    Array.prototype.forEach.call(el('speeds').children, (b) => b.classList.toggle('on', +b.dataset.v === st.speed));
+  }
+
+  function buildDayCtl() {
+    const box = el('speeds');
+    box.innerHTML = '';
+    DAY.speeds.forEach((v) => {
+      const b = document.createElement('button');
+      b.className = 'al-btn al-spd';
+      b.textContent = v + '倍';
+      b.dataset.v = v;
+      b.onclick = () => { setSpeed(v); daySig = ''; };
+      box.appendChild(b);
+    });
+    el('btnOpen').onclick = () => { startDay(); daySig = ''; };
+    el('btnSkip').onclick = () => { skipDay(); daySig = ''; };
+    el('btnMorning').onclick = () => { nextMorning(); daySig = ''; };
   }
 
   // ---------------------------------------------------------------- 盤面の絵
@@ -993,6 +1184,7 @@
   let fx = [];              // 一度きりの演出（設置・レベルアップ・撤去・錬成・売上）
   const FX_DUR = { build: 900, level: 1000, poof: 700, craft: 520, coin: 800 };
   function addFx(type, x, y, extra) {
+    if (quiet) return;
     const f = Object.assign({ type, x, y, t: 0, parts: [] }, extra || {});
     const n = { build: 18, level: 14, poof: 16, craft: 7, coin: 4 }[type] || 0;
     for (let i = 0; i < n; i++) {
@@ -1646,6 +1838,7 @@
       syncPalette();                             // 購入パレットの札も色だけ変える
     }
     updateHint();
+    updateDay();
     el('total').textContent = st.total.toLocaleString();
     el('rankName').textContent = TIERS[st.tier].name;
     el('rankFill').style.width = (rankProgress() * 100).toFixed(1) + '%';
@@ -1662,8 +1855,12 @@
   const TUT = [
     { text: '採取地の右の口から、お店の左の口までドラッグして送り道を引く',
       done: () => st.belts.length > 0 },
-    { text: '品がお店に届くと売れる。少し待ってみる',
+    { text: '朝のうちは時間が止まっている。上の「開店する」を押して昼にする',
+      done: () => st.phase !== 'morn' || st.day > 1 },
+    { text: '品がお店に届くと売れる。眺めて待つ（「2倍」「3倍」で早送り、「飛ばす」で夕方まで）',
       done: () => st.total > 0 },
+    { text: '日が暮れると店じまい。今日のまとめを見たら「次の朝へ」',
+      done: () => st.day > 1 },
     { text: '右上の「研究」を開いて、いちばん上の「野と海と山」を買う',
       done: () => Object.keys(st.done).length > 0 },
     { text: '下の「錬成」から錬成陣を置いて、採取地 → 錬成陣 → お店 とつなぐ',
@@ -2419,6 +2616,7 @@
       w: st.w, h: st.h, money: st.money, total: st.total, tier: st.tier,
       landBuys: st.landBuys, rockBuys: st.rockBuys, bridges: st.bridges,
       done: st.done, sold: st.sold, log: st.log, seen: st.seen, tut: st.tut, made: st.made,
+      day: st.day, phase: st.phase, dayT: st.dayT, speed: st.speed, today: st.today, yday: st.yday,
       rocks: st.cell.map((c, i) => (c.rock ? i : -1)).filter((i) => i >= 0),
       nodes: st.nodes.map((n) => ({ d: n.def.key, x: n.x, y: n.y, r: n.rot, l: n.lv })),
       belts: st.belts.map((b) => ({ f: pi.get(b.from), t: pi.get(b.to), c: b.cells.map((c) => [c.x, c.y]) })),
@@ -2453,6 +2651,13 @@
     st.done = raw.done || {}; st.sold = raw.sold || {}; st.log = raw.log || {}; st.seen = raw.seen || {};
     st.tut = raw.tut === undefined ? -1 : raw.tut;
     st.made = raw.made || madeFromSold(st.sold);
+    // 1日の無かった保存は、1日目の朝から始める
+    st.day = raw.day || 1;
+    st.phase = raw.phase === 'day' || raw.phase === 'night' ? raw.phase : 'morn';
+    st.dayT = st.phase === 'morn' ? 0 : Math.min(DAY_MS, raw.dayT || 0);
+    st.speed = DAY.speeds.indexOf(raw.speed) >= 0 ? raw.speed : 1;
+    st.today = raw.today && raw.today.made ? raw.today : newToday();
+    st.yday = raw.yday || null;
     applyResearch();
     raw.nodes.forEach((n) => {
       const def = BUILDS[n.d] || (n.d.indexOf('shop_') === 0 ? BUILDS.shop : null);
@@ -2474,6 +2679,7 @@
     zoom = 1; focusX = -1; focusY = -1;
     st = blank();
     st.cell = makeCells(st.w, st.h);
+    st.today = newToday();
     applyResearch();
     seeAll();
     // 開始時、敷地には魔鉱石の採取地1と魔鉱石屋1が置いてある。送り道は1本も引いてない。
@@ -2504,6 +2710,7 @@
   function startFresh() {
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
     reset(); layout(); buildPalette(); buildResearch(); buildCodex(); markDots(); closeMenu(); heroSync();
+    el('night').hidden = true;
   }
 
   function init() {
@@ -2514,6 +2721,8 @@
     buildResearch();
     buildCodex();
     markDots();
+    buildDayCtl();
+    if (st.phase === 'night') showNight();
 
     cv.addEventListener('pointerdown', onDown);
     cv.addEventListener('pointermove', onMove);
@@ -2598,6 +2807,10 @@
     belts: () => st.belts.map((b) => ({ from: b.from.node.def.key, to: b.to.node.def.key,
       item: b.from.item, cells: b.cells.length })),
     money: (v) => { st.money = v; },
+    day: () => ({ day: st.day, phase: st.phase, dayT: st.dayT, speed: st.speed, today: st.today, yday: st.yday }),
+    startDay: () => startDay(),
+    skipDay: () => skipDay(),
+    nextMorning: () => nextMorning(),
     // 時間を渡せば進む。描画が止まる場所でも同じ道筋で確かめられるようにする
     advance: (ms, step) => { const d = step || 100; for (let t = 0; t < ms; t += d) advance(d); },
   };
@@ -2655,6 +2868,7 @@
       if (!restore(raw)) { alert('この控えは読めませんでした。'); return; }
       writeSave();
       layout(); buildPalette(); buildResearch(); buildCodex(); markDots(); closeMenu(); heroSync();
+      if (st.phase === 'night') showNight(); else el('night').hidden = true;
       SND.se('levelup');
       note('控えを読み込みました。' + name);
     };

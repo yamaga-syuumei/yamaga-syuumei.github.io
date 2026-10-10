@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=19f1eb42">
+<link rel="stylesheet" href="style.css?v=e3767985">
 </head>
 <body>
 
@@ -35,6 +35,15 @@
     </div>
 
     <div class="al-total"><i>累計売上</i><b id="total">0</b><u>G</u></div>
+
+    <!-- 1日。朝は止まっていて、開店すると昼が流れる -->
+    <div class="al-day">
+      <div class="al-dayrow"><b id="dayNum">1日目</b><span id="dayPhase"></span></div>
+      <div class="al-dayctl">
+        <button class="al-btn al-btn-p" id="btnOpen">開店する</button>
+        <span class="al-dayrun" id="dayRun" hidden><span class="al-speeds" id="speeds"></span><button class="al-btn" id="btnSkip">飛ばす</button></span>
+      </div>
+    </div>
 
     <div class="al-btns">
       <button class="al-btn" id="btnRes">研究<i class="al-dot" id="resDot" hidden></i></button>
@@ -65,7 +74,16 @@
 
 </div>
 
-<!-- タイトル。裏では盤面がそのまま動いている -->
+<!-- 店じまい。その日のまとめ。次の朝へ進むまで時間は止まっている -->
+<div class="al-ov" id="night" hidden>
+  <div class="al-panel al-night">
+    <div class="al-ovhead" id="nightHead"></div>
+    <div class="al-nightbody" id="nightBody"></div>
+    <div class="al-ovbtns"><button class="al-btn al-btn-p" id="btnMorning">次の朝へ</button></div>
+  </div>
+</div>
+
+<!-- タイトル。裏に盤面を透かす -->
 <div class="al-ov al-ov-title" id="ovTitle" hidden>
   <div class="al-titlecard">
     <h1>錬金工場と魔法のお店</h1>
@@ -162,9 +180,20 @@
       </section>
 
       <section>
+        <h4>1日の流れ</h4>
+        <ul>
+          <li><b>朝</b>…時間が止まっています。ゆっくり組み替えて、できたら「開店する」。</li>
+          <li><b>昼</b>…時間が流れて物が作られ、売れます。昼の間も組み替えられます。
+            「2倍」「3倍」で早送り、「飛ばす」で夕方まで一気に進みます。</li>
+          <li><b>夜</b>…店じまい。その日の売上と、品ごとの生産数・販売数が出ます。「次の朝へ」で翌日へ。</li>
+          <li>下の右の空で、一日のどのあたりかが分かります。</li>
+        </ul>
+      </section>
+
+      <section>
         <h4>送り道</h4>
         <ul>
-          <li>設備の<b>口から口へドラッグ</b>すると送り道が引けます。引いた瞬間から物が流れます。</li>
+          <li>設備の<b>口から口へドラッグ</b>すると送り道が引けます。昼の間なら、引いた瞬間から物が流れます。</li>
           <li><b>送り道は交差できません。</b>1マスに1本だけ。ここがこのゲームの一番の悩みどころです。</li>
           <li>受け取り手が詰まると手前に物が溜まります。<b>どこが遅いか目で分かります。</b></li>
           <li>引くのも撤去も無料です。行き詰まったら引き直してください。</li>
@@ -278,11 +307,11 @@
   </div>
 </div>
 
-<script src="data.js?v=9f90b1a8"></script>
+<script src="data.js?v=a30fb303"></script>
 <script src="sound.js?v=bbd44f3e"></script>
 <script src="art.js?v=6e6f3c3d"></script>
 <script src="sprites.js?v=2389894c"></script>
-<script src="hero.js?v=e6937c0a"></script>
-<script src="game.js?v=79ee9e23"></script>
+<script src="hero.js?v=ebbc5d9c"></script>
+<script src="game.js?v=661bfca8"></script>
 </body>
 </html>

@@ -9,6 +9,7 @@
 //
 //  HERO.set({ chapter, tier })  … 話とランクを渡す
 //  HERO.boss()                  … 次に出る敵を大物にする（便りで話が進んだとき）
+//  HERO.time(t)                 … 一日のどこか（0 朝〜1 夜）。空の色と日の位置が変わる
 //  HERO.step(dt) / HERO.draw()  … 毎フレーム
 window.HERO = (function () {
   'use strict';
@@ -102,6 +103,23 @@ window.HERO = (function () {
   }
 
   function boss() { S.bossNext = true; }
+
+  // 一日のどこにいるか。0 が朝、1 が夜
+  let tod = 0;
+  function time(v) { tod = Math.max(0, Math.min(1, v)); }
+
+  // 時間帯の空。夜明けから話の景色の空になり、夕焼けを経て夜になる。
+  // 返すのは [上の色, 下の色]、どれだけ暗くするか、星を出すか
+  const DAWN = ['#5a5aa0', '#ffb890'], DUSK = ['#4a3a88', '#ff8a5a'], NIGHT = ['#0a0c2a', '#262a5a'];
+  function skyNow() {
+    let col = null, w = 0, dark = 0;
+    if (tod < .15) { col = DAWN; w = 1 - tod / .15; dark = .15 * w; }
+    else if (tod < .7) { w = 0; }
+    else if (tod < .88) { col = DUSK; w = (tod - .7) / .18; dark = .2 * w; }
+    else { const k = (tod - .88) / .12; col = [mix(DUSK[0], NIGHT[0], k), mix(DUSK[1], NIGHT[1], k)]; w = 1; dark = .2 + .3 * k; }
+    const sky = w ? [mix(act.sky[0], col[0], w), mix(act.sky[1], col[1], w)] : act.sky;
+    return { sky, dark, stars: act.stars || tod > .86 };
+  }
 
   const ground = () => H - 8;
   const HX = () => Math.round(W * .3);        // 勇者の絵の左端
@@ -336,21 +354,42 @@ window.HERO = (function () {
     }
   }
 
+  // 日と月。日は左から昇って右へ沈み、その位置で一日の進み具合が分かる。夜は月
+  function drawSunMoon(gy) {
+    if (tod < .9) {
+      const p = tod / .9;
+      const x = Math.round(4 + p * (W - 8)), y = Math.round(gy - 6 - Math.sin(p * Math.PI) * (gy - 14));
+      const late = Math.max(0, (tod - .65) / .25);
+      g.fillStyle = 'rgba(255,230,150,.25)'; g.fillRect(x - 4, y - 2, 9, 5); g.fillRect(x - 2, y - 4, 5, 9);
+      g.fillStyle = mix('#ffd050', '#ff7a3a', late); g.fillRect(x - 2, y - 1, 5, 3); g.fillRect(x - 1, y - 2, 3, 5);
+      g.fillStyle = mix('#fff8d0', '#ffb070', late); g.fillRect(x - 1, y - 1, 3, 3);
+    } else {
+      const a = Math.min(1, (tod - .9) / .08);
+      const x = W - 22, y = 8;
+      g.globalAlpha = a;
+      g.fillStyle = 'rgba(220,230,255,.2)'; g.fillRect(x - 4, y - 2, 9, 5); g.fillRect(x - 2, y - 4, 5, 9);
+      g.fillStyle = '#f4f2d8'; g.fillRect(x - 2, y - 1, 5, 3); g.fillRect(x - 1, y - 2, 3, 5);
+      g.fillStyle = mix(NIGHT[0], NIGHT[1], .3); g.fillRect(x + 1, y - 2, 2, 3); g.fillRect(x + 2, y - 1, 1, 3);
+      g.globalAlpha = 1;
+    }
+  }
+
   function drawBack() {
     const gy = ground();
+    const now = skyNow();
     // 空。帯の境目は市松で混ぜる
     const bands = 6;
     for (let i = 0; i < bands; i++) {
       const t = i / (bands - 1);
-      g.fillStyle = mix(act.sky[0], act.sky[1], t);
+      g.fillStyle = mix(now.sky[0], now.sky[1], t);
       const y0 = Math.floor(gy * i / bands), y1 = Math.floor(gy * (i + 1) / bands);
       g.fillRect(0, y0, W, y1 - y0);
       if (i > 0) {
-        g.fillStyle = mix(act.sky[0], act.sky[1], (i - 1) / (bands - 1));
+        g.fillStyle = mix(now.sky[0], now.sky[1], (i - 1) / (bands - 1));
         for (let x = (y0 & 1); x < W; x += 2) g.fillRect(x, y0, 1, 1);
       }
     }
-    if (act.stars) {
+    if (now.stars) {
       for (let i = 0; i < 36; i++) {
         const sx = (i * 37 + 11) % W, sy = (i * 13 + 3) % Math.max(4, gy - 16);
         if ((S.t / 300 + i) % 7 < 5) px(sx, sy, i % 3 ? '#ffffff' : '#ffe8a0');
@@ -362,6 +401,7 @@ window.HERO = (function () {
         px(sx, (i * 7 + (S.t / 90 | 0)) % gy, '#ff9a40');
       }
     }
+    drawSunMoon(gy);
     // 雲
     for (let i = 0; i < 5; i++) {
       const cx = Math.round(((i * 47 - S.scroll * .12) % (W + 40) + W + 40) % (W + 40) - 20);
@@ -413,17 +453,21 @@ window.HERO = (function () {
       else px(p.x, p.y, p.col);
     }
     g.globalAlpha = 1;
+    // 朝夕と夜は景色ごと暗くする
+    const dark = skyNow().dark;
+    if (dark > 0) { g.fillStyle = 'rgba(10,8,48,' + dark.toFixed(3) + ')'; g.fillRect(0, 0, W, H); }
     for (const n of S.nums) drawNum(n);
   }
 
+  // 色を混ぜる。#rrggbb で受けて #rrggbb で返す（混ぜた色をさらに混ぜられるように）
   function mix(a, b, t) {
     const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
     const r = Math.round(((pa >> 16) & 255) * (1 - t) + ((pb >> 16) & 255) * t);
     const gg = Math.round(((pa >> 8) & 255) * (1 - t) + ((pb >> 8) & 255) * t);
     const bl = Math.round((pa & 255) * (1 - t) + (pb & 255) * t);
-    return 'rgb(' + r + ',' + gg + ',' + bl + ')';
+    return '#' + ((1 << 24) | (r << 16) | (gg << 8) | bl).toString(16).slice(1);
   }
 
-  return { attach, set, boss, step, draw,
+  return { attach, set, boss, time, step, draw,
     state: () => ({ mode: S.mode, kills: S.kills, foe: S.foe && S.foe.kind, big: S.foe && S.foe.big, sc: S.foe && S.foe.sc, chapter, tier, W, H, cached: cache.size }) };
 })();

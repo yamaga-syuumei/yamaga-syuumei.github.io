@@ -72,6 +72,44 @@ button{font:inherit; color:inherit; cursor:pointer}
   background:linear-gradient(90deg,#a98fd8,#f0c15a)}
 .al-ranknote{font-size:var(--fs-1); color:var(--dim); font-variant-numeric:tabular-nums}
 
+/* 1日。日にちと時間帯、開店・早送り・飛ばす */
+.al-day{display:flex; flex-direction:column; gap:3px}
+.al-dayrow{display:flex; align-items:baseline; gap:8px; white-space:nowrap}
+.al-dayrow b{font-size:var(--fs-4); color:#6a4f9a}
+.al-dayrow span{font-size:var(--fs-1); color:var(--dim); font-variant-numeric:tabular-nums}
+.al-dayctl{display:flex; gap:6px; align-items:center}
+.al-dayctl .al-btn{padding:3px 10px}
+.al-dayrun,.al-speeds{display:flex; gap:4px; align-items:center}
+.al-dayrun{gap:8px}
+.al-spd.on{background:linear-gradient(180deg,#f7f0ff,#ece0fb); border-color:var(--magic); color:var(--magic); font-weight:700}
+
+/* 店じまいのまとめ */
+.al-night{width:min(520px,100%)}
+.al-panel > .al-nightbody{flex:1 1 auto; min-height:0; overflow-y:auto; padding-right:4px}
+.al-nsum{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px}
+.al-nstat{display:flex; flex-direction:column; min-width:110px}
+.al-nstat i{font-style:normal; font-size:var(--fs-2); color:var(--dim)}
+.al-nstat b{font-size:var(--fs-5); font-variant-numeric:tabular-nums}
+.al-nstat.big b{font-size:var(--fs-6); color:#b67712}
+.al-nstat span{font-size:var(--fs-1); color:var(--dim); font-variant-numeric:tabular-nums}
+.al-nrank{margin-bottom:14px}
+.al-nrankrow{display:flex; align-items:baseline; gap:8px; font-size:var(--fs-2)}
+.al-nrankrow i{font-style:normal; color:var(--dim)}
+.al-nrankrow b{color:var(--magic)}
+.al-nrankrow em{font-style:normal; color:var(--gold); font-weight:700}
+.al-nbar{position:relative; height:8px; margin:4px 0 3px; background:#2a2042; border-radius:var(--r-1); overflow:hidden;
+  box-shadow:0 0 0 1px #c9a24a inset}
+.al-nbar0,.al-nbar1{position:absolute; top:0; bottom:0; left:0}
+.al-nbar0{background:#8f6ac8}
+.al-nbar1{background:linear-gradient(90deg,#c9a8ff,#f0c15a); box-shadow:0 0 8px rgba(240,193,90,.6)}
+.al-nrank span{font-size:var(--fs-1); color:var(--dim); font-variant-numeric:tabular-nums}
+.al-nrow{display:grid; grid-template-columns:20px 1fr 52px 52px 90px; gap:8px; align-items:center;
+  padding:3px 0; font-size:var(--fs-2); font-variant-numeric:tabular-nums; border-bottom:1px solid #efe3c8}
+.al-nrow span:nth-child(n+3){text-align:right}
+.al-nrow .g{color:var(--gold)}
+.al-nhead{font-size:var(--fs-1); color:var(--dim); border-bottom-color:#e2cf9e}
+.al-nrow canvas{background:radial-gradient(circle,#3d3160,#1b1530); border-radius:var(--r-pill); box-shadow:0 0 0 1px #c9a24a}
+
 .al-btns{display:flex; gap:6px; margin-left:auto}
 .al-btn{
   background:#fff; border:1px solid var(--line); border-radius:var(--r-1);

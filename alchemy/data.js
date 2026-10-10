@@ -446,11 +446,14 @@
   // 設備のレベル。速さが上がる。
   const LEVEL = { max: 5, costMul: 1.8, speedMul: 0.78 };
 
+  // 1日。朝は止まっていて、昼だけ時間が流れる。secs は等倍での昼の長さ。speeds は早送りの段
+  const DAY = { secs: 90, speeds: [1, 2, 3] };
+
   // 初期解放。魔鉱石の採取地1と魔鉱石屋1だけ置いてある状態から始まる。
   const START_UNLOCK = ['src_magicore', 'shop'];
 
   global.ALCHEMY = {
     ITEMS, SOURCES, RECIPES, FLAVOR, LOGI, SHOP, RESEARCH, PILLARS,
-    TIERS, LOG, BOARD, LEVEL, START_UNLOCK,
+    TIERS, LOG, BOARD, LEVEL, DAY, START_UNLOCK,
   };
 })(window);
