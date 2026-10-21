@@ -178,6 +178,18 @@ window.HERO = (function () {
     if (S.pray > 0) S.pray -= dt;
     if (chapter >= 12) { S.ship += k * 7; if (S.ship > W + 40) S.ship = -60; }
 
+    // 夜は焚き火で休む。戦っていた敵は消え、朝になったらまた歩き出す
+    const night = tod >= .92;
+    if (night && S.mode !== 'camp') { S.mode = 'camp'; S.foe = null; S.bolts = []; S.nums = []; }
+    if (!night && S.mode === 'camp') { S.mode = 'walk'; S.next = 1.5; }
+    if (S.mode === 'camp') {
+      if (Math.random() < k * 9) {
+        S.parts.push({ x: HX() + 33 + (Math.random() - .5) * 4, y: ground() - 6, vx: (Math.random() - .5) * 6, vy: -14 - Math.random() * 10,
+          t: 0, life: 700 + Math.random() * 600, col: Math.random() < .5 ? '#ffd060' : '#ff8a30', float: true, ember: true });
+      }
+      if (Math.random() < k * .5) S.parts.push({ x: HX() - 30, y: ground() - 30, vx: 3, vy: -4, t: 0, life: 1800, col: '#e8f0ff', float: true, zz: true });
+    }
+
     const f = S.foe;
     if (S.mode === 'walk') {
       S.scroll += k * 26;
@@ -298,7 +310,7 @@ window.HERO = (function () {
     if (S.hurt > 0) { rows = h.hurt[0]; key = 'hurt'; }
     else if (S.mode === 'won') { rows = h.win[0]; key = 'win'; }
     else if (S.mode === 'fight' && S.atk >= 0 && S.atk < 4) { rows = h.attack[S.atk]; key = 'a' + S.atk; }
-    else if (S.mode === 'fight') { rows = h.idle[(S.t / 420 | 0) % 2]; key = 'i' + ((S.t / 420 | 0) % 2); }
+    else if (S.mode === 'fight' || S.mode === 'camp') { rows = h.idle[(S.t / 420 | 0) % 2]; key = 'i' + ((S.t / 420 | 0) % 2); }
     else { rows = h.walk[wf]; key = 'w' + wf; }
     const flash = S.hurt > 0 && ((S.hurt / 60) | 0) % 2 === 0;
     blit(rows, heroPal(), 'hero' + tier + key, x - (S.hurt > 0 ? 2 : 0), top, flash);
@@ -448,7 +460,9 @@ window.HERO = (function () {
     }
     for (const p of S.parts) {
       g.globalAlpha = Math.max(0, 1 - p.t / p.life);
-      if (p.coin) { px(p.x, p.y, (S.t / 60 | 0) % 2 ? '#fff4b0' : p.col); px(p.x + 1, p.y, p.col); }
+      if (p.zz) { drawZ(p.x, p.y, p.t < 900 ? 3 : 2); }
+      else if (p.ember) { /* 火の粉は焚き火と一緒に、暗さの上に描く */ }
+      else if (p.coin) { px(p.x, p.y, (S.t / 60 | 0) % 2 ? '#fff4b0' : p.col); px(p.x + 1, p.y, p.col); }
       else if (p.star) { px(p.x, p.y, p.col); px(p.x - 1, p.y, 'rgba(255,248,192,.5)'); px(p.x + 1, p.y, 'rgba(255,248,192,.5)'); px(p.x, p.y - 1, 'rgba(255,248,192,.5)'); px(p.x, p.y + 1, 'rgba(255,248,192,.5)'); }
       else px(p.x, p.y, p.col);
     }
@@ -456,7 +470,47 @@ window.HERO = (function () {
     // 朝夕と夜は景色ごと暗くする
     const dark = skyNow().dark;
     if (dark > 0) { g.fillStyle = 'rgba(10,8,48,' + dark.toFixed(3) + ')'; g.fillRect(0, 0, W, H); }
+    if (S.mode === 'camp') drawFire();
     for (const n of S.nums) drawNum(n);
+  }
+
+  // 焚き火。薪を組んだ上で炎が揺れ、まわりを橙に照らす。暗くしたあとに重ねるので、一行が火の明かりで浮かぶ
+  function drawFire() {
+    const fx = HX() + 33, gy = ground();
+    const fl = .8 + .2 * Math.sin(S.t / 90) * Math.sin(S.t / 37);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    const gr = g.createRadialGradient(fx, gy - 4, 1, fx, gy - 4, 44 * fl);
+    gr.addColorStop(0, 'rgba(255,150,60,.45)'); gr.addColorStop(.5, 'rgba(255,110,40,.16)'); gr.addColorStop(1, 'rgba(255,90,30,0)');
+    g.fillStyle = gr; g.fillRect(fx - 48, gy - 52, 96, 60);
+    g.restore();
+    // 薪
+    g.fillStyle = '#3a2214'; g.fillRect(fx - 5, gy - 2, 11, 2);
+    g.fillStyle = '#5a3a22'; g.fillRect(fx - 4, gy - 3, 3, 1); g.fillRect(fx + 2, gy - 3, 3, 1);
+    // 炎。外から赤・橙・黄・白の順に重ね、背丈を毎回少し変える
+    const f = (S.t / 110 | 0) % 3;
+    const layers = [['#e04a20', 5, 8 + f], ['#ff8a30', 4, 6 + (f + 1) % 3], ['#ffd060', 2, 4 + (f + 2) % 2], ['#fff4c0', 1, 2]];
+    for (const [col, hw, h] of layers) {
+      g.fillStyle = col;
+      for (let i = -hw; i <= hw; i++) {
+        const hh = Math.round(h * (1 - Math.abs(i) / (hw + 1)) + ((i + f) & 1));
+        g.fillRect(fx + i, gy - 3 - hh, 1, hh);
+      }
+    }
+    for (const p of S.parts) {
+      if (!p.ember) continue;
+      g.globalAlpha = Math.max(0, 1 - p.t / p.life);
+      px(p.x, p.y, p.col);
+    }
+    g.globalAlpha = 1;
+  }
+
+  // 寝息の「z」。小さい順に昇っていく
+  function drawZ(x, y, s) {
+    const X = Math.round(x), Y = Math.round(y);
+    g.fillStyle = '#e8f0ff';
+    g.fillRect(X, Y, s, 1); g.fillRect(X, Y + s - 1, s, 1);
+    for (let i = 0; i < s; i++) g.fillRect(X + s - 1 - i, Y + i, 1, 1);
   }
 
   // 色を混ぜる。#rrggbb で受けて #rrggbb で返す（混ぜた色をさらに混ぜられるように）

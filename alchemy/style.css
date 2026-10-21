@@ -79,6 +79,14 @@ button{font:inherit; color:inherit; cursor:pointer}
 .al-dayrow span{font-size:var(--fs-1); color:var(--dim); font-variant-numeric:tabular-nums}
 .al-dayctl{display:flex; gap:6px; align-items:center}
 .al-dayctl .al-btn{padding:3px 10px}
+/* 開店は朝にやることの全部なので、大きく光らせて目に入るようにする */
+.al-dayctl #btnOpen{padding:7px 22px; font-size:var(--fs-4); font-weight:700; letter-spacing:.12em;
+  animation:al-call 1.8s ease-in-out infinite}
+.al-dayctl #btnOpen::before{content:"\2600\FE0E  "; color:#ffe08a}
+@keyframes al-call{
+  0%,100%{box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 0 0 0 rgba(240,196,106,.0)}
+  50%{box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 0 0 4px rgba(240,196,106,.45), 0 0 18px rgba(185,148,255,.7)}
+}
 .al-dayrun,.al-speeds{display:flex; gap:4px; align-items:center}
 .al-dayrun{gap:8px}
 .al-spd.on{background:linear-gradient(180deg,#f7f0ff,#ece0fb); border-color:var(--magic); color:var(--magic); font-weight:700}
