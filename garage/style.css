@@ -206,7 +206,7 @@ html.no-motion .ss-screen { animation: none; }
   transition: border-color var(--t), transform var(--t);
 }
 .ss-pick:hover { border-color: var(--amber); transform: translateY(-2px); }
-.ss-pick > canvas { width: 96px; height: 72px; display: block; margin: 0 auto 6px; }
+.ss-pick > canvas { width: 96px; height: 64px; display: block; margin: 0 auto 6px; }
 /* 選んでいるのは盤の形。文字ではなく実物を出す */
 .ss-pickgrid { display: flex; flex-direction: column; align-items: center; gap: 5px; margin: 8px 0 10px; }
 .ss-pickcells { font-size:var(--fs-2); color: var(--ink-3); }
@@ -1078,7 +1078,7 @@ html.no-motion .ss-item.is-landed { animation: none; }
   box-shadow: 0 2px 0 rgba(0,0,0,.5); }
 .ss-node .ss-nodetag { text-shadow: 0 1px 0 #000, 0 0 4px rgba(0,0,0,.8); }
 .ss-mapcar {
-  position: absolute; z-index: 2; width: 48px; height: 36px; margin-left: -24px; pointer-events: none;
+  position: absolute; z-index: 2; width: 48px; height: 32px; margin-left: -24px; pointer-events: none;
   image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(0,0,0,.55)) drop-shadow(0 0 6px rgba(232,179,85,.45));
   animation: carIdle .9s steps(2) infinite;
 }

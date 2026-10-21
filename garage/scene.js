@@ -108,7 +108,9 @@ window.SCENE = (function () {
     var fly = st.foe === 'drone' ? 8 + Math.round(Math.sin(T * 3) * 2) : 0;
     return { x: Math.round(LW * .80 - sp.width / 2) + st.foeX, y: GY() - sp.height + 3 - fly, w: sp.width, h: sp.height };
   }
-  function muzzle() { var b = meBox(); return { x: b.x + b.w + 1, y: b.y + 6 }; }
+  /* 砲口の高さは車体ごとに違う（art.js の vehicleArt と揃える） */
+  var MUZZLE_Y = { ch_jeep: 5, ch_apc: 10, ch_ogre: 9 };
+  function muzzle() { var b = meBox(); return { x: b.x + b.w + 1, y: b.y + (MUZZLE_Y[st.meId] || 9) }; }
   function foeMid() { var b = foeBox(); return { x: b.x + b.w * .45, y: b.y + b.h * .55 }; }
 
   /* ---------------------------------------------------------- 一度きりの演出 */
@@ -387,7 +389,7 @@ window.SCENE = (function () {
     if (!cv || !window.ART) return;
     st = {
       foe: o.foe, floor: o.floor || 1, type: o.type, speed: o.speed || 1,
-      foeSp: window.ART.enemy(o.foe), meSp: window.ART.chassis(o.chassis),
+      foeSp: window.ART.enemy(o.foe), meSp: window.ART.chassis(o.chassis), meId: o.chassis && o.chassis.id,
       meX: -60, foeX: 60, flash: 0, meKick: 0, foeKick: 0, hurtMe: 0, hurtFoe: 0, shake: 0,
       trumpT: 0, ramT: 0, ended: null, endT: 0,
       shots: [], parts: [], booms: [], rings: [], pops: []

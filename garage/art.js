@@ -233,242 +233,244 @@ window.ART = (function () {
   }
 
   /* ==========================================================
-     車体アイコン（マップ・選択画面用）32x24
+     形で組んで陰影を付ける絵（車体・敵）
+
+     部品（矩形・円・多角形・線）を材質ごとに置き、左上から光が当たるとして
+     「上か左が別の材質なら明、下か右が別なら暗、それ以外は中」の3段に塗り分け、
+     最後に外周を濃い輪郭で縁取る。錬金工場の勇者たちと同じ作り。
+     材質は ramp() の5段、'!#rrggbb' は陰影を付けない1色。
      ========================================================== */
-  function chassisSprite(ch) {
-    var R = ramp(ch.color);
-    return make(32, 24, function (a) {
-      /* 履帯 */
-      a.r(2, 15, 28, 7, OUT);
-      a.r(3, 16, 26, 5, STEEL[1]);
-      for (var x = 4; x < 29; x += 3) a.r(x, 16, 1, 5, STEEL[0]);
-      a.r(3, 16, 26, 1, STEEL[3]);
-      /* 車体 */
-      a.r(4, 8, 24, 8, OUT);
-      a.r(5, 9, 22, 6, R[2]);
-      a.r(5, 9, 22, 1, R[4]);
-      a.r(5, 14, 22, 1, R[0]);
-      /* 砲塔 */
-      a.r(10, 3, 12, 6, OUT);
-      a.r(11, 4, 10, 4, R[3]);
-      a.r(11, 4, 10, 1, R[4]);
-      /* 主砲 */
-      a.r(20, 5, 11, 3, OUT);
-      a.r(20, 6, 10, 1, STEEL[3]);
+  function inside(pts, x, y) {
+    var c = false;
+    for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      var xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi + 1e-9) + xi) c = !c;
+    }
+    return c;
+  }
+
+  function shaded(w, h, mats, build) {
+    var m = [];
+    for (var y = 0; y < h; y++) { m.push([]); for (var x = 0; x < w; x++) m[y].push(null); }
+    var G = {
+      set: function (x, y, k) {
+        x = Math.round(x); y = Math.round(y);
+        if (x >= 0 && y >= 0 && x < w && y < h) m[y][x] = k;
+      },
+      rect: function (x0, y0, x1, y1, k) {
+        for (var yy = y0; yy <= y1; yy++) for (var xx = x0; xx <= x1; xx++) G.set(xx, yy, k);
+      },
+      disc: function (cx, cy, rx, ry, k) {
+        for (var yy = 0; yy < h; yy++) for (var xx = 0; xx < w; xx++) {
+          var dx = (xx + .5 - cx) / rx, dy = (yy + .5 - cy) / ry;
+          if (dx * dx + dy * dy <= 1) m[yy][xx] = k;
+        }
+      },
+      poly: function (pts, k) {
+        for (var yy = 0; yy < h; yy++) for (var xx = 0; xx < w; xx++) if (inside(pts, xx + .5, yy + .5)) m[yy][xx] = k;
+      },
+      line: function (x0, y0, x1, y1, k, wd) {
+        var n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2 + 1;
+        for (var i = 0; i <= n; i++) {
+          var t = i / n, px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t;
+          for (var a = 0; a < (wd || 1); a++) for (var b = 0; b < (wd || 1); b++) G.set(Math.floor(px) + a, Math.floor(py) + b, k);
+        }
+      }
+    };
+    build(G);
+    return make(w, h, function (a) {
+      function at(x, y) { return x >= 0 && y >= 0 && x < w && y < h ? m[y][x] : null; }
+      for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+        var k = m[y][x];
+        if (!k) continue;
+        var d = mats[k];
+        if (typeof d === 'string') { a.p(x, y, d.slice(1)); continue; }
+        var col = (at(x, y - 1) !== k || at(x - 1, y) !== k) ? d[3]
+          : (at(x, y + 1) !== k || at(x + 1, y) !== k) ? d[1] : d[2];
+        a.p(x, y, col);
+      }
+      for (var y2 = 0; y2 < h; y2++) for (var x2 = 0; x2 < w; x2++) {
+        if (m[y2][x2]) continue;
+        if (at(x2 + 1, y2) || at(x2 - 1, y2) || at(x2, y2 + 1) || at(x2, y2 - 1)) a.p(x2, y2, OUT);
+      }
     });
   }
 
+  var TIRE = ramp('#34383e'), TRACK = ramp('#454a52'), GLASS = '!#9fd8ff';
+
+  /* 車輪。タイヤとホイールと軸 */
+  function wheel(G, cx, cy, r) {
+    G.disc(cx, cy, r, r, 'tire');
+    G.disc(cx, cy, r * .5, r * .5, 'steel');
+    G.set(cx - .5, cy - .5, 'hubc');
+  }
+  /* 履帯。角の丸い帯に転輪を並べる */
+  function tracks(G, x0, x1, y0, y1, n) {
+    var r = (y1 - y0) / 2;
+    G.rect(x0 + r, y0, x1 - r, y1, 'track');
+    G.disc(x0 + r, y0 + r + .5, r + .5, r + .5, 'track');
+    G.disc(x1 - r, y0 + r + .5, r + .5, r + .5, 'track');
+    for (var i = 0; i < n; i++) {
+      var cx = x0 + r + (x1 - x0 - r * 2) * i / (n - 1);
+      G.disc(cx, y0 + r + .5, r * .62, r * .62, 'steel');
+      G.set(cx - .5, y0 + r, 'hubc');
+    }
+    for (var x = x0 + 2; x < x1 - 1; x += 3) G.set(x, y0, 'tread');
+  }
+
   /* ==========================================================
-     敵。48x32（ボスだけ64x40）
+     車体。横から見た姿 48x32。右を向いている
      ========================================================== */
-  function ground(a, w, h) {
-    a.r(0, h - 3, w, 3, SAND[1]);
-    a.r(0, h - 3, w, 1, SAND[2]);
+  var vehicleArt = {
+    /* 幌付きジープ。荷台に機関銃、後ろに畳んだ幌 */
+    ch_jeep: function (G) {
+      G.poly([[4, 16], [36, 16], [44, 19], [44, 24], [4, 24]], 'body');
+      G.rect(31, 13, 41, 16, 'body');
+      G.rect(5, 11, 12, 16, 'canvas');                       // 畳んだ幌
+      G.line(29, 16, 27, 8, 'steel', 1); G.rect(28, 9, 29, 15, 'glass');
+      G.rect(14, 7, 15, 16, 'steel'); G.rect(23, 7, 24, 16, 'steel'); G.rect(14, 7, 24, 8, 'steel');   // ロールバー
+      G.rect(17, 4, 20, 7, 'steel'); G.rect(20, 5, 32, 6, 'steel');    // 機関銃
+      G.set(43, 19, 'lamp'); G.set(43, 20, 'lamp');
+      G.rect(5, 19, 43, 19, 'seam');
+      wheel(G, 12, 24, 5.5); wheel(G, 36, 24, 5.5);
+    },
+    /* 装甲車。6輪に砲塔 */
+    ch_apc: function (G) {
+      G.poly([[3, 14], [40, 14], [46, 19], [46, 25], [2, 25], [2, 18]], 'body');
+      G.rect(3, 20, 45, 20, 'seam');
+      G.poly([[14, 8], [27, 8], [30, 11], [30, 14], [12, 14], [12, 10]], 'body');
+      G.rect(17, 5, 23, 7, 'steel');                         // ハッチ
+      G.rect(29, 10, 43, 11, 'steel'); G.rect(42, 9, 45, 12, 'steel');  // 砲
+      G.set(37, 16, 'slit'); G.set(39, 16, 'slit'); G.set(41, 17, 'slit');
+      G.set(45, 21, 'lamp');
+      wheel(G, 10, 26, 4.5); wheel(G, 24, 26, 4.5); wheel(G, 38, 26, 4.5);
+    },
+    /* 重戦車。長い砲身と大きな砲塔、履帯 */
+    ch_ogre: function (G) {
+      tracks(G, 2, 46, 21, 29, 6);
+      G.poly([[4, 14], [40, 14], [46, 18], [46, 21], [2, 21], [2, 17]], 'body');
+      G.rect(3, 18, 45, 18, 'seam');
+      G.poly([[11, 6], [29, 6], [34, 10], [34, 14], [9, 14], [9, 9]], 'body');
+      G.rect(15, 3, 21, 5, 'steel');                         // キューポラ
+      G.rect(33, 8, 47, 10, 'steel'); G.rect(44, 7, 47, 11, 'steel');   // 長砲身と制退器
+      G.set(30, 11, 'slit'); G.set(12, 10, 'slit');
+    }
+  };
+
+  var vehicleCache = {};
+  function chassisSprite(ch) {
+    var key = (ch.id || 'ch_ogre') + ch.color;
+    if (vehicleCache[key]) return vehicleCache[key];
+    var R = ramp(ch.color || '#6d6f7a');
+    vehicleCache[key] = shaded(48, 32, {
+      body: R, seam: '!' + R[0], canvas: ramp('#c9b07a'), steel: STEEL, tire: TIRE, track: TRACK,
+      hubc: '!' + STEEL[4], tread: '!' + TRACK[0], glass: GLASS, lamp: '!#ffe9a0', slit: '!#14181d'
+    }, vehicleArt[ch.id] || vehicleArt.ch_ogre);
+    return vehicleCache[key];
+  }
+
+  /* ==========================================================
+     敵。48x32（ボスだけ64x40）。右を向いて描き、戦場では左右を返す
+     ========================================================== */
+  function foeMats(base, extra) {
+    var R = ramp(base);
+    var o = { hull: R, seam: '!' + R[0], steel: STEEL, tire: TIRE, track: TRACK, rust: RUST,
+      hubc: '!' + STEEL[4], tread: '!' + TRACK[0], eye: '!#ff5a4a', eyew: '!#ffe0a0', dark: '!#1a1416', glow: '!#ffb03a' };
+    for (var k in extra || {}) o[k] = extra[k];
+    return o;
   }
 
   var enemyArt = {
     /* 空を飛ぶ四枚羽 */
     drone: function () {
-      var R = ramp('#7f8fa0');
-      return make(48, 32, function (a) {
-        ground(a, 48, 32);
-        /* 影 */
-        a.blob(24, 28, 9, 2, SAND[0]);
-        /* ローター。回っているのを1枚絵で見せるため、薄く長い帯にする */
-        [11, 37].forEach(function (x) {
-          a.r(x - 10, 5, 20, 1, R[1]);
-          a.r(x - 7, 6, 14, 1, R[0]);
-          a.r(x - 2, 4, 4, 5, OUT);
-          a.r(x - 1, 5, 2, 3, R[3]);
-        });
-        /* 支持アーム */
-        a.r(11, 9, 26, 3, OUT);
-        a.r(12, 10, 24, 1, R[1]);
-        /* 胴 */
-        a.r(15, 11, 18, 12, OUT);
-        a.r(16, 12, 16, 10, R[2]);
-        a.r(16, 12, 16, 2, R[4]);
-        a.r(16, 20, 16, 2, R[0]);
-        a.dots([[19, 17], [27, 16], [23, 20]], R[1]);
-        /* センサ */
-        a.r(19, 14, 10, 4, OUT);
-        a.r(20, 15, 8, 2, '#2a1416');
-        a.r(21, 15, 2, 1, '#ff5a4a');
-        a.r(25, 15, 2, 1, '#ff5a4a');
-        /* 脚 */
-        a.r(17, 23, 2, 4, OUT); a.r(29, 23, 2, 4, OUT);
-        /* 銃 */
-        a.r(32, 18, 10, 3, OUT);
-        a.r(32, 19, 9, 1, STEEL[3]);
+      return shaded(48, 32, foeMats('#7f8fa0', { blur: '!#c8d0d8' }), function (G) {
+        G.rect(3, 4, 17, 4, 'blur'); G.rect(31, 4, 45, 4, 'blur');   // 回るローター
+        G.rect(9, 5, 11, 8, 'steel'); G.rect(37, 5, 39, 8, 'steel');
+        G.rect(10, 9, 38, 10, 'steel');                              // 支持アーム
+        G.disc(24, 15, 10, 6.5, 'hull');
+        G.rect(15, 15, 33, 15, 'seam');
+        G.disc(30, 14, 3, 3, 'dark'); G.set(30, 13, 'eye'); G.set(31, 13, 'eye');
+        G.line(19, 20, 16, 25, 'steel'); G.line(29, 20, 32, 25, 'steel');
+        G.rect(32, 18, 41, 19, 'steel');                             // 機関銃
       });
     },
     /* 砂賊のバギー */
     buggy: function () {
-      var R = ramp('#a5622f');
-      return make(48, 32, function (a) {
-        ground(a, 48, 32);
-        [12, 35].forEach(function (x) {
-          a.blob(x, 23, 6, 6, OUT);
-          a.blob(x, 23, 5, 5, '#2c2f34');
-          a.blob(x, 23, 2, 2, STEEL[2]);
-        });
-        a.r(6, 14, 36, 8, OUT);
-        a.r(7, 15, 34, 6, R[2]);
-        a.r(7, 15, 34, 1, R[4]);
-        a.r(7, 20, 34, 1, R[0]);
-        /* ロールバー */
-        a.r(16, 7, 2, 8, OUT); a.r(28, 7, 2, 8, OUT);
-        a.r(16, 6, 14, 2, OUT);
-        a.r(17, 7, 12, 1, STEEL[3]);
-        /* 荷台の機関銃 */
-        a.r(30, 9, 12, 2, OUT);
-        a.r(30, 9, 11, 1, STEEL[3]);
-        a.r(27, 8, 4, 4, OUT);
-        a.r(28, 9, 2, 2, STEEL[1]);
+      return shaded(48, 32, foeMats('#a5622f', { flag: ramp('#c0392b') }), function (G) {
+        G.poly([[5, 15], [33, 15], [42, 18], [42, 23], [5, 23]], 'hull');
+        G.rect(6, 19, 41, 19, 'seam');
+        G.line(16, 15, 18, 7, 'steel'); G.line(28, 15, 26, 7, 'steel'); G.rect(18, 7, 26, 7, 'steel');   // ロールバー
+        G.rect(7, 8, 11, 12, 'steel'); G.rect(11, 9, 22, 10, 'steel');   // 荷台の機関銃
+        G.line(5, 15, 3, 3, 'steel'); G.poly([[3, 3], [10, 4], [3, 8]], 'flag');   // 砂賊の旗
+        G.set(41, 19, 'eyew');
+        wheel(G, 12, 24, 5.5); wheel(G, 35, 24, 5.5);
       });
     },
     /* 廃車を寄せ集めた塊 */
     golem: function () {
-      var R = ramp('#6a6257');
-      return make(48, 32, function (a) {
-        ground(a, 48, 32);
-        a.blob(24, 26, 15, 3, SAND[0]);
-        /* 積み上がった鉄屑 */
-        a.r(8, 12, 32, 16, OUT);
-        a.r(9, 13, 30, 14, R[2]);
-        a.r(9, 13, 30, 1, R[4]);
-        a.r(9, 26, 30, 1, R[0]);
-        /* 差さった車の残骸 */
-        a.r(12, 6, 12, 8, OUT);
-        a.r(13, 7, 10, 6, RUST[2]);
-        a.r(13, 7, 10, 1, RUST[3]);
-        a.r(15, 9, 6, 3, '#2a3038');
-        a.r(26, 9, 14, 6, OUT);
-        a.r(27, 10, 12, 4, R[1]);
-        a.r(27, 10, 12, 1, R[3]);
-        /* 目 */
-        a.r(17, 18, 3, 3, '#ffb03a');
-        a.r(28, 18, 3, 3, '#ffb03a');
-        /* 傷 */
-        a.dots([[14, 22], [22, 24], [33, 20], [20, 16], [36, 24]], R[0]);
+      return shaded(48, 32, foeMats('#6a6257', { car: RUST, glass: GLASS }), function (G) {
+        G.rect(12, 25, 17, 29, 'hull'); G.rect(30, 25, 35, 29, 'hull');   // 脚
+        G.disc(24, 19, 16, 9, 'hull');
+        G.poly([[10, 8], [22, 6], [24, 14], [12, 15]], 'car');            // 刺さった車
+        G.rect(14, 9, 19, 11, 'glass');
+        G.poly([[26, 9], [40, 10], [39, 16], [27, 15]], 'steel');
+        G.disc(8, 17, 4, 4, 'tire');
+        G.rect(16, 18, 18, 20, 'glow'); G.rect(28, 18, 30, 20, 'glow');   // 目
+        G.line(12, 23, 36, 23, 'seam');
+        G.set(20, 25, 'seam'); G.set(26, 14, 'seam'); G.set(34, 21, 'seam');
       });
     },
     /* 長い砲身の自走砲 */
     sniper: function () {
-      var R = ramp('#5f6b52');
-      return make(48, 32, function (a) {
-        ground(a, 48, 32);
-        a.r(4, 20, 34, 7, OUT);
-        a.r(5, 21, 32, 5, STEEL[1]);
-        for (var x = 7; x < 36; x += 4) a.r(x, 21, 1, 5, STEEL[0]);
-        a.r(6, 13, 30, 8, OUT);
-        a.r(7, 14, 28, 6, R[2]);
-        a.r(7, 14, 28, 1, R[4]);
-        a.r(7, 19, 28, 1, R[0]);
-        /* 長砲身 */
-        a.r(14, 6, 8, 8, OUT);
-        a.r(15, 7, 6, 6, R[3]);
-        a.r(20, 8, 27, 4, OUT);
-        a.r(20, 9, 26, 2, STEEL[2]);
-        a.r(20, 9, 26, 1, STEEL[4]);
-        a.r(44, 7, 3, 6, OUT);
-        a.r(44, 8, 2, 4, STEEL[3]);
+      return shaded(48, 32, foeMats('#5f6b52'), function (G) {
+        tracks(G, 3, 37, 21, 28, 5);
+        G.poly([[6, 14], [32, 14], [37, 18], [37, 21], [4, 21], [4, 17]], 'hull');
+        G.rect(5, 18, 36, 18, 'seam');
+        G.poly([[13, 7], [22, 7], [25, 10], [25, 14], [12, 14]], 'hull');
+        G.rect(24, 9, 45, 10, 'steel'); G.rect(43, 7, 47, 12, 'steel');   // 長砲身
+        G.rect(15, 4, 19, 6, 'steel'); G.set(19, 5, 'eye');               // 照準器
       });
     },
     /* 賞金首：鉄クワガタ */
     stag: function () {
-      var R = ramp('#4a5560');
-      return make(48, 32, function (a) {
-        ground(a, 48, 32);
-        a.blob(24, 27, 13, 2, SAND[0]);
-        /* 大顎 */
-        a.r(30, 8, 14, 3, OUT); a.r(30, 9, 13, 1, STEEL[3]);
-        a.r(30, 19, 14, 3, OUT); a.r(30, 20, 13, 1, STEEL[3]);
-        a.r(42, 6, 3, 6, OUT); a.r(42, 18, 3, 6, OUT);
-        a.r(42, 7, 2, 4, STEEL[2]); a.r(42, 19, 2, 4, STEEL[2]);
-        /* 甲羅 */
-        a.blob(19, 15, 15, 9, OUT);
-        a.blob(19, 15, 14, 8, R[2]);
-        a.blob(18, 13, 12, 5, R[3]);
-        a.blob(17, 11, 8, 2, R[4]);
-        /* 背中の継ぎ目 */
-        a.r(19, 8, 1, 15, R[0]);
-        a.dots([[12, 12], [26, 12], [12, 19], [26, 19]], R[0]);
-        /* 目 */
-        a.r(29, 13, 3, 2, '#ff5a4a');
-        a.r(29, 16, 3, 2, '#ff5a4a');
-        /* 脚 */
-        [8, 16, 24].forEach(function (x) {
-          a.r(x, 23, 2, 5, OUT); a.p(x, 24, STEEL[2]);
-        });
+      return shaded(48, 32, foeMats('#4a5560'), function (G) {
+        [10, 18, 26].forEach(function (x) { G.line(x, 21, x - 3, 28, 'steel'); });   // 脚
+        G.poly([[29, 11], [42, 5], [46, 7], [44, 10], [36, 12], [33, 14]], 'steel');  // 上の大顎
+        G.poly([[29, 19], [42, 25], [46, 23], [44, 20], [36, 18], [33, 16]], 'steel'); // 下の大顎
+        G.set(40, 10, 'seam'); G.set(40, 20, 'seam');
+        G.disc(19, 15, 15, 9, 'hull');
+        G.line(19, 7, 19, 23, 'seam');
+        G.disc(30, 15, 4, 4, 'hull');
+        G.set(31, 13, 'eye'); G.set(32, 13, 'eye'); G.set(31, 17, 'eye'); G.set(32, 17, 'eye');
+        G.set(12, 11, 'seam'); G.set(26, 11, 'seam'); G.set(12, 19, 'seam'); G.set(26, 19, 'seam');
       });
     },
     /* 賞金首：砂ヒル */
     leech: function () {
-      var R = ramp('#8a6f4a');
-      return make(48, 32, function (a) {
-        ground(a, 48, 32);
-        /* 砂から出ている胴を節で描く */
+      return shaded(48, 32, foeMats('#8a6f4a', { mouth: '!#3a1a1a', tooth: '!#ffe9c0', sand: ramp('#c8a06a') }), function (G) {
+        G.rect(0, 28, 47, 31, 'sand');
         for (var i = 0; i < 5; i++) {
-          var x = 6 + i * 8;
-          var y = 22 - Math.round(Math.sin(i * 0.9) * 7);
-          a.blob(x, y, 6, 6, OUT);
-          a.blob(x, y, 5, 5, R[2]);
-          a.blob(x - 1, y - 1, 3, 3, R[3]);
-          a.blob(x - 1, y - 2, 2, 1, R[4]);
+          var x = 6 + i * 7, y = 23 - Math.round(Math.sin(i * .9) * 7);
+          G.disc(x, y, 5.5, 5.5, 'hull');
+          G.set(x, y - 4, 'seam');
         }
-        /* 口 */
-        a.blob(41, 10, 7, 7, OUT);
-        a.blob(41, 10, 6, 6, R[1]);
-        a.blob(42, 10, 4, 4, '#3a1a1a');
-        [[-3, -3], [3, -3], [-3, 3], [3, 3], [0, -4], [0, 4]].forEach(function (d) {
-          a.p(42 + d[0], 10 + d[1], '#ffe9c0');
-        });
-        /* 砂けむり */
-        a.dots([[4, 27], [10, 28], [17, 27], [30, 28]], SAND[3]);
+        G.disc(41, 11, 6.5, 6.5, 'hull');
+        G.disc(42, 11, 4, 4, 'mouth');
+        [[-3, -2], [2, -3], [3, 2], [-2, 3], [0, -4], [4, 0]].forEach(function (d) { G.set(42 + d[0], 11 + d[1], 'tooth'); });
       });
     },
     /* ボス：大型戦車ゴルゴダ */
     golgoda: function () {
-      var R = ramp('#57606b');
-      return make(64, 40, function (a) {
-        ground(a, 64, 40);
-        /* 二重履帯 */
-        a.r(3, 26, 58, 10, OUT);
-        a.r(4, 27, 56, 8, STEEL[1]);
-        for (var x = 6; x < 59; x += 4) a.r(x, 27, 1, 8, STEEL[0]);
-        a.r(4, 27, 56, 1, STEEL[3]);
-        [9, 22, 35, 48].forEach(function (cx) {
-          a.blob(cx, 31, 4, 4, STEEL[0]);
-          a.blob(cx, 31, 2, 2, STEEL[2]);
-        });
-        /* 車体 */
-        a.r(5, 16, 54, 11, OUT);
-        a.r(6, 17, 52, 9, R[2]);
-        a.r(6, 17, 52, 1, R[4]);
-        a.r(6, 25, 52, 1, R[0]);
-        a.dots([[12, 21], [24, 20], [40, 22], [52, 20]], R[0]);
-        /* 主砲塔 */
-        a.r(16, 7, 24, 10, OUT);
-        a.r(17, 8, 22, 8, R[3]);
-        a.r(17, 8, 22, 1, R[4]);
-        a.r(17, 15, 22, 1, R[1]);
-        a.r(38, 10, 25, 5, OUT);
-        a.r(38, 11, 24, 3, STEEL[2]);
-        a.r(38, 11, 24, 1, STEEL[4]);
-        a.r(60, 8, 3, 9, OUT);
-        a.r(60, 9, 2, 7, STEEL[3]);
-        /* 副砲 */
-        a.r(8, 11, 8, 6, OUT);
-        a.r(9, 12, 6, 4, R[1]);
-        a.r(14, 13, 9, 2, OUT);
-        a.r(14, 13, 8, 1, STEEL[3]);
-        /* 一斉射撃の発射管 */
-        a.r(20, 3, 16, 5, OUT);
-        for (var i = 0; i < 4; i++) {
-          a.r(22 + i * 3, 4, 2, 3, RUST[2]);
-          a.p(22 + i * 3, 4, '#ffd88a');
-        }
+      return shaded(64, 40, foeMats('#57606b', { tube: '!#ffd88a' }), function (G) {
+        tracks(G, 2, 62, 28, 37, 8);
+        G.poly([[5, 17], [55, 17], [61, 22], [61, 28], [3, 28], [3, 21]], 'hull');
+        G.rect(4, 24, 60, 24, 'seam');
+        G.poly([[16, 8], [37, 8], [42, 12], [42, 18], [13, 18], [13, 11]], 'hull');
+        G.rect(41, 11, 61, 13, 'steel'); G.rect(58, 9, 63, 15, 'steel');    // 主砲
+        G.rect(5, 13, 12, 18, 'hull'); G.rect(11, 14, 20, 15, 'steel');     // 副砲
+        G.rect(20, 2, 35, 7, 'steel');                                      // 一斉射撃の発射管
+        for (var i = 0; i < 4; i++) G.set(22 + i * 4, 3, 'tube');
+        G.set(38, 14, 'eye'); G.set(15, 13, 'eye');
       });
     }
   };
