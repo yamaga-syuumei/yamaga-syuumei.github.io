@@ -194,8 +194,8 @@ window.TITLE = (function () {
     rect(L - 2, gy - 6, R - L + 4, 6, '#55506c');
     for (let x = L; x < R; x += 6) { rect(x, gy - 6, 1, 6, '#3e3a52'); rect(x + 3, gy - 3, 1, 3, '#3e3a52'); }
     rect(L - 2, gy - 6, R - L + 4, 1, '#6e6a88');
-    // 煙突
-    rect(cx + 18, gy - 86, 8, 22, '#5e5470'); rect(cx + 17, gy - 88, 10, 3, '#7a7090');
+    // 煙突。根元は屋根の下まで伸ばし、あとから描く屋根で隠す
+    rect(cx + 18, gy - 86, 8, 36, '#5e5470'); rect(cx + 17, gy - 88, 10, 3, '#7a7090');
     // 屋根。両端に張り出す
     const rl = L - 8, rr = R + 8, peak = gy - 78;
     for (let x = rl; x < rr; x++) {
