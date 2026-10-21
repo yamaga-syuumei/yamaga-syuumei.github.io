@@ -724,6 +724,10 @@
   function onKey(e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    if (!el('ovTitle').hidden) {
+      if (!titleReady && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); titleWake(); }
+      return;
+    }
     if (e.key === 'r' || e.key === 'R') { turnAt(hoverCell, e.shiftKey ? 3 : 1); return; }
     if (e.key === '+' || e.key === '=') { zoomAt(VW / 2, VH / 2, 1.25); return; }
     if (e.key === '-') { zoomAt(VW / 2, VH / 2, 0.8); return; }
@@ -948,6 +952,8 @@
   function frame(now) {
     requestAnimationFrame(frame);
     if (!st) return;
+    // タイトルが出ている間は工房を止める。景色は title.js が描く
+    if (!el('ovTitle').hidden) { last = now; return; }
     if (!last) last = now;
     const dt = Math.min(250, now - last);
     last = now;
@@ -2434,7 +2440,7 @@
 
   // ---------------------------------------------------------------- 図鑑に載った
   // 初めて作った品は、画面の真ん中に札を出して紙吹雪で祝う。続けて作れたら順番に出す。
-  // タイトルが出ている間は待たせる（裏で盤面が動いているので、遊ぶ前に作ってしまう）。
+  // タイトルが出ている間は待たせる。
   const disc = { queue: [], cur: null, t: 0 };
   const DISC_IN = 320, DISC_HOLD = 2600, DISC_OUT = 320;
   let confetti = [];
@@ -2696,15 +2702,37 @@
     if (closeBtn) el(closeBtn).onclick = () => { SND.se('ui'); o.hidden = true; hideTip(); };
   }
 
-  // 続きがあるときは、その盤面を裏に出したまま「つづきから」を見せる。
+  // 続きがあるときは「つづきから」と、どこまで来たかを見せる。
   // 数日またいで開くゲームなので、黙って復元されると続きなのか分からない。
+  // 最初は「クリックしてはじめる」だけ出す。そのクリックで音を鳴らせるようになる（ブラウザの決まり）
+  let titleReady = false;
   function showTitle(resume) {
     el('btnStart').textContent = resume ? 'つづきから' : 'はじめる';
     el('btnTitleNew').hidden = !resume;
     el('titleNote').textContent = resume
-      ? TIERS[st.tier].name + '　累計売上 ' + Math.round(st.total).toLocaleString() + 'G'
+      ? st.day + '日目　' + TIERS[st.tier].name + '　累計売上 ' + Math.round(st.total).toLocaleString() + 'G'
       : '';
+    el('titlePress').hidden = titleReady;
+    el('titleMenu').hidden = !titleReady;
+    closeMenu(); hideTip();
+    if (placing) { placing = null; refreshPalette(); }
+    drag = null; moving = null; panning = null;
     el('ovTitle').hidden = false;
+    if (window.TITLE) TITLE.start();
+  }
+
+  function titleWake() {
+    if (titleReady) return;
+    titleReady = true;
+    SND.unlock(); SND.se('ui'); SND.bgm('play');
+    el('titlePress').hidden = true;
+    el('titleMenu').hidden = false;
+  }
+
+  function hideTitle() {
+    el('ovTitle').hidden = true;
+    if (window.TITLE) TITLE.stop();
+    SND.bgm(st.boom ? 'boom' : 'play');
   }
 
   function startFresh() {
@@ -2754,6 +2782,8 @@
     overlay('res', 'btnRes', 'btnResClose', () => { seeThese(resKeys()); buildResearch(); });
     overlay('help', 'btnHelp', 'btnHelpClose');
     overlay('ovOpt', 'btnOpt', 'btnOptClose', syncSound);
+    el('btnOpt').addEventListener('click', () => { el('optToTitle').hidden = false; });
+    el('btnTitleOpt').addEventListener('click', () => { el('optToTitle').hidden = true; });
     el('btnTut').onclick = () => { st.tut = 0; save(); updateHint(); el('help').hidden = true; };
     overlay('log', 'btnLog', 'btnLogClose', buildLog);
     overlay('codex', 'btnCodex', 'btnCodexClose', () => { seeThese(codexKeys()); buildCodex(); });
@@ -2774,19 +2804,24 @@
       if (!confirm('最初からやり直します。よろしいですか？')) return;
       startFresh();
       el('ovOpt').hidden = true;
+      if (!el('ovTitle').hidden) showTitle(false);
     };
 
-    el('btnStart').onclick = () => {
-      SND.unlock(); SND.se('ui');
-      el('ovTitle').hidden = true;
-      SND.bgm('play');
-    };
+    if (window.TITLE) TITLE.attach(el('titleCv'));
+    el('ovTitle').addEventListener('pointerdown', titleWake);
+    el('btnStart').onclick = () => { SND.se('ui'); hideTitle(); };
     el('btnTitleNew').onclick = () => {
-      SND.unlock(); SND.se('ui');
+      SND.se('ui');
       if (!confirm('最初からやり直します。いまの盤面は消えます。よろしいですか？')) return;
       startFresh();
-      el('ovTitle').hidden = true;
-      SND.bgm('play');
+      hideTitle();
+    };
+    el('btnTitleHelp').onclick = () => { SND.se('ui'); el('help').hidden = false; };
+    el('btnTitleOpt').onclick = () => { SND.se('ui'); syncSound(); el('ovOpt').hidden = false; };
+    el('btnToTitle').onclick = () => {
+      SND.se('ui'); writeSave();
+      el('ovOpt').hidden = true;
+      showTitle(true);
     };
     showTitle(resumed);
 

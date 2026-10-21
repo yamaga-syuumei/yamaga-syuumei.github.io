@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=e3767985">
+<link rel="stylesheet" href="style.css?v=587db528">
 </head>
 <body>
 
@@ -83,17 +83,23 @@
   </div>
 </div>
 
-<!-- タイトル。裏に盤面を透かす -->
-<div class="al-ov al-ov-title" id="ovTitle" hidden>
-  <div class="al-titlecard">
-    <h1>錬金工場と魔法のお店</h1>
+<!-- タイトル。夕暮れの魔法のお店の景色。出ている間、工房は止まっている。
+     最初のクリックで音を鳴らせるようになるので、まず「クリックしてはじめる」を出してからメニューにする -->
+<div class="al-title" id="ovTitle" hidden>
+  <canvas class="al-tcv" id="titleCv"></canvas>
+  <div class="al-tlogo">
+    <h1>錬金工場と<br>魔法のお店</h1>
     <p class="al-tagline">掘って、錬成して、売る。世界一の魔法のお店にする。</p>
-    <div class="al-ov-btns">
-      <button class="al-btn al-btn-p" id="btnStart">はじめる</button>
-      <button class="al-btn" id="btnTitleNew" hidden>最初から</button>
-    </div>
+  </div>
+  <p class="al-tpress" id="titlePress">クリックしてはじめる</p>
+  <div class="al-tmenu" id="titleMenu" hidden>
+    <button class="al-tbtn" id="btnStart">はじめる</button>
+    <button class="al-tbtn" id="btnTitleNew" hidden>はじめから</button>
+    <button class="al-tbtn" id="btnTitleHelp">遊び方</button>
+    <button class="al-tbtn" id="btnTitleOpt">オプション</button>
     <p class="al-titlenote" id="titleNote"></p>
   </div>
+  <p class="al-tfoot">ベータ 1.1　／　© ヒノガタリ</p>
 </div>
 
 <!-- 右クリックのメニュー。設備・送り道・瓦礫で中身が変わる -->
@@ -282,6 +288,14 @@
       </div>
       <p class="al-optnote" id="saveNote" hidden></p>
 
+      <div class="al-optrow" id="optToTitle">
+        <div>
+          <b>タイトル</b>
+          <span>盤面はそのまま残ります。</span>
+        </div>
+        <button class="al-btn" id="btnToTitle">タイトルに戻る</button>
+      </div>
+
       <div class="al-optrow">
         <div>
           <b>最初から</b>
@@ -312,6 +326,7 @@
 <script src="art.js?v=6e6f3c3d"></script>
 <script src="sprites.js?v=2389894c"></script>
 <script src="hero.js?v=ebbc5d9c"></script>
-<script src="game.js?v=661bfca8"></script>
+<script src="title.js?v=5b593a51"></script>
+<script src="game.js?v=80efedb2"></script>
 </body>
 </html>
