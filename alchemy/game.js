@@ -2431,11 +2431,54 @@
       }
       rows[p.key] = used;
     });
-    return { col, row, rows, cols: next, tierCols };
+
+    // 線の通り道。隣の列へは、列のすき間で曲がるだけ。間に列を挟む線は、行と行のすき間を横に走る。
+    // 札の上を通らないため。すき間ごとに通る線を数えておき、少しずつずらして重ねない。
+    // 同じ研究から出る線は出口の縦を、同じ研究へ入る線は入口の縦を共にする（枝分かれ・合流に見える）
+    const edges = [], ch = {}, gut = {}, skip = {};
+    const lane = (m, id, key) => { const a = m[id] || (m[id] = []); if (a.indexOf(key) < 0) a.push(key); };
+    RESEARCH.forEach((b) => (b.req || []).forEach((k) => {
+      const ca = col[k], cb = col[b.key], ra = row[k], rb = row[b.key];
+      const e = { a: RES[k], b };
+      if (cb === ca + 1) {
+        e.outKey = e.inKey = 'adj:' + k + '>' + b.key;
+        lane(ch, ca, e.outKey);
+      } else {
+        e.outKey = 'out:' + k;
+        e.inKey = 'in:' + b.key;
+        lane(ch, ca, e.outKey);
+        lane(ch, cb - 1, e.inKey);
+        // 走るのは入る札の行の上か下のすき間。同じ行なら下
+        e.g = rb > ra ? rb : rb < ra ? rb + 1 : ra + 1;
+        e.gKey = 'g:' + k;
+        lane(gut, b.p + '|' + e.g, e.gKey);
+        skip[b.p] = true;
+      }
+      edges.push(e);
+    }));
+    return { col, row, rows, cols: next, tierCols, edges, ch, gut, skip };
   })();
 
-  // 札の大きさと間。CSS の .al-tnode と揃える
-  const TN = { w: 168, h: 40, gx: 34, gy: 7, head: 26, lab: 20, sec: 10 };
+  // 札の大きさと間。CSS の .al-tnode と揃える。
+  // 行の間は、線が横に走る柱（skip）だけ広くする（gr）。ほかは詰めて縦に収める
+  const TN = { w: 168, h: 40, gx: 34, gy: 6, gr: 20, head: 26, lab: 18, sec: 8 };
+  const rowGap = (p) => (TREE.skip[p] ? TN.gr : TN.gy);
+
+  // 折れ線を、角を丸めた SVG の道にする
+  function roundPath(pts, rad) {
+    let d = 'M' + pts[0].x + ' ' + pts[0].y;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const p = pts[i], a = pts[i - 1], b = pts[i + 1];
+      const la = Math.hypot(p.x - a.x, p.y - a.y), lb = Math.hypot(b.x - p.x, b.y - p.y);
+      const r = Math.min(rad, la / 2, lb / 2);
+      if (r < .5) { d += ' L' + p.x + ' ' + p.y; continue; }
+      const p1 = { x: p.x + (a.x - p.x) / la * r, y: p.y + (a.y - p.y) / la * r };
+      const p2 = { x: p.x + (b.x - p.x) / lb * r, y: p.y + (b.y - p.y) / lb * r };
+      d += ' L' + p1.x + ' ' + p1.y + ' Q' + p.x + ' ' + p.y + ' ' + p2.x + ' ' + p2.y;
+    }
+    const z = pts[pts.length - 1];
+    return d + ' L' + z.x + ' ' + z.y;
+  }
 
   // 開いたまま金が貯まるので、作り直さずに押せる・押せないだけ塗り替える。
   // 作り直すと、カーソルを乗せている説明が毎秒消えてしまう。
@@ -2471,9 +2514,9 @@
     // 柱ごとの縦の位置
     const top = {};
     let y = TN.head;
-    PILLARS.forEach((p) => { top[p.key] = y + TN.lab; y += TN.lab + TREE.rows[p.key] * (TN.h + TN.gy) + TN.sec; });
+    PILLARS.forEach((p) => { top[p.key] = y + TN.lab; y += TN.lab + TREE.rows[p.key] * (TN.h + rowGap(p.key)) + TN.sec; });
     const H = y;
-    const pos = (r) => ({ x: colX(TREE.col[r.key]), y: top[r.p] + TREE.row[r.key] * (TN.h + TN.gy) });
+    const pos = (r) => ({ x: colX(TREE.col[r.key]), y: top[r.p] + TREE.row[r.key] * (TN.h + rowGap(r.p)) });
 
     const inner = document.createElement('div');
     inner.className = 'al-treein';
@@ -2504,14 +2547,35 @@
     svg.setAttribute('class', 'al-tlines');
     svg.setAttribute('width', W);
     svg.setAttribute('height', H);
-    RESEARCH.forEach((r) => (r.req || []).forEach((k) => {
-      const a = pos(RES[k]), b = pos(r);
-      const ax = a.x + TN.w, ay = a.y + TN.h / 2, bx = b.x, by = b.y + TN.h / 2, mx = (ax + bx) / 2;
-      const path = document.createElementNS(NS, 'path');
-      path.setAttribute('d', 'M' + ax + ' ' + ay + ' C' + mx + ' ' + ay + ' ' + mx + ' ' + by + ' ' + bx + ' ' + by);
-      path.setAttribute('class', resLv(r) > 0 ? 'got' : resLv(RES[k]) > 0 ? 'next' : 'far');
-      svg.appendChild(path);
-    }));
+    // 列 c の右のすき間の、key の通る x。行 g の上のすき間の、key の通る y
+    const laneX = (c, key) => {
+      const l = TREE.ch[c], i = l.indexOf(key);
+      return colX(c) + TN.w + TN.gx * (i + 1) / (l.length + 1);
+    };
+    const laneY = (p, g, key) => {
+      const l = TREE.gut[p + '|' + g], i = l.indexOf(key), G = rowGap(p);
+      return top[p] + g * (TN.h + G) - G + G * (i + 1) / (l.length + 1);
+    };
+    // 取ったものが上に重なるよう、遠い線から描く
+    const rank = { far: 0, next: 1, got: 2 };
+    TREE.edges.map((e) => ({ e, cls: resLv(e.b) > 0 ? 'got' : resLv(e.a) > 0 ? 'next' : 'far' }))
+      .sort((u, v) => rank[u.cls] - rank[v.cls])
+      .forEach(({ e, cls }) => {
+        const a = pos(e.a), b = pos(e.b);
+        const ax = a.x + TN.w, ay = a.y + TN.h / 2, bx = b.x, by = b.y + TN.h / 2;
+        const ca = TREE.col[e.a.key], cb = TREE.col[e.b.key];
+        const xo = laneX(ca, e.outKey);
+        let pts;
+        if (e.g === undefined) pts = [{ x: ax, y: ay }, { x: xo, y: ay }, { x: xo, y: by }, { x: bx, y: by }];
+        else {
+          const yg = laneY(e.b.p, e.g, e.gKey), xi = laneX(cb - 1, e.inKey);
+          pts = [{ x: ax, y: ay }, { x: xo, y: ay }, { x: xo, y: yg }, { x: xi, y: yg }, { x: xi, y: by }, { x: bx, y: by }];
+        }
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', roundPath(pts, 6));
+        path.setAttribute('class', cls);
+        svg.appendChild(path);
+      });
     inner.appendChild(svg);
 
     RESEARCH.forEach((r) => {
