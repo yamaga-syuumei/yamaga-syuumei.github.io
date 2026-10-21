@@ -211,7 +211,7 @@ window.HERO = (function () {
       // 魔法使いが火の玉を撃つ
       if (chapter >= 1) {
         S.castT -= dt;
-        if (S.castT <= 0) { S.castT = 1300; S.cast = 420; S.bolts.push({ x: HX() - 6, y: ground() - 23, tx: f.x + 4, t: 0 }); }
+        if (S.castT <= 0) { S.castT = 1300; S.cast = 420; S.bolts.push({ x: HX() + 2, y: ground() - 19, tx: f.x + 4, t: 0 }); }   // 魔法使いの杖の先から
       }
       // 僧侶がときどき祈る
       if (chapter >= 1) {
@@ -285,7 +285,7 @@ window.HERO = (function () {
   function px(x, y, col) { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), 1, 1); }
 
   function drawParty() {
-    const x = HX(), top = ground() - 28 + BODY;
+    const x = HX(), top = ground() - SP.hero.idle[0].length + BODY;
     const walking = S.mode === 'walk';
     const wf = S.walkF;
     if (chapter >= 1) {
