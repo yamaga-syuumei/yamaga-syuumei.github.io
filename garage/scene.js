@@ -124,6 +124,7 @@ window.SCENE = (function () {
     puff(x, y, 6 + size * 2, ['#ffffff', '#ffe08a', '#ffa040', '#ff6a3a'], 30 + size * 8, .45);
     puff(x, y, 3 + size, ['#6a5a50', '#8a7a6a', '#4a4040'], 10 + size * 2, 1.1, 8);
     shake(size * .8);
+    if (size >= 5 && !noMotion()) st.stop = .07;     // 大きな爆ぜは一瞬止めて重さを出す
   }
   function shake(n) { if (!noMotion()) st.shake = Math.max(st.shake, n); }
 
@@ -197,6 +198,7 @@ window.SCENE = (function () {
 
   /* ---------------------------------------------------------- 毎フレーム */
   function step(dt) {
+    if (st.stop > 0) { st.stop -= dt; return; }
     T += dt;
     if (st.meX < 0) st.meX = Math.min(0, st.meX + dt * 90);
     if (st.foeX > 0) st.foeX = Math.max(0, st.foeX - dt * 90);

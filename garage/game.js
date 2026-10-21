@@ -1140,7 +1140,7 @@
     bar.style.width = pct + '%';
     bar.classList.toggle('is-low', pct <= 30);
     $('st-hp').textContent = S.hp + ' / ' + S.maxHp;
-    $('st-gold').textContent = S.gold + ' G';
+    if (window.FX) window.FX.gold($('st-gold'), S.gold); else $('st-gold').textContent = S.gold + ' G';
     var f = S.map.cur ? S.map.cur.f + 1 : 0;
     $('st-floor').textContent = f + ' / ' + D.run.floors;
   }
@@ -2733,6 +2733,7 @@
     if (win) {
       logLine('win', '── ' + B.foe.name + ' を撃破 ──');
       window.SFX.defeat();
+      if (window.FX && B.type !== 'battle') window.FX.confetti(B.type === 'boss' ? 2 : 1);
       S.hp = Math.max(1, S.hp);
       /* 補修キット：勝つたびに自分で継ぐ */
       var heal = Math.round(B.meMax * modSum().healPct);
@@ -2784,7 +2785,8 @@
     var name = PART_BY_ID[pid].name;
     window.SFX.coin();
     if (autoPlace(inst)) {
-      toast(name + ' を積んだ');
+      if (window.FX) window.FX.got(window.ART.part(PART_BY_ID[pid]), '手に入れた', name, '車に積んだ');
+      else toast(name + ' を積んだ');
       syncHp(); save(); refreshStatus();
       after();
       return;
@@ -2794,7 +2796,8 @@
     /* 強くならない入れ替えでわざわざ手を止めさせない。
        倉庫に入れておけば、整備画面でいつでも入れ替えられる */
     if (!plan || plan.gain <= 0) {
-      toast(name + ' を倉庫に入れた');
+      if (window.FX) window.FX.got(window.ART.part(PART_BY_ID[pid]), '手に入れた', name, '倉庫に入れた');
+      else toast(name + ' を倉庫に入れた');
       after();
       return;
     }
@@ -2851,7 +2854,8 @@
       box.appendChild(itemGoodsButton(it, null, function () {
         addItem(it.id);
         window.SFX.coin();
-        toast(it.name + ' を手に入れた');
+        if (window.FX) window.FX.got(window.ART.item(it), '手に入れた', it.name, '持ち物に入れた');
+        else toast(it.name + ' を手に入れた');
         save(); refreshStatus();
         afterNode();
       }));
@@ -3082,7 +3086,8 @@
     S.mods.push(id);
     markModSeen(id);
     window.SFX.upgrade();
-    toast(MOD_BY_ID[id].name + ' を施した');
+    if (window.FX) window.FX.got(window.ART.mod(MOD_BY_ID[id]), '改造', MOD_BY_ID[id].name, '車に施した');
+    else toast(MOD_BY_ID[id].name + ' を施した');
     /* 装甲の上限が動くので、いまの装甲を合わせ直す */
     syncHp(); save(); refreshStatus();
     toModReward();
@@ -3594,6 +3599,7 @@
 
     if (win) {
       window.SFX.clear();
+      if (window.FX) window.FX.confetti(2);
       META.stats.clears++;
       META.stats.clearedChassis[S.chassis] = true;
       if (!S.visitedShop) META.stats.shoplessClears++;
