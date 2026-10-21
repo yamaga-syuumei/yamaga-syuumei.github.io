@@ -1124,7 +1124,21 @@
     $('status').hidden = (name === 'title' || name === 'pick' || name === 'codex');
     /* 戦闘に入るときは startBattle 側で fight / boss に上書きする */
     if (name !== 'battle') window.SFX.bgmMood('calm');
+    if (window.GTITLE) { if (name === 'title') window.GTITLE.start(); else window.GTITLE.stop(); }
+    if (name === 'title') { $('title-press').hidden = titleReady; $('title-menu').hidden = !titleReady; }
     window.scrollTo(0, 0);
+  }
+
+  /* タイトルは最初に「クリックしてはじめる」だけ出す。
+     そのクリックで音を鳴らせるようになる（ブラウザは一度触るまで音を出せない） */
+  var titleReady = false;
+  function titleWake() {
+    if (titleReady || $('sc-title').hidden) return;
+    titleReady = true;
+    window.SFX.unlock();
+    window.SFX.select();
+    $('title-press').hidden = true;
+    $('title-menu').hidden = false;
   }
   function currentScreen() {
     for (var i = 0; i < SCREENS.length; i++) {
@@ -3690,6 +3704,13 @@
      ========================================================== */
   function wire() {
     if (window.SCENE) window.SCENE.mount($('battle-scene'));
+    if (window.GTITLE) window.GTITLE.mount($('title-cv'));
+    $('sc-title').addEventListener('pointerdown', titleWake);
+    document.addEventListener('keydown', function (e) {
+      if (!titleReady && !$('sc-title').hidden && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); titleWake(); }
+    });
+    $('title-help').onclick = function () { $('open-help').click(); };
+    $('title-opt').onclick = function () { $('open-opt').click(); };
     $('title-new').onclick = function () { window.SFX.unlock(); renderPick(); };
     $('title-continue').onclick = function () {
       window.SFX.unlock();

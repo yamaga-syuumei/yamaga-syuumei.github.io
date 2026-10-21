@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=d9c50da4">
+<link rel="stylesheet" href="style.css?v=7614c356">
 </head>
 <body>
 
@@ -49,40 +49,32 @@
   <!-- ==========================================================
        タイトル
        ========================================================== -->
-  <section class="ss-screen" id="sc-title">
-    <div class="ss-card ss-card-center">
+  <!-- タイトル。夕暮れの荒野の景色を全面に敷き、題字とメニューを重ねる。
+       最初のクリックで音を鳴らせるようになるので、まず「クリックしてはじめる」を出す -->
+  <section class="ss-screen gt-title" id="sc-title">
+    <canvas class="gt-cv" id="title-cv"></canvas>
+    <div class="gt-logo">
       <h1>荒野の車載工房</h1>
-      <p class="ss-lead">
-        車体のグリッドに砲と機関を積み、賞金首を狩りながら12階層を登る。<br>
-        戦闘は自動。勝敗は<b>「何を、どこに置いたか」</b>で決まる。
-      </p>
-
-      <ol class="ss-flow">
-        <li><span class="ss-flow-n">1</span><div><b>車体を選ぶ</b>車体そのものが部品を積むグリッドになる</div></li>
-        <li><span class="ss-flow-n">2</span><div><b>部品を積む</b>倉庫の部品をグリッドへ。置き方が強さを決める</div></li>
-        <li><span class="ss-flow-n">3</span><div><b>出撃する</b>マップでノードを選ぶ。戦闘は自動で進む</div></li>
-        <li><span class="ss-flow-n">4</span><div><b>登り続ける</b>勝てば戦利品。ボスを倒せばクリア</div></li>
-      </ol>
-
-      <div class="ss-bounty" id="title-bounty">
-        <canvas id="bounty-art"></canvas>
-        <div>
-          <em>指名手配</em>
-          <b id="bounty-name">――</b>
-          <span id="bounty-note">――</span>
-        </div>
-      </div>
-
-      <div class="ss-btns">
-        <button class="ss-btn ss-btn-main" id="title-new">新しく走り出す</button>
-        <button class="ss-btn" id="title-continue" hidden>続きから</button>
-        <button class="ss-btn" id="title-codex">図鑑</button>
-      </div>
-      <p class="ss-sub" style="text-align:center; margin-top:18px;">
-        細かい仕組みは、必要になったところで案内が出ます。<br>
-        いつでも右上の <b>？</b> で確かめられます。
-      </p>
+      <p>車体のグリッドに砲と機関を積み、賞金首を狩りながら12階層を登る。<br>
+        戦闘は自動。勝敗は<b>「何を、どこに置いたか」</b>で決まる。</p>
     </div>
+    <p class="gt-press" id="title-press">クリックしてはじめる</p>
+    <div class="gt-menu" id="title-menu" hidden>
+      <button class="gt-btn" id="title-continue" hidden>続きから</button>
+      <button class="gt-btn" id="title-new">新しく走り出す</button>
+      <button class="gt-btn" id="title-codex">図鑑</button>
+      <button class="gt-btn" id="title-help">あそびかた</button>
+      <button class="gt-btn" id="title-opt">オプション</button>
+    </div>
+    <div class="ss-bounty gt-bounty" id="title-bounty">
+      <canvas id="bounty-art"></canvas>
+      <div>
+        <em>指名手配</em>
+        <b id="bounty-name">――</b>
+        <span id="bounty-note">――</span>
+      </div>
+    </div>
+    <p class="gt-foot">ベータ 0.7　／　© ヒノガタリ</p>
   </section>
 
   <!-- ==========================================================
@@ -515,9 +507,10 @@
 <script src="data.js?v=95888b5c"></script>
 <script src="sfx.js?v=9c862861"></script>
 <script src="art.js?v=bd32a4e1"></script>
+<script src="title.js?v=a1f889cb"></script>
 <script src="fx.js?v=d974b4ca"></script>
 <script src="scene.js?v=886c18f7"></script>
-<script src="game.js?v=8bef1d02"></script>
+<script src="game.js?v=05c2a404"></script>
 <!-- dev:start -->
 <!-- 回帰テスト。?debug=1&test=1 のときだけ読み込む -->
 <script>
