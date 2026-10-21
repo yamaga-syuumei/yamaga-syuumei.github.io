@@ -1835,7 +1835,8 @@
       if (bl && !bl.length) {
         held.x = t.x; held.y = t.y;
         window.SFX.place();
-        releaseGhost(); save(); renderGarage();
+        var uid = held.uid;
+        releaseGhost(); save(); renderGarage(); landed(uid);
         return true;
       }
       /* 埋まったマスへ落としたとき、下にいるのが1個だけなら入れ替える。
@@ -1847,7 +1848,8 @@
         held.x = t.x; held.y = t.y;
         window.SFX.place();
         toast(PART_BY_ID[out.pid].name + ' を倉庫へ降ろして入れ替えた');
-        releaseGhost(); save(); renderGarage();
+        var uid2 = held.uid;
+        releaseGhost(); save(); renderGarage(); landed(uid2);
         return true;
       }
       window.SFX.deny();
@@ -1860,6 +1862,15 @@
       return true;
     }
     return false;
+  }
+
+  /* 置いた部品が盤に落ちて、ガチンと据わる。置いた手応え */
+  function landed(uid) {
+    var n = $('grid').querySelector('.ss-item[data-uid="' + uid + '"]');
+    if (!n) return;
+    n.classList.remove('is-landed'); void n.offsetWidth;
+    n.classList.add('is-landed');
+    setTimeout(function () { n.classList.remove('is-landed'); }, 500);
   }
 
   function rotateHeld() {
@@ -2115,7 +2126,7 @@
           b.classList.add('is-open');
           /* f は外側のループ変数なので、閉じ込めずに dataset から読み直す */
           b.onclick = function () {
-            enterNode(parseInt(this.dataset.f, 10), parseInt(this.dataset.i, 10));
+            driveTo(this, parseInt(this.dataset.f, 10), parseInt(this.dataset.i, 10));
           };
         } else if (m.cleared.indexOf(f + ':' + i) >= 0) b.classList.add('is-done');
         /* もう辿り着けない枝は沈める。どこへ行けるかが一目で分かるように */
@@ -2178,13 +2189,48 @@
           line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
           var live = m.cur && m.cur.f === f && m.cur.i === i;
           var open = reach[f + ':' + i];
-          line.setAttribute('stroke', live ? '#d9a441' : (open ? '#5c6b7a' : '#232a31'));
+          line.setAttribute('stroke', live ? '#f0b850' : (open ? '#a8916c' : '#4a3a2a'));
           line.setAttribute('stroke-width', live ? 2.5 : (open ? 1.8 : 1));
           if (!live && !open) line.setAttribute('stroke-dasharray', '3 4');
           svg.appendChild(line);
         });
       }
     }
+    placeCar(m.cur ? center(m.cur.f, m.cur.i) : null, br);
+  }
+
+  /* 地図の上の自分の車。いる場所に止まっていて、行き先を選ぶとそこまで走ってから入る */
+  var driving = false;
+  function mapCar() {
+    var c = $('map-car');
+    if (!c) {
+      c = document.createElement('canvas');
+      c.id = 'map-car'; c.className = 'ss-mapcar';
+      $('map-body').appendChild(c);
+    }
+    var sp = window.ART.chassis(chassis());
+    if (c.width !== sp.width) { c.width = sp.width; c.height = sp.height; }
+    c.getContext('2d').clearRect(0, 0, c.width, c.height);
+    c.getContext('2d').drawImage(sp, 0, 0);
+    return c;
+  }
+  function placeCar(pt, br) {
+    var c = mapCar();
+    /* まだ走り出していなければ、地図のいちばん下で待っている */
+    var p = pt || { x: br.width / 2, y: br.height - 6 };
+    c.classList.remove('is-driving');
+    c.style.left = p.x + 'px'; c.style.top = (p.y - 26) + 'px';
+  }
+  function driveTo(node, f, i) {
+    if (driving) return;
+    var c = $('map-car');
+    if (!c || document.documentElement.classList.contains('no-motion')) { enterNode(f, i); return; }
+    var br = $('map-body').getBoundingClientRect(), r = node.getBoundingClientRect();
+    driving = true;
+    c.classList.add('is-driving');
+    c.style.left = (r.left - br.left + r.width / 2) + 'px';
+    c.style.top = (r.top - br.top + r.height / 2 - 26) + 'px';
+    setTimeout(function () { driving = false; enterNode(f, i); }, 520);
   }
 
   /* ==========================================================
