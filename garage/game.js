@@ -2276,6 +2276,7 @@
 
     renderBattleBoard();
     $('battle-mename').textContent = chassis().name;
+    if (window.SCENE) window.SCENE.start({ foe: foe.art, chassis: chassis(), type: type, floor: floor, speed: B.speed });
 
     var foeC = $('battle-foe');
     var foeSp = window.ART.enemy(foe.art);
@@ -2383,6 +2384,14 @@
     e.style.marginLeft = (rint(45) - 22) + 'px';
     host.appendChild(e);
     setTimeout(function () { if (e.parentNode) e.parentNode.removeChild(e); }, 420);
+  }
+
+  /* 撃った弾を戦場に飛ばす。戦場が無い環境では、前と同じく敵の絵の上に出す */
+  function shotFx(kind, dealt, missed, big) {
+    if (window.SCENE) { window.SCENE.shot(kind, dealt, { miss: missed, big: big }); return; }
+    if (!missed) flash('foe');
+    impact(!!big, missed);
+    if (!missed) popDamage('foe', dealt, kind === 'special');
   }
 
   function logLine(cls, text) {
@@ -2546,8 +2555,7 @@
         var d = Math.max(1, 4 - foeArmor());
         B.foeHp -= d;
         logLine('me', '体当たり。' + d + ' のダメージ');
-        flash('foe');
-        popDamage('foe', d, false);
+        if (window.SCENE) window.SCENE.ram(d); else { flash('foe'); popDamage('foe', d, false); }
         checkEnd();
       }
     }
@@ -2614,8 +2622,7 @@
       void bar.offsetWidth;
       bar.classList.add('is-in');
     }
-    flash('foe');
-    impact(true);
+    if (window.SCENE) window.SCENE.trump(); else { flash('foe'); impact(true); }
     window.SFX.special();
   }
 
@@ -2648,7 +2655,7 @@
     if (B.tally.elapsed < B.missUntil) {
       B.tally.blocked += raw;
       logLine('sys', g.name + ' は煙に阻まれた');
-      impact(false, true);
+      shotFx(g.kind, 0, true);
       if (g.ammo === 0) logLine('sys', g.name + ' は弾切れ');
       return;
     }
@@ -2658,7 +2665,7 @@
     if (B.bv.dodgeEvery && B.hits % B.bv.dodgeEvery === 0) {
       B.dodged++;
       logLine('sys', B.foe.name + ' は身をかわした（' + g.name + ' の一撃）');
-      impact(false, true);
+      shotFx(g.kind, 0, true);
       tipLog('behavior');
       B.tally.blocked += raw;
       if (g.ammo === 0) logLine('sys', g.name + ' は弾切れ');
@@ -2688,9 +2695,7 @@
     if (g.kind === 'special') window.SFX.special();
     else if (g.kind === 'main') window.SFX.fire();
     else window.SFX.subFire();
-    flash('foe');
-    impact(g.kind === 'special' || dealt >= 40);
-    popDamage('foe', dealt, g.kind === 'special');
+    shotFx(g.kind, dealt, false, g.kind === 'special' || dealt >= 40);
     if (g.ammo === 0) logLine('sys', g.name + ' は弾切れ');
     checkEnd();
   }
@@ -2705,7 +2710,7 @@
       (B.me.def > 0 ? '（装甲が ' + Math.min(B.me.def, raw - 1) + ' 受けた）' : ''));
     window.SFX.damage();
     flash('me');
-    popDamage('me', dealt, !!salvo);
+    if (window.SCENE) window.SCENE.foeShot(dealt, !!salvo); else popDamage('me', dealt, !!salvo);
     checkEnd();
   }
 
@@ -2717,6 +2722,7 @@
 
   function endBattle(win) {
     stopLoop();
+    if (window.SCENE) window.SCENE.end(win);
     B.foeHp = Math.max(0, B.foeHp);
     B.meHp = Math.max(0, B.meHp);
     updateBars();
@@ -3677,6 +3683,7 @@
      配線
      ========================================================== */
   function wire() {
+    if (window.SCENE) window.SCENE.mount($('battle-scene'));
     $('title-new').onclick = function () { window.SFX.unlock(); renderPick(); };
     $('title-continue').onclick = function () {
       window.SFX.unlock();
@@ -3713,6 +3720,7 @@
       if (!B) return;
       B.speed = B.speed >= 4 ? 1 : B.speed * 2;
       $('battle-speed').textContent = '速度 x' + B.speed;
+      if (window.SCENE) window.SCENE.speed(B.speed);
     };
 
     $('battle-next').onclick = function () {
@@ -3877,7 +3885,7 @@
       b.onclick = function () {
         OPT.speed = Number(b.dataset.sp);
         saveOpt(); syncOptUI();
-        if (B && !B.over) { B.speed = OPT.speed; $('battle-speed').textContent = '速度 x' + B.speed; }
+        if (B && !B.over) { B.speed = OPT.speed; $('battle-speed').textContent = '速度 x' + B.speed; if (window.SCENE) window.SCENE.speed(B.speed); }
         window.SFX.select();
       };
     });

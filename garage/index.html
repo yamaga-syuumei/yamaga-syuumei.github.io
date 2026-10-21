@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=01fb52ef">
+<link rel="stylesheet" href="style.css?v=f8326e62">
 </head>
 <body>
 
@@ -191,6 +191,9 @@
 
       <!-- 切り札が出た瞬間に名乗る帯。何をされたか分からないまま負けるのを避ける -->
       <div class="ss-trumpbar" id="battle-trump" hidden></div>
+
+      <!-- 戦場。荒野を横から見た景色で、弾が飛び、当たれば爆ぜる。見せるだけで数値には触らない -->
+      <div class="ss-scene"><canvas id="battle-scene"></canvas></div>
 
       <div class="ss-field">
         <div class="ss-side ss-side-me">
@@ -512,7 +515,8 @@
 <script src="data.js?v=95888b5c"></script>
 <script src="sfx.js?v=9c862861"></script>
 <script src="art.js?v=bd32a4e1"></script>
-<script src="game.js?v=fb053a2f"></script>
+<script src="scene.js?v=2714f321"></script>
+<script src="game.js?v=ab386c89"></script>
 <!-- dev:start -->
 <!-- 回帰テスト。?debug=1&test=1 のときだけ読み込む -->
 <script>

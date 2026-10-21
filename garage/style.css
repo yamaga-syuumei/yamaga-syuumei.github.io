@@ -467,6 +467,13 @@ html.no-motion .ss-link { opacity: .9; }
   background: linear-gradient(#161d24, #101519); border: 1px solid var(--line);
   border-radius:var(--r-1); padding: 14px; margin-bottom: 12px;
 }
+/* 戦場。荒野を横から見た景色。敵の絵はここに出るので、下の欄には名前と数値だけ残す */
+.ss-scene {
+  position: relative; margin: 0 0 12px; border-radius:var(--r-2); overflow: hidden;
+  border: 1px solid var(--line); box-shadow: 0 0 0 1px rgba(0,0,0,.5) inset, 0 8px 24px rgba(0,0,0,.35);
+}
+.ss-scene canvas { display: block; width: 100%; height: clamp(150px, 27vh, 230px); }
+.ss-side-foe .ss-sprite { display: none; }
 .ss-fighter { text-align: center; }
 .ss-sprite { width: 144px; height: 96px; display: block; margin: 0 auto; }
 .ss-side-foe .ss-sprite { transform: scaleX(-1); }

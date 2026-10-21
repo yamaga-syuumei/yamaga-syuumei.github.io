@@ -198,19 +198,13 @@
         b1.weapons.map(function (w) { return w.name + '=' + r2(w.heatNet); }).join(' '));
     });
 
-    /* ---------- ダメージの数字が出る位置 ----------
-       .ss-pop の位置は「箱の高さの34%」だが、敵側の箱には次の攻撃ゲージが
-       入っていて縦に長い。割合のままだと数字が敵の名前や体力に重なる。
-       絵（canvas）の高さの中に収まっていることを見る */
+    /* ---------- 撃った弾が戦場に飛ぶ ----------
+       ダメージの数字と着弾は戦場（scene.js）に出る。撃てば弾が増えることを見る */
     G.startRun('ch_jeep');
     G.warpTo('boss');
     G.step(3);
-    var foeCanvas = document.getElementById('battle-foe');
-    var pops = foeCanvas.parentNode.querySelectorAll('.ss-pop');
-    var popTop = pops.length ? parseFloat(pops[pops.length - 1].style.top) : null;
-    ok('ダメージ数字：敵側でも絵の中に出る（名前に重ならない）',
-      pops.length > 0 && popTop != null && popTop < foeCanvas.offsetHeight,
-      'top=' + popTop + ' canvasH=' + foeCanvas.offsetHeight + ' pops=' + pops.length);
+    var sc = window.SCENE && window.SCENE.state();
+    ok('戦場：撃った弾が飛ぶ', !!sc && sc.shots > 0, sc ? 'shots=' + sc.shots : 'SCENE なし');
 
     /* ---------- 焚き火 ----------
        できることは一つだけなので、満タンで「修理する」を選べてしまうと
