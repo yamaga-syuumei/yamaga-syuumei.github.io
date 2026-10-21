@@ -150,16 +150,6 @@ button{font:inherit; color:inherit; cursor:pointer}
 .al-helpbody ul{margin:0; padding-left:1.2em}
 .al-helpbody li{font-size:var(--fs-2); line-height:1.7; margin-bottom:2px}
 
-/* はじめのてびき。案内の行をそのまま使うので高さは変わらない */
-.al-hint.tut{color:var(--magic); font-weight:600}
-.al-hint .al-step{
-  display:inline-block; background:var(--magic); color:#fff; border-radius:var(--r-1);
-  padding:0 7px; margin-right:6px; font-size:var(--fs-1); font-weight:700; vertical-align:1px;
-}
-.al-hint .al-skip{
-  background:none; border:0; color:var(--dim); font-size:var(--fs-1);
-  margin-left:8px; text-decoration:underline; padding:0;
-}
 
 /* ---------------------------------------------------------------- 盤面 */
 /* 盤面が窓より大きくなったら、切り落とさずに寄せられるようにする。
@@ -543,6 +533,33 @@ body{
   content:""; position:absolute; right:10px; top:-7px; width:16px; height:16px; border-radius:var(--r-pill);
   background:radial-gradient(circle at 35% 30%, #e86a6a, #9a1e2a); box-shadow:0 1px 3px rgba(90,10,20,.45)}
 .al-newshead{color:#6a4f9a}
+
+/* 確かめる窓 */
+.al-ask{width:min(380px,100%)}
+.al-asktext{margin:0; font-size:var(--fs-3); line-height:1.7; white-space:pre-line}
+
+/* はじめのてびき。枠のまわりを box-shadow で暗くする（影はクリックを奪わない） */
+.al-spot{position:fixed; z-index:64; pointer-events:none; border:2px solid #f0c46a; border-radius:var(--r-1);
+  transition:left var(--t),top var(--t),width var(--t),height var(--t);
+  animation:al-spot 1.4s ease-in-out infinite}
+.al-spot.dim{box-shadow:0 0 0 9999px rgba(12,8,28,.5), 0 0 14px rgba(240,196,106,.8)}
+.al-spot:not(.dim){box-shadow:0 0 14px rgba(240,196,106,.8)}
+@keyframes al-spot{50%{border-color:#fff3c4; outline:3px solid rgba(240,196,106,.35); outline-offset:3px}}
+.al-coach{position:fixed; z-index:66; display:flex; align-items:flex-end; gap:6px; width:min(360px,calc(100vw - 28px));
+  animation:al-rise .35s cubic-bezier(.2,.9,.3,1)}
+.al-fairy{flex:0 0 auto; width:78px; height:84px; image-rendering:pixelated; image-rendering:crisp-edges;
+  filter:drop-shadow(0 0 6px rgba(200,244,255,.7))}
+.al-cbub{position:relative; flex:1; padding:9px 12px 8px; border-radius:var(--r-2);
+  background:linear-gradient(180deg,#fffcf5,#f8ecd6); border:1px solid #d6b469;
+  box-shadow:0 0 0 3px #fffaf0, 0 0 0 4px rgba(184,121,28,.3), 0 12px 30px rgba(20,10,40,.4)}
+.al-cbub::before{content:""; position:absolute; left:-7px; bottom:18px; width:12px; height:12px; transform:rotate(45deg);
+  background:#fbf2e0; border-left:1px solid #d6b469; border-bottom:1px solid #d6b469}
+.al-chead{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px}
+.al-chead b{font-size:var(--fs-2); color:#6a4f9a}
+.al-chead span{font-size:var(--fs-1); color:var(--dim)}
+.al-cbub p{margin:0; font-size:var(--fs-3); line-height:1.6; color:var(--ink); white-space:pre-line}
+.al-cbtns{display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-top:6px}
+.al-cskip{background:none; border:0; padding:0; font-size:var(--fs-1); color:var(--dim); text-decoration:underline}
 
 /* display を持つ要素にも hidden を効かせる */
 [hidden]{display:none !important}

@@ -19,7 +19,7 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=90858231">
+<link rel="stylesheet" href="style.css?v=b60bfcf6">
 </head>
 <body>
 
@@ -322,12 +322,39 @@
   </div>
 </div>
 
+<!-- 確かめる窓。ブラウザの確認ダイアログの代わり。ほかの覆いより上に出すので最後に置く -->
+<div class="al-ov" id="ask" hidden>
+  <div class="al-panel al-ask" role="alertdialog" aria-labelledby="askHead">
+    <div class="al-ovhead" id="askHead"></div>
+    <p class="al-asktext" id="askText"></p>
+    <div class="al-ovbtns">
+      <button class="al-btn" id="askNo">やめる</button>
+      <button class="al-btn al-btn-p" id="askYes">はい</button>
+    </div>
+  </div>
+</div>
+
+<!-- はじめのてびき。押すところを金の枠で囲み、まわりを暗くする。枠も暗さもクリックは通す -->
+<div class="al-spot" id="spot" hidden></div>
+<div class="al-coach" id="coach" hidden>
+  <canvas class="al-fairy" id="fairyCv"></canvas>
+  <div class="al-cbub">
+    <div class="al-chead"><b>ルミ</b><span id="coachStep"></span></div>
+    <p id="coachText"></p>
+    <div class="al-cbtns">
+      <button class="al-btn al-btn-p" id="coachOk" hidden>わかった</button>
+      <button class="al-cskip" id="coachSkip">てびきをとじる</button>
+    </div>
+  </div>
+</div>
+
 <script src="data.js?v=55ad254e"></script>
 <script src="sound.js?v=bbd44f3e"></script>
 <script src="art.js?v=6e6f3c3d"></script>
 <script src="sprites.js?v=2389894c"></script>
 <script src="hero.js?v=8fc90974"></script>
 <script src="title.js?v=5b593a51"></script>
-<script src="game.js?v=4a042024"></script>
+<script src="fairy.js?v=55ffa970"></script>
+<script src="game.js?v=2c8e815e"></script>
 </body>
 </html>

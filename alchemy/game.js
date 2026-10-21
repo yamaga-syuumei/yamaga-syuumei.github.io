@@ -724,6 +724,10 @@
   function onKey(e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    if (askDone) {
+      if (e.key === 'Escape') { e.preventDefault(); askDone(false); }
+      return;
+    }
     if (!el('ovTitle').hidden) {
       if (!titleReady && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); titleWake(); }
       return;
@@ -1845,6 +1849,7 @@
     }
     updateHint();
     updateDay();
+    updateCoach(dt || 16);
     el('total').textContent = st.total.toLocaleString();
     el('rankName').textContent = TIERS[st.tier].name;
     el('rankFill').style.width = (rankProgress() * 100).toFixed(1) + '%';
@@ -1856,57 +1861,146 @@
 
   const HINT = '出口から入口へドラッグして送り道を引く　／　右クリックでメニュー　／　ホイールで拡大　／　R キーで回転　／　敷地の外の ＋ で土地を買う';
 
-  // はじめのてびき。案内の行をそのまま使うので、出ても高さは変わらない。
-  // 読ませるのではなく、やることを1つずつ出して、やったら次へ進む。
-  const TUT = [
-    { text: '採取地の右の口から、お店の左の口までドラッグして送り道を引く',
-      done: () => st.belts.length > 0 },
-    { text: '朝のうちは時間が止まっている。上の「開店する」を押して昼にする',
-      done: () => st.phase !== 'morn' || st.day > 1 },
-    { text: '品がお店に届くと売れる。眺めて待つ（「2倍」「3倍」で早送り、「飛ばす」で夕方まで）',
-      done: () => st.total > 0 },
-    { text: '日が暮れると店じまい。今日のまとめを見たら「次の朝へ」',
-      done: () => st.day > 1 },
-    { text: '右上の「研究」を開いて、いちばん左の「野と海と山」を買う',
-      done: () => Object.keys(st.done).length > 0 },
-    { text: '下の「錬成」から錬成陣を置いて、採取地 → 錬成陣 → お店 とつなぐ',
-      done: () => st.nodes.some((n) => n.k === 'fac' && n.outs[0].belt && n.ins.every((p) => p.belt)) },
-    { text: 'ここまでがこのゲームの全部。1回錬成するごとに値が10倍になる',
-      done: () => st.total > 2000 },
-  ];
-
-  function tutStep() {
-    if (st.tut < 0 || st.tut >= TUT.length) return null;
-    while (st.tut < TUT.length && TUT[st.tut].done()) { st.tut++; save(); }
-    return st.tut < TUT.length ? TUT[st.tut] : null;
-  }
-
   function updateHint() {
     const h = el('hint');
-    const step = placing ? null : tutStep();
     const txt = placing
       ? '設置中：' + placing.def.name + '　左クリックで置く　／　右クリックで取り消し　／　ホイールで回転'
-      : step ? step.text : HINT;
-    if (h.dataset.txt !== txt) {
-      h.dataset.txt = txt;
-      h.innerHTML = '';
-      if (step) {
-        const n = document.createElement('span');
-        n.className = 'al-step';
-        n.textContent = (st.tut + 1) + ' / ' + TUT.length;
-        h.appendChild(n);
-      }
-      h.appendChild(document.createTextNode(txt));
-      if (step) {
-        const b = document.createElement('button');
-        b.className = 'al-skip';
-        b.textContent = 'とじる';
-        b.onclick = () => { st.tut = -1; save(); updateHint(); };
-        h.appendChild(b);
-      }
-    }
+      : HINT;
+    if (h.textContent !== txt) h.textContent = txt;
     h.classList.toggle('on', !!placing);
-    h.classList.toggle('tut', !!step);
+  }
+
+  // ---------------------------------------------------------------- はじめのてびき
+  // フェアリーのルミが1手ずつ教える。押すところを金の枠で囲み、まわりを暗くする。
+  // 手順ごとに show() が「いまどこを指して何を言うか」を返す。関係のない画面が開いていれば null で隠れる。
+  // at は要素か、画面上の矩形 { x, y, w, h }。null なら枠を出さない。soft は暗くしない（眺める手順）。
+  const OVERLAYS = ['ovTitle', 'res', 'help', 'ovOpt', 'log', 'codex', 'cert', 'night', 'ask'];
+  const isOpen = (id) => !el(id).hidden;
+  const calm = () => !disc.cur && OVERLAYS.every((id) => !isOpen(id));
+
+  // 盤面の位置（キャンバスの中の座標）を画面の矩形にする
+  function boardRect(x0, y0, x1, y1, pad) {
+    const r = cv.getBoundingClientRect();
+    const k = r.width / VW;
+    const p = pad || 0;
+    return { x: r.left + (Math.min(x0, x1) - p) * k, y: r.top + (Math.min(y0, y1) - p) * k,
+      w: (Math.abs(x1 - x0) + p * 2) * k, h: (Math.abs(y1 - y0) + p * 2) * k };
+  }
+
+  function beltSpot() {
+    const src = st.nodes.find((n) => n.k === 'src'), shop = st.nodes.find((n) => n.k === 'shop');
+    if (!src || !shop) return null;
+    const a = jointOf(src.outs[0]), b = jointOf(shop.ins[0]);
+    return boardRect(a.x, a.y, b.x, b.y, cs * .55);
+  }
+
+  function nodeSpot(n) { return boardRect(cellX(n.x), cellY(n.y), cellX(n.x + 1), cellY(n.y + 1), 4); }
+
+  function researchStep(key, why) {
+    return () => {
+      const r = RES[key];
+      if (isOpen('res') && OVERLAYS.every((id) => id === 'res' || !isOpen(id))) {
+        const it = resEls.find((e) => e.r === r);
+        const short = st.money < resCost(r);
+        return { at: it && it.b, text: '「' + r.name + '」を研究してね。' + (short ? '\nお金が ' + resCost(r).toLocaleString() + 'G 貯まったら買えるよ。足りなければ明日また来てね' : ''), scroll: it && it.b };
+      }
+      return calm() && { at: el('btnRes'), text: why + '\n右上の「研究」を開いてね' };
+    };
+  }
+
+  function facStep() {
+    if (isOpen('res') && OVERLAYS.every((id) => id === 'res' || !isOpen(id))) return { at: el('btnResClose'), text: '錬成陣が置けるようになったよ！\n研究を閉じて、盤面に戻ってね' };
+    if (!calm()) return null;
+    const fac = st.nodes.find((n) => n.k === 'fac');
+    if (fac) return { at: nodeSpot(fac), text: '左と下の丸い口が素材の入口、右のひし形が出口だよ。\n採取地 → 錬成陣 → お店 とつないでね。お店の送り道は引き直していいの' };
+    if (placing && placing.def.k === 'fac') return { at: el('cv'), soft: true, text: '盤面のあいている所をクリックして置いてね。\nホイールで向きを回せるよ' };
+    if (tab === 'fac') return { at: el('cards'), text: '錬成陣をひとつ選んでね。\nカーソルを乗せると、何を入れると何ができるか出るよ' };
+    const b = Array.prototype.find.call(el('tabs').children, (x) => x.textContent.indexOf('錬成') === 0);
+    return { at: b, text: '下の「錬成」を開いてね' };
+  }
+
+  const TUT = [
+    { done: () => st.belts.length > 0,
+      show: () => calm() && { at: beltSpot(), text: 'ようこそ、錬金術師さん！ わたしはルミ。\n採取地の右の口から、お店の左の口までドラッグして「送り道」を引いてね' } },
+    { done: () => st.phase !== 'morn' || st.day > 1,
+      show: () => calm() && { at: el('btnOpen'), text: '朝の間は時間が止まってるの。\nゆっくり組み替えて、準備ができたら「開店する」！' } },
+    { done: () => st.total > 0,
+      show: () => calm() && st.phase === 'day' && { at: el('dayRun'), soft: true, text: '品がお店に届くと売れるよ。\n「2倍」「3倍」で早送りもできるの' } },
+    { done: () => st.day > 1,
+      show: () => (isOpen('night') ? { at: el('btnMorning'), text: '今日のまとめだよ。売上と、作った数・売った数が出るの。\n見たら「次の朝へ」！' }
+        : calm() && st.phase === 'day' && { at: el('btnSkip'), soft: true, text: '日が暮れたら店じまい。\n待ちきれなければ「飛ばす」で夕方まで進めるよ' }) },
+    { done: () => resLv(RES.r_gather) > 0, show: researchStep('r_gather', 'お金が貯まったら、研究で新しい採取地を増やそう。') },
+    { done: () => resLv(RES.r_extract) > 0, show: researchStep('r_extract', '次は素材から新しい品を作れるようにしよう。') },
+    { done: () => st.nodes.some((n) => n.k === 'fac' && n.outs[0].belt && n.ins.every((p) => p.belt)), show: facStep },
+    { done: () => st.total > 2000,
+      show: () => calm() && { at: null, ok: true, text: 'できたね！ これがこのゲームのぜんぶ。\n1回錬成するごとに値が10倍になるの。深く錬成して、世界一のお店にしよう！' } },
+  ];
+
+  let coachSig = '', coachStepAt = -2, scrolled = null;
+  function updateCoach(dt) {
+    let step = null;
+    if (st.tut >= 0 && st.tut < TUT.length) {
+      while (st.tut < TUT.length && TUT[st.tut].done()) { st.tut++; save(); }
+      if (st.tut < TUT.length) step = TUT[st.tut];
+      else st.tut = -1;
+    }
+    if (coachStepAt !== st.tut) {
+      if (coachStepAt >= 0 && (st.tut > coachStepAt || st.tut < 0) && window.FAIRY) { FAIRY.cheer(); SND.se('levelup'); }
+      coachStepAt = st.tut;
+    }
+    const s = step && step.show();
+    const coach = el('coach'), spot = el('spot');
+    if (!s) { coach.hidden = true; spot.hidden = true; return; }
+    if (s.scroll && scrolled !== s.scroll) { scrolled = s.scroll; s.scroll.scrollIntoView({ block: 'nearest', inline: 'center' }); }
+
+    let r = null;
+    if (s.at && s.at.getBoundingClientRect) { const b = s.at.getBoundingClientRect(); if (b.width) r = { x: b.left - 4, y: b.top - 4, w: b.width + 8, h: b.height + 8 }; }
+    else if (s.at) r = s.at;
+    spot.hidden = !r;
+    if (r) {
+      spot.style.left = r.x + 'px'; spot.style.top = r.y + 'px';
+      spot.style.width = r.w + 'px'; spot.style.height = r.h + 'px';
+      spot.classList.toggle('dim', !s.soft);
+    }
+    const sig = st.tut + '|' + s.text + '|' + !!s.ok;
+    if (sig !== coachSig) {
+      coachSig = sig;
+      el('coachText').textContent = s.text;
+      el('coachStep').textContent = (st.tut + 1) + ' / ' + TUT.length;
+      el('coachOk').hidden = !s.ok;
+    }
+    coach.hidden = false;
+    // 枠と重ならない側に出す。枠が下半分なら上、右半分なら左
+    const W = window.innerWidth, H = window.innerHeight, cw = coach.offsetWidth, ch = coach.offsetHeight;
+    const cx = r ? r.x + r.w / 2 : W / 2, cy = r ? r.y + r.h / 2 : H;
+    let left = cx > W / 2 ? 16 : W - cw - 16;
+    let top = cy > H / 2 ? 70 : H - ch - 16;
+    if (!r) { left = (W - cw) / 2; top = (H - ch) / 2; }
+    coach.style.left = Math.max(8, left) + 'px';
+    coach.style.top = Math.max(8, top) + 'px';
+    if (window.FAIRY) FAIRY.step(dt);
+  }
+
+  function endTut() {
+    st.tut = -1; save();
+    el('coach').hidden = true; el('spot').hidden = true;
+  }
+
+  // ---------------------------------------------------------------- 確かめる窓
+  // ブラウザの確認ダイアログの代わり。はい なら true で解決する。no を null にすると はい だけの知らせになる
+  let askDone = null;
+  function ask(o) {
+    if (askDone) askDone(false);
+    el('askHead').textContent = o.head || '';
+    el('askText').textContent = o.text || '';
+    el('askYes').textContent = o.yes || 'はい';
+    el('askNo').textContent = o.no || 'やめる';
+    el('askNo').hidden = o.no === null;
+    el('ask').hidden = false;
+    hideTip();
+    return new Promise((res) => {
+      askDone = (v) => { askDone = null; el('ask').hidden = true; res(v); };
+    });
   }
 
   // ---------------------------------------------------------------- 購入パレット
@@ -2820,6 +2914,7 @@
     el('titlePress').hidden = titleReady;
     el('titleMenu').hidden = !titleReady;
     closeMenu(); hideTip();
+    el('coach').hidden = true; el('spot').hidden = true;
     if (placing) { placing = null; refreshPalette(); }
     drag = null; moving = null; panning = null;
     el('ovTitle').hidden = false;
@@ -2896,7 +2991,12 @@
     overlay('ovOpt', 'btnOpt', 'btnOptClose', syncSound);
     el('btnOpt').addEventListener('click', () => { el('optToTitle').hidden = false; });
     el('btnTitleOpt').addEventListener('click', () => { el('optToTitle').hidden = true; });
-    el('btnTut').onclick = () => { st.tut = 0; save(); updateHint(); el('help').hidden = true; };
+    el('btnTut').onclick = () => { st.tut = 0; coachStepAt = 0; save(); el('help').hidden = true; };
+    el('coachSkip').onclick = () => { SND.se('ui'); endTut(); };
+    el('coachOk').onclick = () => { SND.se('ui'); endTut(); };
+    el('askYes').onclick = () => { SND.se('ui'); if (askDone) askDone(true); };
+    el('askNo').onclick = () => { SND.se('ui'); if (askDone) askDone(false); };
+    if (window.FAIRY) FAIRY.attach(el('fairyCv'));
     overlay('log', 'btnLog', 'btnLogClose', buildLog);
     overlay('codex', 'btnCodex', 'btnCodexClose', () => { seeThese(codexKeys()); buildCodex(); });
     overlay('cert', null, 'btnCertClose');
@@ -2913,10 +3013,13 @@
     };
 
     el('btnReset').onclick = () => {
-      if (!confirm('最初からやり直します。よろしいですか？')) return;
-      startFresh();
-      el('ovOpt').hidden = true;
-      if (!el('ovTitle').hidden) showTitle(false);
+      SND.se('ui');
+      ask({ head: '最初からやり直す', text: '敷地・所持金・研究・便りをすべて消して、露店からやり直します。', yes: 'やり直す' }).then((ok) => {
+        if (!ok) return;
+        startFresh();
+        el('ovOpt').hidden = true;
+        if (!el('ovTitle').hidden) showTitle(false);
+      });
     };
 
     if (window.TITLE) TITLE.attach(el('titleCv'));
@@ -2924,9 +3027,11 @@
     el('btnStart').onclick = () => { SND.se('ui'); hideTitle(); };
     el('btnTitleNew').onclick = () => {
       SND.se('ui');
-      if (!confirm('最初からやり直します。いまの盤面は消えます。よろしいですか？')) return;
-      startFresh();
-      hideTitle();
+      ask({ head: 'はじめから', text: 'いまの盤面・所持金・研究・便りはすべて消えます。', yes: 'はじめから遊ぶ' }).then((ok) => {
+        if (!ok) return;
+        startFresh();
+        hideTitle();
+      });
     };
     el('btnTitleHelp').onclick = () => { SND.se('ui'); el('help').hidden = false; };
     el('btnTitleOpt').onclick = () => { SND.se('ui'); syncSound(); el('ovOpt').hidden = false; };
@@ -3008,16 +3113,20 @@
     fr.onload = () => {
       let raw = null;
       try { raw = JSON.parse(fr.result); } catch (e) { raw = null; }
-      if (!raw || !raw.nodes) { alert('この控えは読めませんでした。'); return; }
+      const bad = () => ask({ head: '読み込めませんでした', text: 'この控えは読めませんでした。', yes: '閉じる', no: null });
+      if (!raw || !raw.nodes) { bad(); return; }
       const name = (TIERS[raw.tier || 0] || TIERS[0]).name;
-      if (!confirm('「' + name + '／累計 ' + Math.round(raw.total || 0).toLocaleString()
-        + 'G」を読み込みます。\n\nいま遊んでいる盤面は消えます。よろしいですか？')) return;
-      if (!restore(raw)) { alert('この控えは読めませんでした。'); return; }
-      writeSave();
-      layout(); buildPalette(); buildResearch(); buildCodex(); markDots(); closeMenu(); heroSync();
-      if (st.phase === 'night') showNight(); else el('night').hidden = true;
-      SND.se('levelup');
-      note('控えを読み込みました。' + name);
+      ask({ head: '控えを読み込む',
+        text: '「' + name + '／累計 ' + Math.round(raw.total || 0).toLocaleString() + 'G」を読み込みます。\nいま遊んでいる盤面は消えます。',
+        yes: '読み込む' }).then((ok) => {
+        if (!ok) return;
+        if (!restore(raw)) { bad(); return; }
+        writeSave();
+        layout(); buildPalette(); buildResearch(); buildCodex(); markDots(); closeMenu(); heroSync();
+        if (st.phase === 'night') showNight(); else el('night').hidden = true;
+        SND.se('levelup');
+        note('控えを読み込みました。' + name);
+      });
     };
     fr.readAsText(file);
   }
