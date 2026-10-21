@@ -257,6 +257,7 @@
 
   // ---------------------------------------------------------------- 研究
   // tier は錬金術師のランク。そのランクに届くまで、見えてはいるが買えない。
+  // req は前提の研究。線でつないで木の形に並べ、前提を全部取るまで買えない。
   //  unlock を持つもの … 一度きり。設備やレシピが並ぶようになる。
   //  stat を持つもの   … 何度でも上げられる。1レベルにつき per だけ効き、max まで。
   //                      値段は costMul でレベルごとに上がる。
@@ -265,47 +266,47 @@
     // 流れは「採取を解放 → 錬成を解放」。採取は4つまとめて1つにする。
     { key: 'r_gather',  p: 'prod', tier: 0, cost: 200,    name: '野と海と山',
       unlock: ['src_herb', 'src_pearl', 'src_slough', 'src_volcano'] },
-    { key: 'r_extract', p: 'prod', tier: 0, cost: 400,    name: '抽出の術',
+    { key: 'r_extract', req: ['r_gather'], p: 'prod', tier: 0, cost: 400,    name: '抽出の術',
       unlock: ['f_magicstone', 'f_anima_ore', 'f_anima_plant', 'f_anima_gem',
         'f_anima_life', 'f_anima_energy', 'f_wind', 'f_water', 'f_earth', 'f_fire'] },
-    { key: 'r_lightdark', p: 'prod', tier: 1, cost: 5000, name: '光と闇',
+    { key: 'r_lightdark', req: ['r_extract'], p: 'prod', tier: 1, cost: 5000, name: '光と闇',
       unlock: ['f_light', 'f_dark'] },
-    { key: 'r_craft',   p: 'prod', tier: 1, cost: 12000,   name: '工房の技',
+    { key: 'r_craft', req: ['r_extract'],   p: 'prod', tier: 1, cost: 12000,   name: '工房の技',
       unlock: ['f_glass', 'f_cloth', 'f_bomb'] },
-    { key: 'r_tools',   p: 'prod', tier: 2, cost: 30000, name: '装いの錬成',
+    { key: 'r_tools', req: ['r_craft'],   p: 'prod', tier: 2, cost: 30000, name: '装いの錬成',
       unlock: ['f_ring', 'f_shield', 'f_cloak', 'f_firesword'] },
-    { key: 'r_life',    p: 'prod', tier: 2, cost: 30000, name: '暮らしの錬成',
+    { key: 'r_life', req: ['r_lightdark'],    p: 'prod', tier: 2, cost: 30000, name: '暮らしの錬成',
       unlock: ['f_potion', 'f_lifecrystal', 'f_seed', 'f_bean'] },
-    { key: 'r_mystic',  p: 'prod', tier: 3, cost: 80000, name: '神秘の錬成',
+    { key: 'r_mystic', req: ['r_lightdark', 'r_craft'],  p: 'prod', tier: 3, cost: 80000, name: '神秘の錬成',
       unlock: ['f_lantern', 'f_darkorb', 'f_compass', 'f_phantomglass', 'f_tent'] },
-    { key: 'r_elem3',   p: 'prod', tier: 3, cost: 90000, name: '天界と魔界',
+    { key: 'r_elem3', req: ['r_lightdark'],   p: 'prod', tier: 3, cost: 90000, name: '天界と魔界',
       unlock: ['f_heavensoil', 'f_hellwind'] },
-    { key: 'r_crystal', p: 'prod', tier: 4, cost: 100000, name: 'クリスタル',
+    { key: 'r_crystal', req: ['r_elem3', 'r_mystic'], p: 'prod', tier: 4, cost: 100000, name: 'クリスタル',
       unlock: ['f_crystal', 'f_crystal_light', 'f_crystal_water', 'f_crystal_fire',
         'f_crystal_wind', 'f_crystal_earth', 'f_crystal_dark'] },
-    { key: 'r_armory',  p: 'prod', tier: 5, cost: 200000, name: '武具の錬成',
+    { key: 'r_armory', req: ['r_tools'],  p: 'prod', tier: 5, cost: 200000, name: '武具の錬成',
       unlock: ['f_eartharmor', 'f_holysword', 'f_machine', 'f_gallian'] },
-    { key: 'r_garden',  p: 'prod', tier: 5, cost: 200000, name: '世界樹',
+    { key: 'r_garden', req: ['r_life', 'r_mystic'],  p: 'prod', tier: 5, cost: 200000, name: '世界樹',
       unlock: ['f_worldseed', 'f_hollow', 'f_beanstalk', 'f_paradise'] },
-    { key: 'r_relic',   p: 'prod', tier: 6, cost: 400000, name: '秘宝の錬成',
+    { key: 'r_relic', req: ['r_crystal', 'r_armory'],   p: 'prod', tier: 6, cost: 400000, name: '秘宝の錬成',
       unlock: ['f_necklace', 'f_eye', 'f_tablet', 'f_savecircle', 'f_magicarmor'] },
-    { key: 'r_life3',   p: 'prod', tier: 7, cost: 500000, name: '人造の生命',
+    { key: 'r_life3', req: ['r_garden'],   p: 'prod', tier: 7, cost: 500000, name: '人造の生命',
       unlock: ['f_homunculus', 'f_fairy', 'f_warrior', 'f_guardian'] },
-    { key: 'r_blade',   p: 'prod', tier: 7, cost: 700000, name: '伝説の刃',
+    { key: 'r_blade', req: ['r_armory', 'r_crystal'],   p: 'prod', tier: 7, cost: 700000, name: '伝説の刃',
       unlock: ['f_manjimaru', 'f_emblem', 'f_flamesword', 'f_dragon'] },
-    { key: 'r_forbidden', p: 'prod', tier: 6, cost: 1500000, name: '禁断の錬成',
+    { key: 'r_forbidden', req: ['r_crystal', 'r_garden'], p: 'prod', tier: 6, cost: 1500000, name: '禁断の錬成',
       unlock: ['f_philosopher', 'f_elixir', 'f_egg', 'f_wing'] },
 
     // 物流（お店まわりもここ）
     { key: 'r_split',  p: 'logi', tier: 1, cost: 2000,  name: '分配陣',   unlock: ['split'] },
-    { key: 'r_store',  p: 'logi', tier: 2, cost: 20000, name: '保管庫',   unlock: ['store'] },
-    { key: 'r_bridge', p: 'logi', tier: 2, cost: 35000,  name: '渡し橋',  unlock: ['bridge'] },
+    { key: 'r_store', req: ['r_split'],  p: 'logi', tier: 2, cost: 20000, name: '保管庫',   unlock: ['store'] },
+    { key: 'r_bridge', req: ['r_store'], p: 'logi', tier: 2, cost: 35000,  name: '渡し橋',  unlock: ['bridge'] },
     { key: 'r_belt',   p: 'logi', tier: 1, cost: 2000,  name: '送り道の強化',
       stat: 'belt', per: 0.25, max: 8, costMul: 1.4 },
 
     { key: 'r_sell',   p: 'logi', tier: 1, cost: 1500,  name: '店の評判',
       stat: 'sellRate', per: 0.02, max: 20, costMul: 1.25 },
-    { key: 'r_price',  p: 'logi', tier: 2, cost: 20000, name: '値付けの妙',
+    { key: 'r_price', req: ['r_sell'],  p: 'logi', tier: 2, cost: 20000, name: '値付けの妙',
       stat: 'price', per: 0.02, max: 20, costMul: 1.24 },
 
     // 敷地

@@ -401,7 +401,7 @@
 
   // 便り・研究・図鑑の点。「まだ見ていないものがある」印。
   // 研究は買えるようになったもの、図鑑は作れるようになった品を数える。
-  const resKeys = () => RESEARCH.filter((r) => r.tier <= st.tier && resLv(r) < resMax(r))
+  const resKeys = () => RESEARCH.filter((r) => r.tier <= st.tier && reqMet(r) && resLv(r) < resMax(r))
     .map((r) => 'res:' + r.key);
   const codexKeys = () => Object.keys(st.made).map((k) => 'cdx:' + k);
   const anyNew = (keys) => keys.some((k) => !st.seen[k]);
@@ -1867,7 +1867,7 @@
       done: () => st.total > 0 },
     { text: '日が暮れると店じまい。今日のまとめを見たら「次の朝へ」',
       done: () => st.day > 1 },
-    { text: '右上の「研究」を開いて、いちばん上の「野と海と山」を買う',
+    { text: '右上の「研究」を開いて、いちばん左の「野と海と山」を買う',
       done: () => Object.keys(st.done).length > 0 },
     { text: '下の「錬成」から錬成陣を置いて、採取地 → 錬成陣 → お店 とつなぐ',
       done: () => st.nodes.some((n) => n.k === 'fac' && n.outs[0].belt && n.ins.every((p) => p.belt)) },
@@ -2261,7 +2261,9 @@
       out.push([e(r.per)[0] + '。1レベルにつき ' + e(r.per)[1], '']);
       out.push(['いま Lv' + lv + ' / ' + max + '　合計 ' + e(r.per * lv)[1], 'dim']);
     }
+    const miss = (r.req || []).filter((k) => !resLv(RES[k]));
     if (lv >= max) out.push([r.stat ? 'これ以上は上げられない' : '解放済み', 'dim']);
+    else if (miss.length) out.push(['先に「' + miss.map((k) => RES[k].name).join('」「') + '」を研究する', 'dim']);
     else if (r.tier > st.tier) out.push([TIERS[r.tier].name + 'に届くまで買えない', 'dim']);
     else {
       const c = resCost(r, lv);
@@ -2292,61 +2294,164 @@
 
   function hideTip() { el('tip').hidden = true; }
 
+  // ---------------------------------------------------------------- 研究の木
+  // 横がランク、縦が柱（錬成・物流・敷地）。前提の研究と線でつなぐ。
+  // 列は「そのランクの最初の列」と「前提の右隣」の遠い方。同じランクで前提がつながると列が増える。
+  // 行は前提の行に寄せる。線が交わりにくくなる。
+  const RES = {};
+  RESEARCH.forEach((r) => { RES[r.key] = r; });
+  function reqMet(r) { return (r.req || []).every((k) => resLv(RES[k]) > 0); }
+
+  const TREE = (function () {
+    const col = {}, row = {};
+    let next = 0;
+    const tiers = Array.from(new Set(RESEARCH.map((r) => r.tier))).sort((a, b) => a - b);
+    const tierCols = {};
+    tiers.forEach((t) => {
+      const base = next;
+      // 同じランクの中で前提が先に並ぶよう、前提の列が決まったものから決める
+      let list = RESEARCH.filter((r) => r.tier === t), guard = 0;
+      while (list.length && guard++ < 20) {
+        list = list.filter((r) => {
+          const req = r.req || [];
+          if (req.some((k) => col[k] === undefined)) return true;
+          col[r.key] = Math.max(base, ...req.map((k) => col[k] + 1));
+          return false;
+        });
+      }
+      const max = Math.max(base, ...RESEARCH.filter((r) => r.tier === t).map((r) => col[r.key]));
+      tierCols[t] = [base, max];
+      next = max + 1;
+    });
+    const rows = {};
+    PILLARS.forEach((p) => {
+      const mine = RESEARCH.filter((r) => r.p === p.key);
+      let used = 0;
+      for (let c = 0; c < next; c++) {
+        const here = mine.filter((r) => col[r.key] === c).map((r, i) => {
+          const req = (r.req || []).filter((k) => row[k] !== undefined);
+          return { r, i, want: req.length ? req.reduce((a, k) => a + row[k], 0) / req.length : 0 };
+        }).sort((a, b) => a.want - b.want || a.i - b.i);
+        let last = -1;
+        here.forEach((h) => { row[h.r.key] = Math.max(Math.floor(h.want), last + 1); last = row[h.r.key]; used = Math.max(used, last + 1); });
+      }
+      rows[p.key] = used;
+    });
+    return { col, row, rows, cols: next, tierCols };
+  })();
+
+  // 札の大きさと間。CSS の .al-tnode と揃える
+  const TN = { w: 168, h: 40, gx: 34, gy: 7, head: 26, lab: 20, sec: 10 };
+
   // 開いたまま金が貯まるので、作り直さずに押せる・押せないだけ塗り替える。
   // 作り直すと、カーソルを乗せている説明が毎秒消えてしまう。
   let resEls = [];
   function syncResearch() {
     resEls.forEach(({ r, b }) => {
       const lv = resLv(r);
-      const off = lv >= resMax(r) || r.tier > st.tier || st.money < resCost(r, lv);
-      b.classList.toggle('off', !!off);
+      b.classList.toggle('poor', lv < resMax(r) && st.money < resCost(r, lv));
     });
+  }
+
+  // done 取りきった／part 途中まで上げた／open いま買える／rank ランクが足りない／locked 前提が足りない
+  function resState(r) {
+    if (resLv(r) >= resMax(r)) return 'done';
+    if (!reqMet(r)) return 'locked';
+    if (r.tier > st.tier) return 'rank';
+    return resLv(r) > 0 ? 'part' : 'open';
+  }
+
+  function resIcon(r) {
+    const k = r.unlock && r.unlock[0];
+    const def = k === 'bridge' ? { key: 'bridge', k: 'bridge', bridge: true } : BUILDS[k];
+    return def ? cardIcon(def) : null;
   }
 
   function buildResearch() {
     const box = el('resBody');
-    const keep = box.scrollTop;
+    const keepX = box.scrollLeft, keepY = box.scrollTop;
     box.innerHTML = '';
     resEls = [];
-    // 柱を列で並べると錬成だけ極端に長くなるので、柱ごとの帯にして折り返す
-    PILLARS.forEach((p) => {
-      const col = document.createElement('div');
-      col.className = 'al-resec';
-      const h = document.createElement('h4');
-      h.textContent = p.name;
-      col.appendChild(h);
-      const grid = document.createElement('div');
-      grid.className = 'al-resgrid';
-      col.appendChild(grid);
-      RESEARCH.filter((r) => r.p === p.key).forEach((r) => {
-        const done = resLv(r) >= resMax(r);
-        const locked = r.tier > st.tier;
-        const b = document.createElement('button');
-        const off = done || locked || st.money < resCost(r);
-        b.className = 'al-res' + (done ? ' done' : locked ? ' locked' : '') + (off ? ' off' : '');
-        const lv = resLv(r), max = resMax(r);
-        const right = done ? (r.stat ? '最大' : '解放済み')
-          : locked ? TIERS[r.tier].short + 'から'
-            : resCost(r).toLocaleString() + 'G';
-        b.innerHTML = '<b>' + r.name + '</b>'
-          + (max > 1 ? '<em>Lv' + lv + '/' + max + '</em>' : '')
-          + '<i>' + right + '</i>';
-        b.onclick = () => buyResearch(r);
-        b.onmouseenter = () => showTip(b, resLines(r));
-        b.onmouseleave = hideTip;
-        resEls.push({ r, b });
-        grid.appendChild(b);
-      });
-      box.appendChild(col);
+    const colX = (c) => TN.gx / 2 + c * (TN.w + TN.gx);
+    const W = colX(TREE.cols) - TN.gx / 2;
+    // 柱ごとの縦の位置
+    const top = {};
+    let y = TN.head;
+    PILLARS.forEach((p) => { top[p.key] = y + TN.lab; y += TN.lab + TREE.rows[p.key] * (TN.h + TN.gy) + TN.sec; });
+    const H = y;
+    const pos = (r) => ({ x: colX(TREE.col[r.key]), y: top[r.p] + TREE.row[r.key] * (TN.h + TN.gy) });
+
+    const inner = document.createElement('div');
+    inner.className = 'al-treein';
+    inner.style.width = W + 'px';
+    inner.style.height = H + 'px';
+
+    // ランクの帯。届いていないランクは暗く
+    Object.keys(TREE.tierCols).forEach((t) => {
+      const [a, b] = TREE.tierCols[t];
+      const d = document.createElement('div');
+      d.className = 'al-ttier' + (+t > st.tier ? ' far' : '') + (+t === st.tier ? ' now' : '');
+      d.style.left = (colX(a) - TN.gx / 2) + 'px';
+      d.style.width = (colX(b) - colX(a) + TN.w + TN.gx) + 'px';
+      d.innerHTML = '<span>' + TIERS[t].short + '</span>';
+      inner.appendChild(d);
     });
-    box.scrollTop = keep;
+    PILLARS.forEach((p) => {
+      const d = document.createElement('div');
+      d.className = 'al-tpil';
+      d.style.top = (top[p.key] - TN.lab) + 'px';
+      d.textContent = p.name;
+      inner.appendChild(d);
+    });
+
+    // 線。取ってあれば金、次に取れるなら紫、まだ遠ければ灰
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'al-tlines');
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
+    RESEARCH.forEach((r) => (r.req || []).forEach((k) => {
+      const a = pos(RES[k]), b = pos(r);
+      const ax = a.x + TN.w, ay = a.y + TN.h / 2, bx = b.x, by = b.y + TN.h / 2, mx = (ax + bx) / 2;
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', 'M' + ax + ' ' + ay + ' C' + mx + ' ' + ay + ' ' + mx + ' ' + by + ' ' + bx + ' ' + by);
+      path.setAttribute('class', resLv(r) > 0 ? 'got' : resLv(RES[k]) > 0 ? 'next' : 'far');
+      svg.appendChild(path);
+    }));
+    inner.appendChild(svg);
+
+    RESEARCH.forEach((r) => {
+      const s = resState(r), lv = resLv(r), max = resMax(r);
+      const p = pos(r);
+      const b = document.createElement('button');
+      b.className = 'al-tnode ' + s + (s !== 'done' && st.money < resCost(r, lv) ? ' poor' : '');
+      b.style.left = p.x + 'px';
+      b.style.top = p.y + 'px';
+      const ic = resIcon(r);
+      if (ic) b.appendChild(ic);
+      const right = s === 'done' ? (r.stat ? '最大' : '解放済み')
+        : s === 'locked' ? '前提が要る'
+          : s === 'rank' ? TIERS[r.tier].short + 'から'
+            : resCost(r).toLocaleString() + 'G';
+      const t = document.createElement('span');
+      t.innerHTML = '<b>' + r.name + '</b><i>' + right + (max > 1 ? '　Lv' + lv + '/' + max : '') + '</i>';
+      b.appendChild(t);
+      b.onclick = () => buyResearch(r);
+      b.onmouseenter = () => showTip(b, resLines(r));
+      b.onmouseleave = hideTip;
+      resEls.push({ r, b });
+      inner.appendChild(b);
+    });
+    box.appendChild(inner);
+    box.scrollLeft = keepX;
+    box.scrollTop = keepY;
     hideTip();
   }
 
   function buyResearch(r) {
     const lv = resLv(r);
     const c = resCost(r, lv);
-    if (lv >= resMax(r) || r.tier > st.tier || st.money < c) { SND.se('deny'); return; }
+    if (lv >= resMax(r) || !reqMet(r) || r.tier > st.tier || st.money < c) { SND.se('deny'); return; }
     st.money -= c;
     st.done[r.key] = lv + 1;
     applyResearch();
@@ -2766,6 +2871,13 @@
     el('cards').addEventListener('wheel', (e) => {
       const box = el('cards');
       if (box.scrollWidth <= box.clientWidth) return;
+      e.preventDefault();
+      box.scrollLeft += e.deltaY || e.deltaX;
+    }, { passive: false });
+    // 研究の木は横に長い。縦に余りが無ければ、ホイールで横に送る
+    el('resBody').addEventListener('wheel', (e) => {
+      const box = el('resBody');
+      if (box.scrollHeight > box.clientHeight || box.scrollWidth <= box.clientWidth) return;
       e.preventDefault();
       box.scrollLeft += e.deltaY || e.deltaX;
     }, { passive: false });
