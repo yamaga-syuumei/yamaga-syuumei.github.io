@@ -140,18 +140,6 @@ button { font-family: inherit; }
 .tk-hud-hp .tk-bar i { background: var(--green); }
 .tk-hud-gold { display: flex; justify-content: space-between; margin-top: 5px; }
 .tk-hud-gold b { color: var(--amber); }
-.tk-gear {
-  margin-top: 8px; padding-top: 8px;
-  border-top: 1px solid var(--line); display: grid; gap: 4px;
-}
-.tk-gear > div { display: grid; grid-template-columns: 9px auto 1fr auto; gap: 8px; align-items: center; }
-.tk-st { color: var(--ink-2); font-size:var(--fs-1); white-space: nowrap; }
-.tk-gear b {
-  font-weight: 600; font-size:var(--fs-2); text-align: right;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.tk-sw { width: 9px; height: 9px; border-radius:var(--r-1); background: #39424b; }
-
 /* ---------- 画面：左にフィールド、右に表示エリア ---------- */
 .tk-main {
   max-width: 1108px; margin: 0 auto; padding: 16px 18px 40px;
@@ -170,7 +158,7 @@ button { font-family: inherit; }
 /* 地図の左上に重ねるミニマップ */
 .tk-minimap {
   position: absolute; top: 10px; left: 10px;
-  width: 92px; height: 69px;
+  width: 144px; height: 96px; image-rendering: pixelated;
   border: 1px solid var(--line); border-radius:var(--r-1);
   background: rgba(5,7,10,.8); pointer-events: none;
 }
@@ -242,17 +230,6 @@ button { font-family: inherit; }
 .tk-result span { color: var(--ink-2); }
 .tk-result b { font-weight: 700; text-align: right; }
 
-/* ---------- 凡例 ---------- */
-.tk-legend { display: grid; gap: 8px; font-size:var(--fs-2); }
-.tk-legend div { display: flex; align-items: center; gap: 10px; }
-.tk-legend em { color: var(--ink-2); font-style: normal; font-size:var(--fs-2); margin-left: auto; }
-/* 凡例の絵は実際のスプライトをそのまま描く */
-.tk-legend canvas {
-  width: 32px; height: 32px; flex: none;
-  image-rendering: pixelated;
-  background: #3b3324; border-radius:var(--r-1);
-}
-
 /* ---------- ログ（新しい行が上） ---------- */
 .tk-log {
   background: #0b0e11; border: 1px solid var(--line); border-radius:var(--r-1);
@@ -305,7 +282,7 @@ button { font-family: inherit; }
 .tk-selfbar .tk-bar i { background: var(--green); }
 
 /* ---------- 街 ---------- */
-.tk-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.tk-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .tk-tab {
   background: transparent; color: var(--ink-2);
   border: 1px solid var(--line); border-radius:var(--r-1);
@@ -349,7 +326,6 @@ button { font-family: inherit; }
 }
 @media (max-width: 780px) {
   .tk-hud { width: 178px; top: 8px; right: 8px; padding: 7px 9px 8px; font-size:var(--fs-1); }
-  .tk-gear b { font-size:var(--fs-1); }
   .tk-head { gap: 10px; padding: 9px 14px; }
   .tk-opt-wide { flex-direction: column; gap: 8px; }
   .tk-title { font-size:var(--fs-4); }
@@ -368,3 +344,138 @@ button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;animation-iteration-count:1 !important}
 }
+
+/* ---------- 状態表示の行 ---------- */
+.tk-hud-region { font-weight: 800; color: var(--amber); margin-bottom: 4px; }
+.tk-hud-row { display: flex; justify-content: space-between; margin-top: 4px; }
+.tk-hud b.is-gold { color: var(--amber); }
+.tk-hud b.is-low { color: var(--red); }
+
+/* ---------- サキの無線 ---------- */
+.tk-radio {
+  position: absolute; left: 10px; right: 10px; bottom: 10px;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
+  background: rgba(5,7,10,.92); border: 1px solid #5a4a2a; border-radius: var(--r-1);
+  padding: 8px 10px; font-size: var(--fs-3); line-height: 1.6;
+}
+.tk-radio-face {
+  width: 48px; height: 48px; image-rendering: pixelated;
+  background: #2a2014; border: 1px solid var(--line); border-radius: var(--r-1);
+}
+.tk-radio-who { display: block; font-size: var(--fs-2); color: var(--amber); font-weight: 800; }
+.tk-radio-who em { font-style: normal; color: var(--ink-2); font-weight: 600; margin-left: 8px; }
+.tk-radio p { margin: 0; }
+.tk-radio .tk-btn { padding: 6px 12px; font-size: var(--fs-2); }
+
+/* 案内の金の枠。dim のときはまわりを暗くする */
+.tk-spot {
+  position: fixed; z-index: 150; pointer-events: none;
+  border: 2px solid #f0c46a; border-radius: var(--r-1);
+  box-shadow: 0 0 14px rgba(240,196,106,.8);
+  animation: tk-spot 1.4s ease-in-out infinite;
+}
+.tk-spot.dim { box-shadow: 0 0 0 9999px rgba(3,5,8,.5), 0 0 14px rgba(240,196,106,.8); }
+@keyframes tk-spot { 50% { border-color: #fff3c4; outline: 3px solid rgba(240,196,106,.35); outline-offset: 3px; } }
+
+/* ---------- タイトル ---------- */
+.tk-titlescreen {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background:
+    linear-gradient(180deg, rgba(13,16,19,.2) 0%, rgba(13,16,19,.0) 40%, rgba(13,16,19,.85) 100%),
+    linear-gradient(180deg, #3a2a3a 0%, #a0583a 46%, #e09a4a 58%, #6a4a2a 60%, #3a2a18 100%);
+  border: 1px solid var(--line); border-radius: var(--r-1); text-align: center; padding: 20px;
+}
+.tk-titlescreen h1 {
+  margin: 0; font-family: var(--serif); font-size: var(--fs-7); letter-spacing: .1em;
+  text-shadow: 0 2px 0 #12161a, 0 0 18px rgba(0,0,0,.6);
+}
+.tk-titlescreen p { margin: 0 0 8px; color: #f0e0c0; font-size: var(--fs-3); text-shadow: 0 1px 0 #12161a; }
+.tk-titlescreen .tk-btn { min-width: 132px; min-height: 40px; }
+.tk-titlescreen .tk-opt-confirm { max-width: 420px; }
+
+/* ---------- 撃つボタン（スマホ） ---------- */
+.tk-firebtn { display: none; }
+@media (max-width: 780px) {
+  .tk-pad { right: auto; left: 10px; }
+  .tk-firebtn { display: block; position: absolute; right: 10px; bottom: 30px; }
+  .tk-firebtn button {
+    width: 72px; height: 72px; border-radius: var(--r-pill);
+    background: rgba(224,57,25,.85); color: #fff; border: 1px solid var(--red);
+    font-size: var(--fs-4); font-weight: 800; cursor: pointer;
+  }
+  .tk-radio { bottom: 128px; }
+}
+
+/* ---------- 賞金首戦 ---------- */
+.tk-intent {
+  background: #1a1010; border: 1px solid #5a2a20; border-radius: var(--r-1);
+  padding: 8px 12px; margin-bottom: 12px; font-size: var(--fs-3);
+}
+.tk-intent:empty { display: none; }
+.tk-intent-k { font-size: var(--fs-2); color: var(--ink-2); margin-right: 8px; }
+.tk-intent b { font-weight: 800; }
+.tk-intent b.is-big { color: #ff8a6a; }
+.tk-intent em { display: block; font-style: normal; font-size: var(--fs-2); color: var(--amber); }
+.tk-weapons { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; margin-bottom: 12px; }
+.tk-wpn {
+  background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-1);
+  padding: 6px 8px; text-align: left; cursor: pointer; font-family: inherit;
+  transition: background var(--t), border-color var(--t);
+}
+.tk-wpn b { display: block; font-size: var(--fs-2); }
+.tk-wpn span { font-size: var(--fs-1); color: var(--ink-2); }
+.tk-wpn.is-on { border-color: var(--amber); background: #2a2414; }
+.tk-wpn:disabled { opacity: .4; cursor: default; }
+.tk-part-note { grid-row: 3; grid-column: 1 / span 2; font-size: var(--fs-1); color: var(--ink-2); line-height: 1.5; }
+.tk-part-note:empty { display: none; }
+.tk-part-drop { color: var(--amber); margin-left: 6px; }
+.tk-part.is-src { border-color: #a8442a; }
+
+/* ---------- 街 ---------- */
+.tk-warn { margin: -6px 0 12px; font-size: var(--fs-2); color: #ffb0a0; }
+.tk-news {
+  background: var(--panel2); border-left: 2px solid var(--amber); border-radius: var(--r-1);
+  padding: 6px 10px; margin-bottom: 14px; font-size: var(--fs-2);
+}
+.tk-news p { margin: 0; }
+.tk-quest { margin-top: 6px; padding: 6px 9px; background: #1a1610; border-radius: var(--r-1); }
+.tk-quest b { font-size: var(--fs-2); color: var(--amber); }
+.tk-quest p { margin: 2px 0 0; font-size: var(--fs-2); color: var(--ink-2); }
+.tk-quest.is-ready b { color: var(--green); }
+.tk-quest.is-done { opacity: .55; }
+.tk-npc .tk-actions { margin-top: 6px; }
+.tk-npc .tk-btn { padding: 5px 12px; font-size: var(--fs-2); }
+.tk-qline { font-size: var(--fs-2); margin-top: 4px; }
+.tk-qline b { display: block; }
+.tk-qline span { color: var(--ink-2); }
+
+.tk-load { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: var(--fs-2); }
+.tk-load .tk-bar i { background: var(--green); }
+.tk-load.is-over .tk-bar i { background: var(--red); }
+.tk-load.is-over b { color: var(--red); }
+.tk-slot { padding: 9px 0; border-bottom: 1px solid var(--line); }
+.tk-slot:last-child { border-bottom: 0; }
+.tk-slot-head { display: flex; gap: 10px; align-items: baseline; }
+.tk-slot-k { width: 64px; flex: none; font-size: var(--fs-2); color: var(--ink-2); }
+.tk-slot-head b { font-size: var(--fs-3); }
+.tk-slot .tk-item-desc { display: block; margin-left: 74px; }
+.tk-slot > .tk-actions { margin: 6px 0 0 74px; }
+.tk-slot > .tk-actions .tk-btn { padding: 4px 11px; font-size: var(--fs-2); }
+.tk-slot > .tk-item { margin-left: 74px; }
+.tk-tagslot {
+  margin-left: 8px; font-size: var(--fs-1); color: var(--ink-2); font-weight: 600;
+  border: 1px solid var(--line); border-radius: var(--r-1); padding: 0 5px;
+}
+.tk-bounty { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.tk-bounty canvas { width: 64px; height: 64px; image-rendering: pixelated; background: #3b3324; border-radius: var(--r-1); }
+.tk-bounty b { font-size: var(--fs-3); margin-right: 8px; }
+.tk-bounty p { margin: 2px 0 0; }
+.tk-bounty.is-done { opacity: .6; }
+
+/* ---------- 図鑑・エンディング ---------- */
+.tk-zrow { display: grid; grid-template-columns: 9em 1fr; gap: 10px; padding: 5px 0; border-bottom: 1px dotted #2a333c; font-size: var(--fs-2); }
+.tk-zrow span { color: var(--ink-2); }
+.tk-zrow.is-off { opacity: .45; }
+.tk-ending { margin-bottom: 14px; }
+.tk-ending p { margin: 0 0 8px; font-family: var(--serif); font-size: var(--fs-4); line-height: 1.9; }

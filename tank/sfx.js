@@ -200,6 +200,18 @@ window.SFX = (function () {
     escape: function () {
       tone({ f0: 440, f1: 160, dur: 0.24, gain: 0.26, type: 'triangle' });
     },
+    pick: function (rate) {
+      tone({ f0: 880 * (rate || 1), f1: 1320 * (rate || 1), dur: 0.08, gain: 0.18, type: 'square' });
+    },
+    empty: function () {
+      tone({ f0: 180, dur: 0.06, gain: 0.2, type: 'square' });
+      tone({ f0: 140, dur: 0.06, gain: 0.2, type: 'square', delay: 0.08 });
+    },
+    radio: function () {
+      noise({ f0: 2400, dur: 0.12, gain: 0.08, q: 0.8 });
+      tone({ f0: 1200, dur: 0.05, gain: 0.14, type: 'square', delay: 0.1 });
+      tone({ f0: 1600, dur: 0.07, gain: 0.14, type: 'square', delay: 0.17 });
+    },
     clear: function () {
       [523, 659, 784, 1047].forEach(function (f, i) {
         tone({ f0: f, dur: 0.28, gain: 0.26, type: 'square', delay: i * 0.13 });

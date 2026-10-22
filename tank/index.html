@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>荒野の戦車乗り（ベータ 0.4） | ヒノガタリ</title>
-<meta name="description" content="戦車で荒野を走り、賞金首を狩るブラウザゲームのベータ版。">
+<title>荒野の戦車乗り（ベータ 0.5） | ヒノガタリ</title>
+<meta name="description" content="戦車で荒野を走り、賞金首を狩り、剥いだ部品で車を組むブラウザゲームのベータ版。">
 <meta property="og:type" content="website">
-<meta property="og:title" content="荒野の戦車乗り（ベータ 0.4） | ヒノガタリ">
+<meta property="og:title" content="荒野の戦車乗り（ベータ 0.5） | ヒノガタリ">
 <meta property="og:url" content="https://yamaga-syuumei.github.io/tank/">
-<meta property="og:description" content="戦車で荒野を走り、賞金首を狩る。街で車を直し、主砲と装甲を積み替えて奥へ進む。ブラウザだけで遊べます。">
+<meta property="og:description" content="撃って、剥いで、積んで、もっと遠くへ。戦車で荒野を走り、賞金首の部位を剥いで車を組み直す。ブラウザだけで遊べます。">
 <meta property="og:image" content="https://yamaga-syuumei.github.io/img/ogp.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -19,12 +19,12 @@
 
 <link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=2633d6bb">
+<link rel="stylesheet" href="style.css?v=aa4fc072">
 </head>
 <body>
 
 <header class="tk-head">
-  <span class="tk-title">荒野の戦車乗り<b>β0.4</b></span>
+  <span class="tk-title">荒野の戦車乗り<b>β0.5</b></span>
   <span class="tk-headbtns">
     <button class="tk-icon tk-icon-gear" id="open-opt" title="オプション" aria-label="オプション"></button>
   </span>
@@ -52,12 +52,36 @@
       <p class="tk-opt-note" id="opt-audio-note" hidden>この環境では音を鳴らせません。</p>
     </div>
 
+    <h3 class="tk-sub">あそび</h3>
+    <div class="tk-opt">
+      <div class="tk-opt-row tk-opt-wide">
+        <div>
+          <b>図鑑</b>
+          <span class="tk-opt-note">倒した賞金首・会った雑魚・手に入れた部品。</span>
+        </div>
+        <button class="tk-btn" id="opt-zukan">ひらく</button>
+      </div>
+      <div class="tk-opt-row tk-opt-wide">
+        <div>
+          <b>始めの案内</b>
+          <span class="tk-opt-note">サキの無線の案内を、最初から聞き直します。</span>
+        </div>
+        <button class="tk-btn" id="opt-tut">聞き直す</button>
+      </div>
+      <div class="tk-opt-row tk-opt-wide">
+        <div>
+          <b>操作</b>
+          <span class="tk-opt-note">走る：矢印キー／WASD　撃つ：Space（スマホは画面のボタン）</span>
+        </div>
+      </div>
+    </div>
+
     <h3 class="tk-sub">データ</h3>
     <div class="tk-opt">
       <div class="tk-opt-row tk-opt-wide">
         <div>
           <b>最初からやり直す</b>
-          <span class="tk-opt-note">強化も所持金も消えます。</span>
+          <span class="tk-opt-note">部品も所持金も消えます。</span>
         </div>
         <button class="tk-btn" id="reset">やり直す</button>
       </div>
@@ -78,54 +102,90 @@
         <a class="tk-btn" href="../">開発者サイトへ</a>
       </div>
     </div>
-    <p class="tk-opt-ver">荒野の戦車乗り β0.4</p>
+    <p class="tk-opt-ver">荒野の戦車乗り β0.5</p>
   </div>
 </div>
+
+<!-- 図鑑 -->
+<div class="tk-modal" id="zukan-modal" hidden>
+  <div class="tk-modal-box" role="dialog" aria-modal="true" aria-label="図鑑">
+    <div class="tk-modal-head">
+      <b class="tk-modal-title">図鑑</b>
+      <button class="tk-btn tk-btn-main" id="zukan-close">閉じる</button>
+    </div>
+    <div id="zukan-body"></div>
+  </div>
+</div>
+
+<!-- 案内の金の枠 -->
+<div class="tk-spot" id="spot" hidden></div>
 
 <main class="tk-main">
 
   <!-- ==========================================================
-       左：フィールド
+       左：荒野
        ========================================================== -->
   <div class="tk-left">
     <div class="tk-stage">
       <div id="stage"></div>
-      <canvas class="tk-minimap" id="minimap" width="92" height="69"></canvas>
+      <canvas class="tk-minimap" id="minimap" width="192" height="128"></canvas>
 
-      <!-- 地図に重ねる状態表示。色見本は車体の色とそろえてある -->
       <div class="tk-hud">
+        <div class="tk-hud-region" id="hud-region"></div>
         <div class="tk-hud-hp">
           <span class="tk-hud-k">HP</span>
           <span class="tk-bar"><i id="hud-hpbar"></i></span>
           <b id="hud-hp">--</b>
         </div>
-        <div class="tk-hud-gold">
-          <span class="tk-hud-k">所持金</span>
-          <b id="hud-gold">0 G</b>
-        </div>
-        <div class="tk-gear">
-          <div><i class="tk-sw" id="sw-cannon"></i><span class="tk-hud-k">主砲</span><b id="gear-cannon">—</b><span class="tk-st" id="st-cannon"></span></div>
-          <div><i class="tk-sw" id="sw-subgun"></i><span class="tk-hud-k">副砲</span><b id="gear-subgun">—</b><span class="tk-st" id="st-subgun"></span></div>
-          <div><i class="tk-sw" id="sw-armor"></i><span class="tk-hud-k">装甲</span><b id="gear-armor">—</b><span class="tk-st" id="st-armor"></span></div>
-          <div><i class="tk-sw" id="sw-engine"></i><span class="tk-hud-k">機関</span><b id="gear-engine">—</b><span class="tk-st" id="st-engine"></span></div>
-        </div>
+        <div class="tk-hud-row"><span class="tk-hud-k">主砲の弾</span><b id="hud-ammo">--</b></div>
+        <div class="tk-hud-row"><span class="tk-hud-k">所持金</span><b class="is-gold" id="hud-gold">0 G</b></div>
+        <div class="tk-hud-row"><span class="tk-hud-k">スクラップ</span><b id="hud-scrap">0 G</b></div>
+        <div class="tk-hud-row"><span class="tk-hud-k">修理キット</span><b id="hud-kits">0</b></div>
       </div>
 
-      <!-- 画面下に出る一行メッセージ -->
+      <!-- サキの無線 -->
+      <div class="tk-radio" id="radio" hidden>
+        <canvas class="tk-radio-face" id="radio-face" width="24" height="24"></canvas>
+        <div class="tk-radio-body">
+          <span class="tk-radio-who">サキ<em id="radio-step"></em></span>
+          <p id="radio-text"></p>
+        </div>
+        <button class="tk-btn" id="radio-close">とじる</button>
+      </div>
+
       <div class="tk-toast" id="toast" hidden></div>
 
-      <!-- スマホ用の方向パッド -->
+      <!-- スマホ用の方向パッドと撃つボタン -->
       <div class="tk-pad" id="pad" aria-hidden="true">
         <button data-dir="up">▲</button>
         <button data-dir="left">◀</button>
         <button data-dir="right">▶</button>
         <button data-dir="down">▼</button>
       </div>
+      <div class="tk-firebtn" id="pad-fire" aria-hidden="true">
+        <button data-dir="fire">撃つ</button>
+      </div>
+
+      <!-- タイトル -->
+      <div class="tk-titlescreen" id="title" hidden>
+        <h1>荒野の戦車乗り</h1>
+        <p>撃って、剥いで、積んで、もっと遠くへ。</p>
+        <div class="tk-actions">
+          <button class="tk-btn tk-btn-main" id="title-new">はじめから</button>
+          <button class="tk-btn" id="title-cont">つづきから</button>
+        </div>
+        <p class="tk-opt-confirm" id="title-ask" hidden>
+          <em>前の記録は消えます。はじめからにしますか？</em>
+          <button class="tk-btn tk-btn-danger" id="title-ask-yes">はい</button>
+          <button class="tk-btn" id="title-ask-no">やめる</button>
+        </p>
+      </div>
     </div>
 
     <p class="tk-help">
-      <b>移動</b> 矢印キー／WASD（スマホは画面の方向パッド）
-      <b>街・敵</b> 近づくと表示エリアに出ます
+      <b>走る</b> 矢印キー／WASD
+      <b>撃つ</b> Space
+      <b>街・敵</b> 近づくと右に出ます
     </p>
     <p class="tk-credit">
       効果音：ユウラボ8bitサウンド工房（<a href="https://www.skipmore.com/" target="_blank" rel="noopener">SKIPMORE</a>）様の素材を使用しています。
@@ -134,94 +194,90 @@
   </div>
 
   <!-- ==========================================================
-       右：表示エリア。街も戦闘もすべてここに出す
+       右：表示エリア。街も戦闘もここに出す
        ========================================================== -->
   <aside class="tk-side">
 
-    <!-- 何も起きていないとき。アイコンの見分け方を出しておく -->
     <div class="tk-panel" id="idle">
-      <h2>荒野</h2>
-      <p class="tk-intro">街に入るか、敵に触れると、ここに内容が出ます。</p>
-
+      <h2 id="idle-region">荒野</h2>
       <div class="tk-goal" id="goal">
-        <div class="tk-goal-row"><span>賞金首</span><b id="goal-count">0 / 3</b></div>
-        <em id="goal-note">三体すべて仕留めるとクリア</em>
+        <div class="tk-goal-row"><span>賞金首</span><b id="goal-count">0 / 5</b></div>
+        <em id="goal-note"></em>
       </div>
-
-      <!-- 中身は game.js が実際のスプライトから作る。
-           手書きの図形だと絵を変えたときにずれるため。 -->
-      <div class="tk-legend" id="legend"></div>
+      <div class="tk-goal" id="idle-quest-box" hidden>
+        <div class="tk-goal-row"><span>依頼</span></div>
+        <div id="idle-quests"></div>
+      </div>
+      <p class="tk-intro">街に入るか敵に触れると、ここに出ます。廃車や小岩は撃つと壊れます。</p>
     </div>
 
-    <!-- ==========================================================
-         雑魚戦：ワンボタンのオート戦闘
-         ========================================================== -->
+    <!-- 雑魚戦 -->
     <div class="tk-panel" id="mob" hidden>
       <h2 id="mob-title">遭遇</h2>
+      <p class="tk-intro" id="mob-stat"></p>
       <div class="tk-actions tk-actions-top">
-        <button class="tk-btn tk-btn-main" id="mob-fight">戦闘</button>
+        <button class="tk-btn tk-btn-main" id="mob-fight">戦う</button>
+        <button class="tk-btn" id="mob-subonly">副砲だけで戦う</button>
         <button class="tk-btn" id="mob-run">逃げる</button>
         <button class="tk-btn tk-btn-main" id="mob-close" hidden>閉じる</button>
       </div>
       <div class="tk-log" id="mob-log"></div>
     </div>
 
-    <!-- ==========================================================
-         賞金首戦：ターン制。部位を選んで撃つ
-         ========================================================== -->
+    <!-- 賞金首戦 -->
     <div class="tk-panel" id="boss" hidden>
       <h2 id="boss-title">賞金首</h2>
-
-      <div class="tk-actions tk-actions-top" id="boss-actions">
-        <button class="tk-btn" id="boss-repair">応急修理</button>
-        <button class="tk-btn" id="boss-run">撤退</button>
-      </div>
-      <div class="tk-actions tk-actions-top" id="boss-end" hidden>
-        <button class="tk-btn tk-btn-main" id="boss-close">閉じる</button>
-      </div>
-
+      <div class="tk-intent" id="boss-intent"></div>
+      <div class="tk-weapons" id="boss-weapons"></div>
       <div class="tk-parts" id="boss-parts"></div>
-
       <div class="tk-selfbar">
         <span>自車</span>
         <span class="tk-bar"><i id="boss-selfhp"></i></span>
         <span id="boss-selfnum">--</span>
       </div>
-
+      <div class="tk-actions tk-actions-top" id="boss-actions">
+        <button class="tk-btn" id="boss-guard">身構える</button>
+        <button class="tk-btn" id="boss-kit">修理キット</button>
+        <button class="tk-btn" id="boss-run">撤退</button>
+      </div>
+      <div class="tk-actions tk-actions-top" id="boss-end" hidden>
+        <button class="tk-btn tk-btn-main" id="boss-close">閉じる</button>
+      </div>
       <div class="tk-log" id="boss-log"></div>
     </div>
 
-    <!-- ==========================================================
-         クリア：賞金首を全員倒したとき
-         ========================================================== -->
-    <div class="tk-panel" id="clear" hidden>
-      <h2>クリア</h2>
+    <!-- エンディング -->
+    <div class="tk-panel" id="ending" hidden>
+      <h2>荒野の果て</h2>
+      <div class="tk-ending" id="ending-text"></div>
+      <div class="tk-result" id="ending-result"></div>
       <div class="tk-actions tk-actions-top">
-        <button class="tk-btn tk-btn-main" id="clear-close">走り続ける</button>
+        <button class="tk-btn tk-btn-main" id="ending-close">走り続ける</button>
       </div>
-      <p class="tk-intro">賞金首を三体とも仕留めた。この荒野に、あんたより強い名前はもう残っていない。</p>
-      <div class="tk-result" id="clear-result"></div>
-      <p class="tk-about">ベータ 0.4 はここまで。街とストーリーは今後追加していきます。</p>
     </div>
 
-    <!-- ==========================================================
-         街
-         ========================================================== -->
+    <!-- 街 -->
     <div class="tk-panel" id="town" hidden>
       <h2 id="town-name">街</h2>
       <div class="tk-actions tk-actions-top">
         <button class="tk-btn tk-btn-main" id="town-close">出発する</button>
       </div>
+      <p class="tk-warn" id="town-over" hidden>積みすぎで出発できない。「整備」で何かを降ろそう。</p>
       <p class="tk-intro" id="town-intro"></p>
+      <div class="tk-news" id="town-news" hidden></div>
 
       <div class="tk-tabs">
         <button class="tk-tab is-on" data-tab="talk">話す</button>
-        <button class="tk-tab" data-tab="shop">整備</button>
-        <button class="tk-tab" data-tab="bounty">賞金首</button>
+        <button class="tk-tab" data-tab="gear" id="tab-btn-gear">整備</button>
+        <button class="tk-tab" data-tab="shop">店</button>
+        <button class="tk-tab" data-tab="mod">改造</button>
+        <button class="tk-tab" data-tab="bounty" id="tab-btn-bounty">手配書</button>
       </div>
 
       <div class="tk-tabbody" id="tab-talk"></div>
+      <div class="tk-tabbody" id="tab-gear" hidden></div>
       <div class="tk-tabbody" id="tab-shop" hidden></div>
+      <div class="tk-tabbody" id="tab-mod" hidden></div>
       <div class="tk-tabbody" id="tab-bounty" hidden></div>
     </div>
 
@@ -233,7 +289,7 @@
 <script src="data.js?v=494919cd"></script>
 <script src="sfx.js?v=ee3a3bdb"></script>
 <script src="art.js?v=c5a38402"></script>
-<script src="game.js?v=beb9af89"></script>
+<script src="game.js?v=ac465825"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "135398d1756f4c75a2f6c4543d88f05a"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
