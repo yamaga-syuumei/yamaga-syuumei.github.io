@@ -384,12 +384,13 @@ button { font-family: inherit; }
 /* ---------- タイトル ---------- */
 .tk-titlescreen {
   position: absolute; inset: 0; z-index: 5;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-  background:
-    linear-gradient(180deg, rgba(13,16,19,.2) 0%, rgba(13,16,19,.0) 40%, rgba(13,16,19,.85) 100%),
-    linear-gradient(180deg, #3a2a3a 0%, #a0583a 46%, #e09a4a 58%, #6a4a2a 60%, #3a2a18 100%);
-  border: 1px solid var(--line); border-radius: var(--r-1); text-align: center; padding: 20px;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px;
+  background: #3a2a3a; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--r-1); text-align: center; padding: 7% 20px 20px;
 }
+/* 景色（title.js）。文字とボタンはその上に載せる */
+.tk-title-art { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.tk-titlescreen > :not(.tk-title-art) { position: relative; }
 .tk-titlescreen h1 {
   margin: 0; font-family: var(--serif); font-size: var(--fs-7); letter-spacing: .1em;
   text-shadow: 0 2px 0 #12161a, 0 0 18px rgba(0,0,0,.6);
