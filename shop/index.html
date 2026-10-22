@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ハンター向けのショップ（ベータ 1.0） | ヒノガタリ</title>
+<meta name="description" content="崩壊から500年後の荒野で、ハンター相手の店を営むブラウザゲーム。作って並べた品でハンターは深く潜り、持ち帰った素材でもっと良い品が作れる。品が辿った道と、荒野の出来事を集めます。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ハンター向けのショップ（ベータ 1.0） | ヒノガタリ">
+<meta property="og:url" content="https://yamaga-syuumei.github.io/shop/">
+<meta property="og:description" content="作って、並べて、売る。店の品を身につけたハンターが荒野の賞金首を仕留める、店主のブラウザゲーム。">
+<meta property="og:image" content="https://yamaga-syuumei.github.io/img/thumbnail-shop.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="675">
+<meta name="twitter:image" content="https://yamaga-syuumei.github.io/img/thumbnail-shop.jpg">
+<link rel="canonical" href="https://yamaga-syuumei.github.io/shop/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SyuumeiYamaga">
+
+<link rel="icon" type="image/png" sizes="64x64" href="/img/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css?v=2b700a32">
+</head>
+<body>
+
+<div class="sp-frame">
+
+  <!-- 日付・所持金・解放率 -->
+  <div class="sp-hud" id="hud"></div>
+
+  <div class="sp-body" id="body">
+    <!-- 店の絵。部屋を押すと、その部屋の窓が上に開く -->
+    <div class="sp-scene" id="scene">
+      <div class="sp-stage" id="stage">
+        <canvas id="cv"></canvas>
+      </div>
+    </div>
+
+    <!-- 部屋の窓 -->
+    <div class="sp-window" id="window" hidden>
+      <div class="sp-window-head">
+        <b id="winTitle"></b>
+        <button class="sp-btn sp-btn-s" id="winClose">閉じる</button>
+      </div>
+      <div class="sp-window-body" id="winBody"></div>
+    </div>
+  </div>
+
+  <!-- 日を進めた結果はここに重ねて出す -->
+  <div class="sp-overlay" id="overlay"></div>
+
+  <!-- タイトル。夕暮れの荒野に建つ店の景色。
+       最初のクリックで音を鳴らせるようになるので、まず「クリックしてはじめる」を出してからメニューにする -->
+  <div class="sp-title" id="ovTitle" hidden>
+    <canvas class="sp-tcv" id="titleCv"></canvas>
+    <div class="sp-tlogo">
+      <h1>ハンター向けの<br>ショップ</h1>
+      <p class="sp-tagline">作って、並べて、売る。荒野のハンター相手の店。</p>
+    </div>
+    <p class="sp-tpress" id="titlePress">クリックしてはじめる</p>
+    <div class="sp-tmenu" id="titleMenu" hidden>
+      <button class="sp-tbtn" id="btnStart">はじめる</button>
+      <button class="sp-tbtn" id="btnTitleNew" hidden>はじめから</button>
+      <button class="sp-tbtn" id="btnTitleHelp">遊び方</button>
+      <button class="sp-tbtn" id="btnTitleOpt">オプション</button>
+      <p class="sp-titlenote" id="titleNote"></p>
+    </div>
+    <p class="sp-tfoot">ベータ 1.0　／　© ヒノガタリ</p>
+  </div>
+
+  <!-- 遊び方 -->
+  <div class="sp-ov" id="help" hidden>
+    <div class="sp-panel sp-panel-w">
+      <div class="sp-ovhead">遊び方</div>
+      <div class="sp-helpbody">
+
+        <section>
+          <h4>やること</h4>
+          <p><b>素材から品を作り、棚に並べて、荒野のハンターに売る。</b>
+            売るのは自動です。ハンターは買った品を身につけてダンジョンに潜り、
+            持ち帰った素材を店が買い取ります。売上で店を広げ、ハンターを強くして、荒野の賞金首をすべて仕留めさせます。</p>
+        </section>
+
+        <section>
+          <h4>1日の流れ</h4>
+          <ul>
+            <li><b>準備</b>…時間は止まっています。作る・並べる・買い取るを好きなだけ。</li>
+            <li><b>次の日へ</b>…上の「次の日へ」か、自室で寝ると、その日の営業が始まります。客が棚から買っていく様子が出ます（押すと飛ばせます）。</li>
+            <li><b>結果</b>…売上・ハンターの報告・持ち帰った素材の買取が出ます。<b>買わなかった素材は流れます。</b></li>
+          </ul>
+        </section>
+
+        <section>
+          <h4>部屋</h4>
+          <ul>
+            <li><b>工房</b>…設計図と素材から品を作る。売れ残りは分解して素材に戻せます。</li>
+            <li><b>店舗</b>…棚に並べる。棚は種類ごとの枠で、在庫がある限り売れ続けます。</li>
+            <li><b>帳場</b>…持ち帰りの買取と、前日の売上。</li>
+            <li><b>商人</b>…素材と設計図を買う。高いが、在庫は尽きません。</li>
+            <li><b>宿屋</b>…ハンターの装備・強さ・頼みごと・明日の見込み。宿泊料も入ります。</li>
+            <li><b>酒場</b>…来る客の数。広げるとハンターとモブが増えます。</li>
+            <li><b>資料室</b>…図鑑。品・ハンター・ダンジョンと、そこにまつわる出来事、品が辿った道。</li>
+            <li><b>自室</b>…寝て次の日へ。<b>管理室・データルーム</b>はオプションです。</li>
+          </ul>
+        </section>
+
+        <section>
+          <h4>ハンター</h4>
+          <ul>
+            <li>帰ってくるたびに<b>頼みごと</b>をします。頼まれた品が棚にあれば真っ先に買い、お礼を置いていきます。</li>
+            <li>出発前に<b>見込み</b>が出ます。良い装備と薬を持たせるほど、深く潜って多く持ち帰ります。</li>
+            <li>装備には<b>耐久</b>があり、潜るたびに減って、尽きると壊れます。壊れたらまた買いに来ます。</li>
+          </ul>
+        </section>
+
+        <section>
+          <h4>進み方</h4>
+          <ul>
+            <li>店は工房・店舗・宿屋・酒場の4つを、それぞれの部屋の「増築」で広げます。工房を上げると作れる設計図が増えます。</li>
+            <li>ダンジョンの最下層には<b>賞金首</b>がいます。店の品で仕留めると記録に残ります。</li>
+            <li>上の「解放」は図鑑の埋まり具合です。ゲームに終わりはありません。</li>
+          </ul>
+        </section>
+
+      </div>
+      <div class="sp-ovbtns">
+        <button class="sp-btn" id="btnTut">はじめのてびきを出す</button>
+        <button class="sp-btn is-main" id="btnHelpClose">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- オプション。ほかのブラウザゲームと同じ形（右上は歯車ひとつ） -->
+  <div class="sp-ov" id="ovOpt" hidden>
+    <div class="sp-panel">
+      <div class="sp-ovhead">オプション</div>
+      <div class="sp-optbody">
+        <div class="sp-vols" id="volBox">
+          <label class="sp-vol"><span>BGM</span>
+            <input type="range" id="vBgm" min="0" max="1" step="0.05"><b id="vBgmV"></b></label>
+          <label class="sp-vol"><span>効果音</span>
+            <input type="range" id="vSe" min="0" max="1" step="0.05"><b id="vSeV"></b></label>
+          <div class="sp-optbtns"><button class="sp-btn sp-btn-s" id="btnMute">ミュート</button></div>
+        </div>
+
+        <div class="sp-optrow">
+          <div>
+            <b>表示</b>
+            <label class="sp-opt"><input type="checkbox" id="optMorning"><span>寝たあと、その日の営業の場面を見せる</span></label>
+            <label class="sp-opt"><input type="checkbox" id="optLog"><span>戦闘の詳細ログを最初から開いておく</span></label>
+          </div>
+        </div>
+
+        <div class="sp-optrow">
+          <div>
+            <b>控え</b>
+            <span>店の進み具合をファイルに書き出して取っておけます。ブラウザのデータを消しても、読み込めば戻せます。</span>
+          </div>
+          <div class="sp-optbtns">
+            <button class="sp-btn sp-btn-s" id="btnExport">書き出す</button>
+            <button class="sp-btn sp-btn-s" id="btnImport">読み込む</button>
+            <input type="file" id="fileSave" accept=".txt,.json,text/plain,application/json" hidden>
+          </div>
+        </div>
+        <p class="sp-optnote" id="saveNote" hidden></p>
+
+        <div class="sp-optrow" id="optToTitle">
+          <div>
+            <b>タイトル</b>
+            <span>店はそのまま残ります。</span>
+          </div>
+          <button class="sp-btn sp-btn-s" id="btnToTitle">タイトルに戻る</button>
+        </div>
+
+        <div class="sp-optrow">
+          <div>
+            <b>最初から</b>
+            <span>所持金・設備・設計図・図鑑をすべて消して、開店の日からやり直します。</span>
+          </div>
+          <button class="sp-btn sp-btn-s" id="btnReset">やり直す</button>
+        </div>
+
+        <div class="sp-optrow">
+          <div>
+            <b>ヒノガタリ</b>
+            <span>ほかのブラウザゲームと小説の置き場所です。</span>
+          </div>
+          <a class="sp-btn sp-btn-s" href="../" target="_blank" rel="noopener">開発者サイトへ</a>
+        </div>
+
+        <p class="sp-credits" id="credits" hidden></p>
+      </div>
+      <div class="sp-ovbtns">
+        <button class="sp-btn is-main" id="btnOptClose">閉じる</button>
+      </div>
+      <p class="sp-ver">ハンター向けのショップ ベータ 1.0</p>
+    </div>
+  </div>
+
+  <!-- 確かめる窓。ブラウザの確認ダイアログの代わり。ほかの覆いより上に出すので最後に置く -->
+  <div class="sp-ov" id="ask" hidden>
+    <div class="sp-panel sp-ask" role="alertdialog" aria-labelledby="askHead">
+      <div class="sp-ovhead" id="askHead"></div>
+      <p class="sp-asktext" id="askText"></p>
+      <div class="sp-ovbtns">
+        <button class="sp-btn" id="askNo">やめる</button>
+        <button class="sp-btn is-main" id="askYes">はい</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 図鑑に載った・賞金首を仕留めた。札を真ん中に出して紙吹雪で祝う。札の外は触れても下へ通す -->
+<div class="sp-discover" id="discover" hidden>
+  <canvas class="sp-confetti" id="confetti"></canvas>
+  <div class="sp-dcard" id="discCard" role="status" hidden>
+    <div class="sp-dribbon" id="discRibbon"></div>
+    <div class="sp-dicon" id="discIcon"></div>
+    <b class="sp-dname" id="discName"></b>
+    <q class="sp-dflavor" id="discFlavor"></q>
+    <span class="sp-dmeta" id="discMeta"></span>
+    <span class="sp-dcount" id="discCount"></span>
+  </div>
+</div>
+
+<!-- マウスを乗せたときの説明 -->
+<div class="sp-tip" id="tip" hidden></div>
+
+<!-- はじめのてびき。押すところを枠で囲み、まわりを暗くする。枠も暗さもクリックは通す -->
+<div class="sp-spot" id="spot" hidden></div>
+<div class="sp-coach" id="coach" hidden>
+  <canvas class="sp-guide" id="guideCv" width="16" height="16"></canvas>
+  <div class="sp-cbub">
+    <div class="sp-chead"><b>てびき</b><span id="coachStep"></span></div>
+    <p id="coachText"></p>
+    <div class="sp-cbtns">
+      <button class="sp-btn sp-btn-s is-main" id="coachOk" hidden>わかった</button>
+      <button class="sp-cskip" id="coachSkip">てびきをとじる</button>
+    </div>
+  </div>
+</div>
+
+<script src="data.js?v=e846d3ad"></script>
+<script src="sound.js?v=456a71ff"></script>
+<script src="sprites.js?v=51eb6094"></script>
+<script src="art.js?v=2d1cda12"></script>
+<script src="scene.js?v=169c86a3"></script>
+<script src="title.js?v=2a1d2356"></script>
+<script src="game.js?v=713192ee"></script>
+</body>
+</html>
