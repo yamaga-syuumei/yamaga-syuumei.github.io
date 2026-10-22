@@ -584,11 +584,14 @@
 
     create: function () {
       G = this;
-      ART.register(this, tankPal());
+      ART.retank(this, tankPal());
       ensureStandIns();
 
+      /* 地面は一度だけまとめて焼く。1マスずつ draw すると描画の往復がマスの数だけ起きる */
       this.ground = this.add.renderTexture(0, 0, WORLD_W, WORLD_H).setOrigin(0, 0).setDepth(0);
-      for (var y = 0; y < MAPH; y++) for (var x = 0; x < MAPW; x++) drawTile(x, y);
+      this.ground.beginDraw();
+      for (var y = 0; y < MAPH; y++) for (var x = 0; x < MAPW; x++) this.ground.batchDraw(tileTex(at(x, y), x, y), x * TILE, y * TILE);
+      this.ground.endDraw();
 
       this.trail = [];
       bossObjs.forEach(makeBossView);
@@ -2065,7 +2068,25 @@
     startWorld();
   }
 
+  /* 描画の起動と絵の準備はタイトルの間に済ませる。荒野は始めるまで動かさない */
   var game = null;
+  var Boot = {
+    key: 'boot',
+    create: function () {
+      var st = D.start.equip;
+      ART.register(this, { body: PART[st.armor].color, tread: PART[st.track].color, barrel: PART[st.main].color, sub: null, extra: null });
+    }
+  };
+  function createGame() {
+    if (game) return;
+    game = new Phaser.Game({
+      type: Phaser.AUTO, parent: 'stage', width: VIEW_W, height: VIEW_H, pixelArt: true,
+      backgroundColor: '#14181c',
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_HORIZONTALLY },
+      scene: [Boot, Field, BattleScene]
+    });
+  }
+
   function startWorld() {
     G = null;
     buildGrid();
@@ -2079,17 +2100,10 @@
     scene = 'field';
     panel('idle');
     SFX.bgmMood(curRegion ? curRegion.bgm : 'field');
-    if (game) {
-      game.scene.getScene('battle').scene.stop();
-      game.scene.getScene('field').scene.restart();
-    } else {
-      game = new Phaser.Game({
-        type: Phaser.AUTO, parent: 'stage', width: VIEW_W, height: VIEW_H, pixelArt: true,
-        backgroundColor: '#14181c',
-        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_HORIZONTALLY },
-        scene: [Field, BattleScene]
-      });
-    }
+    createGame();
+    if (game.scene.isActive('battle')) game.scene.stop('battle');
+    if (game.scene.isActive('field') || game.scene.isPaused('field')) game.scene.getScene('field').scene.restart();
+    else game.scene.start('field');
     hud(); save();
     showRadio();
   }
@@ -2202,6 +2216,7 @@
      ========================================================== */
   setInterval(placeSpot, 400);
   openTitle();
+  createGame();
 
   /* dev:start */
   if (/[?&]debug=1/.test(location.search)) {

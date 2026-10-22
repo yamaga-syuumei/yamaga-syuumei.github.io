@@ -626,14 +626,30 @@ window.ART = (function () {
   var KEYS = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
   function fromRows(sp) {
     var h = sp.r.length, w = sp.r[0].length;
-    return make(w, h, function (a) {
-      for (var y = 0; y < h; y++) {
-        for (var x = 0; x < w; x++) {
-          var ch = sp.r[y][x];
-          if (ch !== '.') a.p(x, y, sp.p[KEYS.indexOf(ch)]);
-        }
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var g = c.getContext('2d'), img = g.createImageData(w, h), d = img.data;
+    var cols = sp.p.map(rgba);
+    for (var y = 0; y < h; y++) {
+      var row = sp.r[y];
+      for (var x = 0; x < w; x++) {
+        var ch = row[x];
+        if (ch === '.') continue;
+        var col = cols[KEYS.indexOf(ch)], i = (y * w + x) * 4;
+        d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = col[3];
       }
-    });
+    }
+    g.putImageData(img, 0, 0);
+    return c;
+  }
+  /* '#rrggbb' か 'rgba(r,g,b,a)' を [r, g, b, a(0-255)] にする */
+  function rgba(s) {
+    if (s.charAt(0) === '#') {
+      var n = parseInt(s.slice(1), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 255];
+    }
+    var v = s.slice(s.indexOf('(') + 1, -1).split(',');
+    return [+v[0], +v[1], +v[2], Math.round(+v[3] * 255)];
   }
 
   /* 装備を積み替えたときに戦車だけ描き直す */
