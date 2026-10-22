@@ -173,9 +173,10 @@ button { font-family: inherit; }
 .tk-side { position: sticky; top: 62px; }
 
 .tk-toast {
-  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 2;
+  max-width: calc(100% - 340px); white-space: normal; text-align: center;
   background: rgba(5,7,10,.9); border: 1px solid var(--line);
-  border-radius:var(--r-1); padding: 7px 16px; font-size:var(--fs-3); white-space: nowrap;
+  border-radius:var(--r-1); padding: 7px 16px; font-size:var(--fs-3);
 }
 
 /* ---------- 方向パッド（スマホ） ---------- */
@@ -404,7 +405,10 @@ button { font-family: inherit; }
     background: rgba(224,57,25,.85); color: #fff; border: 1px solid var(--red);
     font-size: var(--fs-4); font-weight: 800; cursor: pointer;
   }
-  .tk-radio { bottom: 128px; }
+  .tk-radio { position: static; margin-top: 8px; }
+  .tk-toast { top: auto; bottom: 10px; max-width: calc(100% - 20px); }
+  .tk-minimap { width: 72px; height: 48px; }
+  .tk-hud-row:nth-child(n+5) { display: none; }
 }
 
 /* ---------- 賞金首戦 ---------- */

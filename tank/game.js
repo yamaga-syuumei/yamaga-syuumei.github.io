@@ -127,10 +127,13 @@
   function overloaded() { var c = car(); return c.w > c.power; }
 
   function tankPal() {
-    var a = equipped('armor'), t = equipped('track'), m = equipped('main'), s = equipped('sub');
+    var a = equipped('armor'), t = equipped('track'), m = equipped('main'), s = equipped('sub'), x = equipped('extra');
+    var xt = x ? PART[x.id].tags || [] : [];
+    var kind = xt.indexOf('dozer') >= 0 ? 'dozer' : xt.indexOf('float') >= 0 ? 'float' : xt.indexOf('ram') >= 0 ? 'ram' : null;
     return {
       body: PART[a.id].color, tread: PART[t.id].color,
-      barrel: PART[m.id].color, sub: s ? PART[s.id].color : null
+      barrel: PART[m.id].color, sub: s ? PART[s.id].color : null,
+      extra: kind ? { kind: kind, color: PART[x.id].color } : null
     };
   }
 
@@ -231,6 +234,14 @@
   var spotEl = $('spot'), spotTarget = null, spotDim = false;
   var radioTip = null, radioT = 0, tipQueue = [];
   var fieldMark = null;    // 荒野で行き先を示す印 {x, y}
+
+  (function drawFace() {
+    var sp = window.SPRITES && window.SPRITES['face-saki'], cv = $('radio-face');
+    if (!sp) return;
+    var img = ART.fromRows(sp);
+    cv.width = img.width; cv.height = img.height;
+    cv.getContext('2d').drawImage(img, 0, 0);
+  })();
 
   function tutStep() {
     if (S.tutOff || S.tut >= D.tutorial.length) return null;
@@ -512,14 +523,17 @@
     g.fillRect(w * 0.2, h * 0.25, w * 0.6, h * 0.5);
     G.textures.addCanvas(key, c);
   }
+  /* 地面・道・岩・小岩・廃車は地域ごとの絵。ほかは共通 */
   function tileTex(ch, tx, ty) {
-    var v = (tx * 5 + ty * 3) % 3;
+    var v = (tx * 5 + ty * 3) % 3, rg = regionAt(tx, ty), id = rg ? rg.id : 'sand';
     var key = {
-      '.': 'tile-sand-' + v, ',': 'tile-road-' + v, '#': 'tile-rock-' + ((tx * 3 + ty) % 3),
-      'T': 'tile-town-0', 'B': 'tile-bldg-0', 'w': 'tile-deep-0', '~': 'tile-river-0',
-      '^': 'tile-slope-0', '%': 'tile-rubble-0', '=': 'tile-marsh-0', 'o': 'tile-stone-0', 'x': 'tile-wreck-0'
-    }[ch] || 'tile-sand-0';
-    return key;
+      '.': 'tile-ground-' + id + '-' + v, ',': 'tile-road-' + id + '-' + v,
+      '#': 'tile-rock-' + id + '-' + ((tx * 3 + ty) % 3),
+      'o': 'tile-stone-' + id, 'x': 'tile-wreck-' + id,
+      'T': 'tile-town-0', 'B': 'tile-bldg-' + ((tx + ty) % 2), 'w': 'tile-deep-0', '~': 'tile-river-' + (ty % 2),
+      '^': 'tile-slope-0', '%': 'tile-rubble-0', '=': 'tile-marsh-' + (tx % 2)
+    }[ch];
+    return key && G.textures.exists(key) ? key : 'tile-sand-0';
   }
   var STAND_TILE = {
     'tile-bldg-0':   ['#4a4e56', '#2e3138'], 'tile-deep-0':  ['#2a5a6a', '#1e4250'],
@@ -542,17 +556,9 @@
       G.textures.addCanvas(k, c);
     });
   }
-  /* 地域ごとの地面と岩の色合い */
-  var REGION_TINT = { sand: 0xffffff, rocks: 0xffc8a8, ruins: 0xb8c0c8, salt: 0xf0f4f8, cliff: 0xd8b890 };
-  function tileTint(ch, tx, ty) {
-    if (ch !== '.' && ch !== '#' && ch !== ',') return 0xffffff;
-    var rg = regionAt(tx, ty);
-    return rg ? REGION_TINT[rg.id] || 0xffffff : 0xffffff;
-  }
-
   function drawTile(tx, ty) {
     var ch = at(tx, ty);
-    G.ground.draw(tileTex(ch, tx, ty), tx * TILE, ty * TILE, 1, tileTint(ch, tx, ty));
+    G.ground.draw(tileTex(ch, tx, ty), tx * TILE, ty * TILE);
   }
 
   function makeMobView(m) {
@@ -965,6 +971,7 @@
     curRegion = rg;
     if (first) toast(rg.name);
     SFX.bgmMood(rg.bgm);
+    if (!$('idle').hidden) renderIdle();
     hud();
   }
 

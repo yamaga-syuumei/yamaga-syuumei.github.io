@@ -253,6 +253,7 @@ window.ART = (function () {
           a.r(10, 7, 6, 3, OUT);
           a.r(10, 8, 6, 1, S[3]);
         }
+        extraSide(a, pal);
       } else {
         var up = dir === 'up';
 
@@ -301,8 +302,41 @@ window.ART = (function () {
           a.r(11, up ? 0 : 9, 3, 6, OUT);
           a.r(12, up ? 0 : 10, 1, 5, S[3]);
         }
+        extraFront(a, pal, up);
       }
     });
+  }
+
+  /* 道具。pal.extra = { kind: 'dozer' | 'float' | 'ram', color } */
+  function extraSide(a, pal) {
+    var x = pal.extra;
+    if (!x) return;
+    var E = ramp(x.color);
+    if (x.kind === 'dozer') {
+      a.r(14, 4, 2, 11, OUT);
+      a.r(14, 5, 1, 9, E[3]);
+    } else if (x.kind === 'ram') {
+      a.r(13, 8, 3, 3, OUT);
+      a.r(14, 9, 2, 1, E[4]);
+    } else if (x.kind === 'float') {
+      a.r(0, 12, 16, 3, OUT);
+      a.r(1, 13, 14, 1, E[3]);
+    }
+  }
+  function extraFront(a, pal, up) {
+    var x = pal.extra;
+    if (!x) return;
+    var E = ramp(x.color), y = up ? 0 : 14;
+    if (x.kind === 'dozer') {
+      a.r(1, y, 14, 2, OUT);
+      a.r(2, up ? 0 : 15, 12, 1, E[3]);
+    } else if (x.kind === 'ram') {
+      a.r(5, y, 6, 2, OUT);
+      a.r(6, up ? 0 : 15, 4, 1, E[4]);
+    } else if (x.kind === 'float') {
+      a.r(0, 3, 1, 10, E[2]);
+      a.r(15, 3, 1, 10, E[2]);
+    }
   }
 
   /* ==========================================================
@@ -583,6 +617,23 @@ window.ART = (function () {
         add('boss-' + id + '-' + part, BOSS[id][part]);
       });
     });
+    /* sprites.js（_sprites.py が書き出す）の絵。同じ名前があれば上書きする */
+    var SP = window.SPRITES || {};
+    Object.keys(SP).forEach(function (k) { add(k, fromRows(SP[k])); });
+  }
+
+  /* 1文字1ドットの行を canvas にする */
+  var KEYS = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  function fromRows(sp) {
+    var h = sp.r.length, w = sp.r[0].length;
+    return make(w, h, function (a) {
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          var ch = sp.r[y][x];
+          if (ch !== '.') a.p(x, y, sp.p[KEYS.indexOf(ch)]);
+        }
+      }
+    });
   }
 
   /* 装備を積み替えたときに戦車だけ描き直す */
@@ -597,6 +648,7 @@ window.ART = (function () {
   return {
     register: register,
     retank: retank,
+    fromRows: fromRows,
     tileVariants: { sand: 3, road: 3, rock: 3, town: 1 },
     _make: make, _tank: tank, _tone: tone, _ramp: ramp
   };
