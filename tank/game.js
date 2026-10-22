@@ -1579,7 +1579,7 @@
       }
     }
     B.guard = false;
-    if (B.def.ai === 'ghost') B.facing = (B.facing + (phase2() ? 2 : 1)) % 3;
+    if (B.def.ai === 'ghost') B.facing = phase2() ? (B.facing === 1 ? 0 : 1) : (B.facing + 1) % 3;
     if (c.tags.mend && S.hp > 0) {
       var heal = Math.ceil(c.hp * 0.04);
       S.hp = Math.min(c.hp, S.hp + heal);

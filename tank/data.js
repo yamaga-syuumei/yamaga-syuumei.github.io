@@ -136,7 +136,7 @@ window.GAME_DATA = {
     { id: 'a_iron',  slot: 'armor', name: '鉄板',             def: 4,  hp: 140, w: 4,  price: 200,  color: '#4a7f5e' },
     { id: 'a_comp',  slot: 'armor', name: '複合装甲',         def: 10, hp: 240, w: 7,  price: 1500, color: '#3fb87a' },
     { id: 'a_shell', slot: 'armor', name: 'サソリの甲殻',     def: 14, hp: 260, w: 6,  price: 2600, color: '#c8963a' },
-    { id: 'a_light', slot: 'armor', name: '軽量セラミック',   def: 12, hp: 300, w: 5,  price: 4500, color: '#d8dce0' },
+    { id: 'a_light', slot: 'armor', name: '軽量セラミック',   def: 16, hp: 340, w: 5,  price: 4500, color: '#d8dce0' },
     { id: 'a_worm',  slot: 'armor', name: 'ワームの外殻',     def: 18, hp: 360, w: 9,  price: 4000, color: '#8a6a9a' },
     { id: 'a_react', slot: 'armor', name: '反応装甲',         def: 22, hp: 420, w: 10, price: 6500, color: '#7fe3a6' },
 
@@ -337,16 +337,16 @@ window.GAME_DATA = {
      scrap は倒したときに散らばるスクラップの総額（街に入ると換金される）。
      drop は [部品 id, 出る確率]。 */
   mobs: {
-    drone:  { name: '野良ドローン', hp: 30,  atk: 9,  def: 1,  scrap: 120, move: 'drift',  spd: 0.4, drop: [['s_mg', 0.15]] },
-    buggy:  { name: '砂バギー',     hp: 60,  atk: 14, def: 4,  scrap: 220, move: 'chase',  spd: 1.4, drop: [['m_75', 0.06], ['t_std', 0.1]] },
-    raider: { name: '砂賊ジープ',   hp: 90,  atk: 20, def: 6,  scrap: 340, move: 'chase',  spd: 1.8, drop: [['s_hmg', 0.1]] },
-    gunner: { name: '自走砲台',     hp: 120, atk: 24, def: 10, scrap: 420, move: 'turret', spd: 0,   drop: [['e_rocket', 0.08]] },
-    junk:   { name: '廃棄ロボ',     hp: 200, atk: 30, def: 14, scrap: 600, move: 'drift',  spd: 0.3, drop: [['a_comp', 0.12]] },
-    swarm:  { name: '群れドローン', hp: 70,  atk: 22, def: 6,  scrap: 300, move: 'swarm',  spd: 0.9, drop: [['s_20', 0.05]] },
-    crab:   { name: '塩ガニ戦車',   hp: 260, atk: 32, def: 24, scrap: 800, move: 'flee',   spd: 0.8, drop: [['a_react', 0.05]] },
-    boat:   { name: '塩賊ボート',   hp: 180, atk: 38, def: 12, scrap: 700, move: 'chase',  spd: 2.0, drop: [['s_twin', 0.06]] },
-    golem:  { name: '岩喰いゴーレム', hp: 380, atk: 44, def: 26, scrap: 1100, move: 'drift', spd: 0.3, drop: [['a_worm', 0.08]] },
-    hawk:   { name: '鉄の鷹',       hp: 160, atk: 40, def: 10, scrap: 1600, move: 'flee',  spd: 2.4, drop: [['g_gt', 0.04]] }
+    drone:  { name: '野良ドローン', hp: 12,  atk: 10, def: 0,  scrap: 120, move: 'drift',  spd: 0.4, drop: [['s_mg', 0.15]] },
+    buggy:  { name: '砂バギー',     hp: 40,  atk: 14, def: 2,  scrap: 220, move: 'chase',  spd: 1.4, drop: [['m_75', 0.06], ['t_std', 0.1]] },
+    raider: { name: '砂賊ジープ',   hp: 60,  atk: 24, def: 4,  scrap: 340, move: 'chase',  spd: 1.8, drop: [['s_hmg', 0.1]] },
+    gunner: { name: '自走砲台',     hp: 56,  atk: 26, def: 8,  scrap: 420, move: 'turret', spd: 0,   drop: [['e_rocket', 0.08]] },
+    junk:   { name: '廃棄ロボ',     hp: 90,  atk: 34, def: 12, scrap: 600, move: 'drift',  spd: 0.3, drop: [['a_comp', 0.12]] },
+    swarm:  { name: '群れドローン', hp: 28,  atk: 26, def: 4,  scrap: 300, move: 'swarm',  spd: 0.9, drop: [['s_20', 0.05]] },
+    crab:   { name: '塩ガニ戦車',   hp: 90,  atk: 40, def: 24, scrap: 800, move: 'flee',   spd: 0.8, drop: [['a_react', 0.05]] },
+    boat:   { name: '塩賊ボート',   hp: 110, atk: 46, def: 10, scrap: 700, move: 'chase',  spd: 2.0, drop: [['s_twin', 0.06]] },
+    golem:  { name: '岩喰いゴーレム', hp: 110, atk: 48, def: 22, scrap: 1100, move: 'drift', spd: 0.3, drop: [['a_worm', 0.08]] },
+    hawk:   { name: '鉄の鷹',       hp: 36,  atk: 40, def: 8,  scrap: 1600, move: 'flee',  spd: 2.4, drop: [['g_gt', 0.04]] }
   },
 
   /* ---------- 賞金首 ----------
@@ -359,47 +359,47 @@ window.GAME_DATA = {
       id: 'mantis', name: '鋼鉄のカマキリ', region: 'sand', town: 'base', x: 16, y: 36, gold: 1800, ai: 'mantis', phase: 0.4,
       desc: '基地の北をうろつく大型機。鎌で装甲を裂き、追い詰められると逃げ出す。',
       parts: [
-        { key: 'track', name: '脚',   hp: 70,  def: 4,  drop: 't_mantis', note: '壊すと逃げられない' },
-        { key: 'body',  name: '本体', hp: 260, def: 10, skill: { name: '噛みつき', atk: 18 } },
-        { key: 'arm',   name: '鎌',   hp: 90,  def: 6,  drop: 'x_ram', skill: { name: '鎌で裂く', atk: 34, big: true } }
+        { key: 'track', name: '脚',   hp: 36,  def: 2,  drop: 't_mantis', note: '壊すと逃げられない' },
+        { key: 'body',  name: '本体', hp: 80,  def: 4,  skill: { name: '噛みつき', atk: 11 } },
+        { key: 'arm',   name: '鎌',   hp: 44,  def: 3,  drop: 'x_ram', skill: { name: '鎌で裂く', atk: 24, big: true } }
       ]
     },
     {
       id: 'scorpion', name: '双胴のサソリ', region: 'rocks', town: 'inn', x: 58, y: 38, gold: 3600, ai: 'scorpion', phase: 0.5,
       desc: '岩場に棲みついた二連装の機体。尾の砲を溜めて撃つ。甲殻が本体を守る。',
       parts: [
-        { key: 'shell', name: '甲殻',   hp: 150, def: 18, drop: 'a_shell', note: '生きている間、本体の防御が上がる' },
-        { key: 'body',  name: '本体',   hp: 420, def: 14, skill: { name: '挟む', atk: 26 } },
-        { key: 'tail',  name: '尾部砲', hp: 150, def: 10, drop: 'e_tail', skill: { name: '尾の砲', atk: 72, big: true, charge: true } }
+        { key: 'shell', name: '甲殻',   hp: 56,  def: 8, drop: 'a_shell', note: '生きている間、本体の防御が上がる' },
+        { key: 'body',  name: '本体',   hp: 120, def: 8,  skill: { name: '挟む', atk: 20 } },
+        { key: 'tail',  name: '尾部砲', hp: 64,  def: 6,  drop: 'e_tail', skill: { name: '尾の砲', atk: 56, big: true, charge: true } }
       ]
     },
     {
       id: 'worm', name: '鉄喰いワーム', region: 'ruins', town: 'totan', x: 81, y: 16, gold: 6000, ai: 'worm', phase: 0.5,
       desc: '廃都の広場の下に棲む。地中に潜っては、真下から食らいつく。',
       parts: [
-        { key: 'hide', name: '外殻', hp: 220, def: 22, drop: 'a_worm' },
-        { key: 'body', name: '本体', hp: 560, def: 16, skill: { name: '巻きつく', atk: 34 } },
-        { key: 'jaw',  name: '顎',   hp: 200, def: 12, drop: 'x_jaw', note: '壊すと潜れない', skill: { name: '真下から食らいつく', atk: 66, big: true } }
+        { key: 'hide', name: '外殻', hp: 72,  def: 16, drop: 'a_worm' },
+        { key: 'body', name: '本体', hp: 160, def: 12, skill: { name: '巻きつく', atk: 28 } },
+        { key: 'jaw',  name: '顎',   hp: 78,  def: 8,  drop: 'x_jaw', note: '壊すと潜れない', skill: { name: '真下から食らいつく', atk: 76, big: true } }
       ]
     },
     {
       id: 'floater', name: '塩賊の浮き砲台', region: 'salt', town: 'port', x: 89, y: 44, gold: 8000, ai: 'floater', phase: 0.5,
       desc: '湖の岬に浮かぶ砲台。盾の機械が生きている間、本体への弾はほとんど弾かれる。',
       parts: [
-        { key: 'bag',    name: '浮き袋',   hp: 160, def: 8,  drop: 'x_bag', note: '壊すと傾いて狙いが逸れる' },
-        { key: 'body',   name: '本体',     hp: 620, def: 20, skill: { name: '砲撃', atk: 40 } },
-        { key: 'shield', name: '盾の機械', hp: 180, def: 14, note: '生きている間、本体への弾が弾かれる' },
-        { key: 'gun',    name: '双連砲',   hp: 200, def: 16, drop: 's_twin', skill: { name: '三連射', atk: 20, times: 3 } }
+        { key: 'bag',    name: '浮き袋',   hp: 80,  def: 6,  drop: 'x_bag', note: '壊すと傾いて狙いが逸れる' },
+        { key: 'body',   name: '本体',     hp: 220, def: 16, skill: { name: '砲撃', atk: 38 } },
+        { key: 'shield', name: '盾の機械', hp: 72,  def: 10, note: '生きている間、本体への弾が弾かれる' },
+        { key: 'gun',    name: '双連砲',   hp: 90,  def: 14, drop: 's_twin', skill: { name: '三連射', atk: 28, times: 3 } }
       ]
     },
     {
       id: 'ghost', name: '灰色の亡霊', region: 'cliff', town: 'dock', x: 30, y: 3, gold: 12000, ai: 'ghost', phase: 0.5, final: true,
-      desc: '崖の上に据わったまま動かない重機。砲塔がゆっくりと回り、正面を向いたときに撃つ。',
+      desc: '崖の上に据わったまま動かない重機。砲塔がゆっくりと回り、正面を向いたときに撃つ。追い詰めるほど回りが速くなる。',
       parts: [
-        { key: 'track',  name: 'キャタピラ', hp: 220, def: 14, note: '壊すと狙いが甘くなる' },
-        { key: 'body',   name: '本体',       hp: 900, def: 26, skill: { name: '踏みつぶす', atk: 40 } },
-        { key: 'sub',    name: '副砲塔',     hp: 160, def: 12, skill: { name: '機銃掃射', atk: 16, times: 2 } },
-        { key: 'cannon', name: '主砲塔',     hp: 320, def: 24, drop: 'm_ghost', note: '横を向いている間は装甲が薄い', skill: { name: '主砲', atk: 96, big: true } }
+        { key: 'track',  name: 'キャタピラ', hp: 120, def: 12, note: '壊すと狙いが甘くなる' },
+        { key: 'body',   name: '本体',       hp: 360, def: 16, skill: { name: '踏みつぶす', atk: 30 } },
+        { key: 'sub',    name: '副砲塔',     hp: 80,  def: 10, skill: { name: '機銃掃射', atk: 24, times: 2 } },
+        { key: 'cannon', name: '主砲塔',     hp: 140, def: 20, drop: 'm_ghost', note: '横を向いている間は装甲が薄い', skill: { name: '主砲', atk: 92, big: true } }
       ]
     }
   ],
