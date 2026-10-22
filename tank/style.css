@@ -147,7 +147,10 @@ button { font-family: inherit; }
   gap: 16px; align-items: start;
 }
 .tk-stage { position: relative; }
-#stage { max-width: 704px; }
+#stage { max-width: 704px; aspect-ratio: 704 / 448; }
+/* タイトルの間は、まだ荒野に出ていないので状態表示と操作を出さない */
+.tk-stage.is-title .tk-hud, .tk-stage.is-title .tk-minimap,
+.tk-stage.is-title .tk-pad, .tk-stage.is-title .tk-firebtn { display: none; }
 #stage canvas {
   display: block; width: 100% !important; height: auto !important;
   background: #14181c; border: 1px solid var(--line); border-radius:var(--r-1);

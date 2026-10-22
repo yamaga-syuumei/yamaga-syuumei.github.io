@@ -2037,6 +2037,7 @@
   function openTitle() {
     scene = 'title';
     titleEl.hidden = false;
+    titleEl.parentNode.classList.add('is-title');
     SFX.bgmMood('title');
     $('title-cont').disabled = !hasSave();
     $('title-ask').hidden = true;
@@ -2057,6 +2058,7 @@
     if (!S.hp) S.hp = maxHp();
     if (!S.ammo && !cont) S.ammo = car().ammo;
     titleEl.hidden = true;
+    titleEl.parentNode.classList.remove('is-title');
     startWorld();
   }
 
