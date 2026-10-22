@@ -122,7 +122,13 @@ window.SFX = (function () {
      最後の1体（ボス）で曲を分けている。
      ========================================================== */
   var BGM_FILES = {
+    title:     'bgm/going_in_heavily_armored.ogg',
     field:     'bgm/Barren_land.ogg',
+    rocks:     'bgm/rocky_land.ogg',
+    ruins:     'bgm/Stone_Metropolis.ogg',
+    salt:      'bgm/The_Land_of_Salt.ogg',
+    cliff:     'bgm/Cracked_earth.ogg',
+    ending:    'bgm/The_end_of_a_long_journey.ogg',
     town:      'bgm/Lost_world.ogg',
     mob:       'bgm/Lets_go_everyone.ogg',
     midboss:   'bgm/Bad_robot_machine.ogg',
@@ -133,7 +139,7 @@ window.SFX = (function () {
   function bgmEl(mood) {
     if (!bgmEls[mood]) {
       var a = new Audio(BGM_FILES[mood]);
-      a.loop = true;
+      a.loop = mood !== 'ending';   // エンディングの曲は1回で終わる
       a.volume = 0;
       bgmEls[mood] = a;
     }

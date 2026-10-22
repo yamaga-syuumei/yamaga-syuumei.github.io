@@ -85,10 +85,10 @@ window.GAME_DATA = {
      mobs は出る雑魚の id、count は同時にいる数。 */
   regions: [
     { id: 'sand',  name: '始まりの砂原', rect: [0, 32, 36, 63],  mobs: ['drone', 'buggy'],  count: 12, bgm: 'field' },
-    { id: 'rocks', name: '東の岩場',     rect: [37, 32, 63, 63], mobs: ['raider', 'gunner'], count: 10, bgm: 'field' },
-    { id: 'ruins', name: '廃都',         rect: [39, 0, 95, 28],  mobs: ['junk', 'swarm'],   count: 12, bgm: 'field' },
-    { id: 'salt',  name: '塩の湖',       rect: [64, 32, 95, 63], mobs: ['crab', 'boat'],    count: 10, bgm: 'field' },
-    { id: 'cliff', name: '断崖',         rect: [0, 0, 38, 31],   mobs: ['golem', 'hawk'],   count: 10, bgm: 'field' }
+    { id: 'rocks', name: '東の岩場',     rect: [37, 32, 63, 63], mobs: ['raider', 'gunner'], count: 10, bgm: 'rocks' },
+    { id: 'ruins', name: '廃都',         rect: [39, 0, 95, 28],  mobs: ['junk', 'swarm'],   count: 12, bgm: 'ruins' },
+    { id: 'salt',  name: '塩の湖',       rect: [64, 32, 95, 63], mobs: ['crab', 'boat'],    count: 10, bgm: 'salt' },
+    { id: 'cliff', name: '断崖',         rect: [0, 0, 38, 31],   mobs: ['golem', 'hawk'],   count: 10, bgm: 'cliff' }
   ],
 
   /* ---------- 関所 ----------

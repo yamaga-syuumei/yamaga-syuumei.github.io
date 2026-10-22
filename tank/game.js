@@ -2000,7 +2000,7 @@
     scene = 'ending';
     radioEl.hidden = true;
     SFX.clear();
-    SFX.bgmMood('town');
+    SFX.bgmMood('ending');
     $('ending-text').innerHTML = D.ending.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('');
     var strips = 0, all = 0;
     D.bosses.forEach(function (b) {
@@ -2037,6 +2037,7 @@
   function openTitle() {
     scene = 'title';
     titleEl.hidden = false;
+    SFX.bgmMood('title');
     $('title-cont').disabled = !hasSave();
     $('title-ask').hidden = true;
     radioEl.hidden = true;
